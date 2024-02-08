@@ -1,8 +1,8 @@
-<center><img src=figure/logo.png width=40% /></center>
+<div align=center><img src=figure/logo.png width=40% /></div>
 
 
 
-<center><big><b>构建、训练、部署：LLM-And-More让一切变得更简单</b></big></center>
+<div align=center><big><b>构建、训练、部署：LLM-And-More让一切变得更简单</b></big></div>
 
 
 <!-- \[ [English](README.md) | 中文 \]-->
@@ -14,7 +14,7 @@ LLM-And-More 是一个专业、开箱即用的大模型训练及应用构建一�
 项目旨在提供一个专业、开箱即用的大模型训练及应用构建一站式解决方案。您可以轻松地通过本项目进行模型训练，并一键生成所需的产品服务。我们的项目集成了不同应用场景下的专业知识和最佳实践，以保证模型在实际生产中的表现优异。此外，我们集成了高性能模型并行框架，有效地减少了训练和推理时的算力开销，提升了整体的效率。无论您是在构建基于大模型的服务还是在进行私有化模型训练，我们的开源项目将为您提供一个强大且可靠的基础。
 
 如有任何问题，请加入我们的微信群
-<center><img src=figure/wechat.jpg width=50% /></center>
+<div align=center><img src=figure/wechat.jpg width=50% /></div>
 
 ## 目录
 
