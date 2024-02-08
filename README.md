@@ -2,7 +2,7 @@
 
 
 
-<div align=center><big><b>构建、训练、部署：LLM-And-More让一切变得更简单</b></big></div>
+<div align=center><h1><b>构建、训练、部署：LLM-And-More让一切变得更简单</b></h1></div>
 
 
 <!-- \[ [English](README.md) | 中文 \]-->
@@ -87,6 +87,7 @@ LLM-And-More致力于为专业开发者和一线业务人员提供同样专业�
 LLM-And-More提供两种使用方式：Web交互式和命令行式，分别适用于技术基础较弱的一线业务人员与有一定大模型开发经验的专业技术人员。Web交互式的详细使用文档和前后端代码如下
 
 [AIGC-admin仓库与简明文档](https://github.com/IceBear-CreditEase-LLM/aigc-admin) 
+
 [AIGC-admin-web前端仓库与简明文档](https://github.com/IceBear-CreditEase-LLM/aigc-admin-web) 
 
 如要使用命令行方式，可参考以下文档
