@@ -306,7 +306,7 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		return err
 	}
 
-	modelWorker := "fastchat.serve.worker"
+	modelWorker := "fastchat.serve.model_worker"
 
 	if request.Vllm {
 		modelWorker = "fastchat.serve.vllm_worker"

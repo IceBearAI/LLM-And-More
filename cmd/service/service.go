@@ -130,9 +130,6 @@ const (
 	EnvNameRuntimeK8sNamespace    = "AIGC_RUNTIME_K8S_NAMESPACE"
 	EnvNameRuntimeK8sInsecure     = "AIGC_RUNTIME_K8S_INSECURE"
 	EnvNameRuntimeK8sVolumeName   = "AIGC_RUNTIME_K8S_VOLUME_NAME"
-	EnvNameRuntimePaasHost        = "AIGC_RUNTIME_PAAS_HOST"
-	EnvNameRuntimePaasAccessKey   = "AIGC_RUNTIME_PAAS_ACCESS_KEY"
-	EnvNameRuntimePaasSecretKey   = "AIGC_RUNTIME_PAAS_SECRET_KEY"
 	EnvNameRuntimeDockerWorkspace = "AIGC_RUNTIME_DOCKER_WORKSPACE"
 
 	// [local]
@@ -147,9 +144,6 @@ const (
 	DefaultRuntimeK8sConfigPath = ""
 	DefaultRuntimeK8sNamespace  = "default"
 	DefaultRuntimeK8sVolumeName = ""
-	DefaultRuntimePaasHost      = ""
-	DefaultRuntimePaasAccessKey = ""
-	DefaultRuntimePaasSecretKey = ""
 
 	// [cronjob]
 	AigcEnvNameCronJobAuto = "AIGC_CRONJOB_AUTO"
@@ -285,7 +279,7 @@ var (
 
 	// [runtime]
 	runtimePlatform, runtimeShmSize, runtimeK8sHost, runtimeK8sToken, runtimeK8sConfigPath, runtimeK8sNamespace, runtimeK8sVolumeName string
-	runtimePaasHost, runtimePaasAccessKey, runtimePaasSecretKey, runtimeDockerWorkspace                                               string
+	runtimeDockerWorkspace                                                                                                            string
 	runtimeK8sInsecure                                                                                                                bool
 
 	channelId     int
@@ -344,10 +338,10 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVar(&mysqlDatabase, "db.mysql.database", DefaultMysqlDatabase, "mysql数据库")
 	rootCmd.PersistentFlags().BoolVar(&mysqlOrmMetrics, "db.mysql.metrics", false, "是否启GORM的Metrics")
 	// [redis]
-	rootCmd.PersistentFlags().StringVar(&redisHosts, "redis.hosts", DefaultRedisHosts, "连接Redis地址")
-	rootCmd.PersistentFlags().IntVar(&redisDb, "redis.db", DefaultRedisDb, "连接Redis DB")
-	rootCmd.PersistentFlags().StringVar(&redisAuth, "redis.auth", DefaultRedisPassword, "连接Redis密码")
-	rootCmd.PersistentFlags().StringVar(&redisPrefix, "redis.prefix", DefaultRedisPrefix, "Redis写入Cache的前缀")
+	//rootCmd.PersistentFlags().StringVar(&redisHosts, "redis.hosts", DefaultRedisHosts, "连接Redis地址")
+	//rootCmd.PersistentFlags().IntVar(&redisDb, "redis.db", DefaultRedisDb, "连接Redis DB")
+	//rootCmd.PersistentFlags().StringVar(&redisAuth, "redis.auth", DefaultRedisPassword, "连接Redis密码")
+	//rootCmd.PersistentFlags().StringVar(&redisPrefix, "redis.prefix", DefaultRedisPrefix, "Redis写入Cache的前缀")
 	// [server]
 	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", DefaultRedisPrefix, "命名空间")
 	rootCmd.PersistentFlags().StringVarP(&serverName, "server.name", "a", DefaultServerName, "本系统服务名称")
@@ -699,9 +693,6 @@ func Run() {
 	runtimeK8sNamespace = envString(EnvNameRuntimeK8sNamespace, DefaultRuntimeK8sNamespace)
 	runtimeK8sVolumeName = envString(EnvNameRuntimeK8sVolumeName, DefaultRuntimeK8sVolumeName)
 	runtimeK8sInsecure, _ = strconv.ParseBool(envString(EnvNameRuntimeK8sInsecure, strconv.FormatBool(DefaultRuntimeK8sInsecure)))
-	runtimePaasHost = envString(EnvNameRuntimePaasHost, DefaultRuntimePaasHost)
-	runtimePaasAccessKey = envString(EnvNameRuntimePaasAccessKey, DefaultRuntimePaasAccessKey)
-	runtimePaasSecretKey = envString(EnvNameRuntimePaasSecretKey, DefaultRuntimePaasSecretKey)
 	runtimeDockerWorkspace = envString(EnvNameRuntimeDockerWorkspace, defaultStoragePath)
 
 	if err = rootCmd.Execute(); err != nil {

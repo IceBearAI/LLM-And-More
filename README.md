@@ -230,56 +230,43 @@ Available Commands:
   start       启动http服务
 
 Flags:
-  -c, --config.path string               配置文件路径，如果没有传入配置文件路径则默认使用环境变量
-      --db.drive string                  数据库驱动 (default "mysql")
-      --db.mysql.database string         mysql数据库 (default "aigc")
-      --db.mysql.host string             mysql数据库地址: mysql (default "mysql")
-      --db.mysql.metrics                 是否启GORM的Metrics
-      --db.mysql.password string         mysql数据库密码
-      --db.mysql.port int                mysql数据库端口 (default 3306)
-      --db.mysql.user string             mysql数据库用户 (default "aigc")
-  -h, --help                             help for aigc-server
-      --ldap.base.dn string              LDAP Base DN (default "OU=HABROOT,DC=ORG,DC=corp")
-      --ldap.bind.pass string            LDAP Bind Password
-      --ldap.bind.user string            LDAP Bind User (default "aigc_ldap")
-      --ldap.group.filter string         LDAP Group Filter
-      --ldap.host string                 LDAP地址 (default "ldap://ldap")
-      --ldap.port int                    LDAP端口 (default 389)
-      --ldap.use.ssl                     LDAP Base DN
-      --ldap.user.attr strings           LDAP Attributes (default [name,mail,userPrincipalName,displayName,sAMAccountName])
-      --ldap.user.filter string          LDAP User Filter (default "(userPrincipalName=%s)")
-  -n, --namespace string                 命名空间 (default "aigc")
-      --redis.auth string                连接Redis密码
-      --redis.db int                     连接Redis DB
-      --redis.hosts string               连接Redis地址 (default "redis:6379")
-      --redis.prefix string              Redis写入Cache的前缀 (default "aigc")
-      --runtime.k8s.config.path string   K8s配置文件路径
-      --runtime.k8s.host string          K8s地址
-      --runtime.k8s.insecure             K8s是否不安全
-      --runtime.k8s.namespace string     K8s命名空间 (default "default")
-      --runtime.k8s.token string         K8s Token
-      --runtime.k8s.volume.name string   K8s挂载的存储名
-      --runtime.paas.access.key string   Paas AccessKey
-      --runtime.paas.host string         Paas服务地址
-      --runtime.paas.secret.key string   Paas SecretKey
-      --runtime.platform string          运行时平台 (default "docker")
-      --runtime.shm.size string          运行时共享内存大小 (default "16G")
-      --server.admin.pass string         系统管理员密码 (default "admin")
-      --server.admin.user string         系统管理员账号 (default "admin")
-      --server.debug                     是否开启Debug模式
-      --server.key string                本系统服务密钥 (default "Aigcfj@202401")
-      --server.log.drive string          本系统日志驱动, 支持syslog,term (default "term")
-      --server.log.level string          本系统日志级别 (default "all")
-      --server.log.name string           本系统日志名称 (default "aigc-server.log")
-      --server.log.path string           本系统日志路径
-  -a, --server.name string               本系统服务名称 (default "aigc-server")
-      --server.storage.path string       文件存储绝对路径 (default "~/go/src/github.com/IceBearAI/aigc/storage")
-      --service.local.ai.host string     Chat-Api 地址 (default "http://fschat-api:8000/v1")
-      --service.local.ai.token string    Chat-Api Token (default "sk-001")
-      --service.openai.enable            是否启用OpenAI服务
-      --service.openai.host string       OpenAI服务地址 (default "https://api.openai.com/v1")
-      --service.openai.model string      OpenAI模型名称 (default "gpt-3.5-turbo")
-      --service.openai.org.id string     OpenAI OrgId
+  -c, --config.path string                配置文件路径，如果没有传入配置文件路径则默认使用环境变量
+      --db.drive string                   数据库驱动 (default "sqlite")
+      --db.mysql.database string          mysql数据库 (default "aigc")
+      --db.mysql.host string              mysql数据库地址: mysql (default "mysql")
+      --db.mysql.metrics                  是否启GORM的Metrics
+      --db.mysql.password string          mysql数据库密码
+      --db.mysql.port int                 mysql数据库端口 (default 3306)
+      --db.mysql.user string              mysql数据库用户 (default "aigc")
+  -h, --help                              help for aigc-server
+  -n, --namespace string                  命名空间 (default "aigc")
+      --runtime.docker.workspace string   Docker工作目录 (default "/Users/cong/go/src/github.com/IceBearAI/LLM-And-More/storage")
+      --runtime.k8s.config.path string    K8s配置文件路径
+      --runtime.k8s.host string           K8s地址
+      --runtime.k8s.insecure              K8s是否不安全
+      --runtime.k8s.namespace string      K8s命名空间 (default "default")
+      --runtime.k8s.token string          K8s Token
+      --runtime.k8s.volume.name string    K8s挂载的存储名
+      --runtime.platform string           运行时平台 (default "docker")
+      --runtime.shm.size string           运行时共享内存大小 (default "16G")
+      --server.admin.pass string          系统管理员密码 (default "admin")
+      --server.admin.user string          系统管理员账号 (default "admin")
+      --server.debug                      是否开启Debug模式
+      --server.key string                 本系统服务密钥 (default "Aigcfj@202401")
+      --server.log.drive string           本系统日志驱动, 支持syslog,term (default "term")
+      --server.log.level string           本系统日志级别 (default "all")
+      --server.log.name string            本系统日志名称 (default "aigc-server.log")
+      --server.log.path string            本系统日志路径
+  -a, --server.name string                本系统服务名称 (default "aigc-server")
+      --server.storage.path string        文件存储绝对路径 (default "/Users/cong/go/src/github.com/IceBearAI/LLM-And-More/storage")
+      --service.local.ai.host string      Chat-Api 地址 (default "http://fschat-api:8000/v1")
+      --service.local.ai.token string     Chat-Api Token (default "sk-001")
+      --service.openai.enable             是否启用OpenAI服务
+      --service.openai.host string        OpenAI服务地址 (default "https://api.openai.com/v1")
+      --service.openai.model string       OpenAI模型名称 (default "gpt-3.5-turbo")
+      --service.openai.org.id string      OpenAI OrgId
+
+Use "aigc-server [command] --help" for more information about a command.
 ```
 
 ##### 启动http服务
@@ -291,22 +278,36 @@ Usage:
   aigc-server start [flags]
 
 Flags:
-      --cors.allow.credentials       是否允许跨域访问的凭证 (default true)
-      --cors.allow.headers string    允许跨域访问的头部 (default "Accept,Content-Type,Content-Length,Accept-Encoding,X-CSRF-Token,Authorization")
-      --cors.allow.methods string    允许跨域访问的方法 (default "GET,POST,PUT,DELETE,OPTIONS")
-      --cors.allow.origins string    允许跨域访问的域名 (default "*")
-      --cors.enable                  是否开启跨域访问
-      --cors.expose.headers string   允许跨域访问的头部 (default "Content-Length,Access-Control-Allow-Origin,Access-Control-Allow-Headers,Content-Type")
-  -h, --help                         help for start
-  -p, --http.port string             服务启动的http端口 (default ":8080")
-      --server.domain string         启动服务的域名 (default "http://localhost:8080")
-      --tracer.drive string          Tracer驱动 (default "jaeger")
-      --tracer.enable                是否启用Tracer
-      --tracer.jaeger.host string    Tracer Jaeger Host (default "jaeger:6832")
-      --tracer.jaeger.log.spans      Tracer Jaeger Log Spans
-      --tracer.jaeger.param float    Tracer Jaeger Param (default 1)
-      --tracer.jaeger.type string    采样器的类型 const: 固定采样, probabilistic: 随机取样, ratelimiting: 速度限制取样, remote: 基于Jaeger代理的取样 (default "const")
-      --web.embed                    是否使用embed.FS (default true)
+      --cors.allow.credentials           是否允许跨域访问的凭证 (default true)
+      --cors.allow.headers string        允许跨域访问的头部 (default "Accept,Content-Type,Content-Length,Accept-Encoding,X-CSRF-Token,Authorization")
+      --cors.allow.methods string        允许跨域访问的方法 (default "GET,POST,PUT,DELETE,OPTIONS")
+      --cors.allow.origins string        允许跨域访问的域名 (default "*")
+      --cors.enable                      是否开启跨域访问
+      --cors.expose.headers string       允许跨域访问的头部 (default "Content-Length,Access-Control-Allow-Origin,Access-Control-Allow-Headers,Content-Type")
+      --datasets.device string           datasets device
+      --datasets.gpu.toleration string   datasets gpu toleration
+      --datasets.image string            datasets image (default "dudulu/llmops:latest")
+      --datasets.model.name string       datasets model name (default "uer/sbert-base-chinese-nli")
+  -h, --help                             help for start
+  -p, --http.port string                 服务启动的http端口 (default ":8080")
+      --ldap.base.dn string              LDAP Base DN (default "OU=HABROOT,DC=ORG,DC=corp")
+      --ldap.bind.pass string            LDAP Bind Password
+      --ldap.bind.user string            LDAP Bind User (default "aigc_ldap")
+      --ldap.group.filter string         LDAP Group Filter
+      --ldap.host string                 LDAP地址 (default "ldap://ldap")
+      --ldap.port int                    LDAP端口 (default 389)
+      --ldap.use.ssl                     LDAP Base DN
+      --ldap.user.attr strings           LDAP Attributes (default [name,mail,userPrincipalName,displayName,sAMAccountName])
+      --ldap.user.filter string          LDAP User Filter (default "(userPrincipalName=%s)")
+      --server.domain string             启动服务的域名 (default "http://localhost:8080")
+      --storage.type string              storage type (default "local")
+      --tracer.drive string              Tracer驱动 (default "jaeger")
+      --tracer.enable                    是否启用Tracer
+      --tracer.jaeger.host string        Tracer Jaeger Host (default "jaeger:6832")
+      --tracer.jaeger.log.spans          Tracer Jaeger Log Spans
+      --tracer.jaeger.param float        Tracer Jaeger Param (default 1)
+      --tracer.jaeger.type string        采样器的类型 const: 固定采样, probabilistic: 随机取样, ratelimiting: 速度限制取样, remote: 基于Jaeger代理的取样 (default "const")
+      --web.embed                        是否使用embed.FS (default true)
 ```
 
 ##### 启动定时任务

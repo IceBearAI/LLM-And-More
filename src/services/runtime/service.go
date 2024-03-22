@@ -82,26 +82,6 @@ func (c Config) FilePath2Key(filePath string) string {
 	return strings.Trim(strings.ReplaceAll(filePath, "/", "-"), "-")
 }
 
-func (c Config) GenIpaasConfigMap() (res v1.ConfigMap) {
-	data := make(map[string]string, 0)
-	for k, v := range c.ConfigData {
-		_, fileName := filepath.Split(k)
-		data[fileName] = v
-	}
-	res = v1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: c.namespace,
-			Name:      c.ServiceName,
-		},
-		Data: data,
-	}
-	return
-}
-
 func (c Config) GenConfigMap() (res v1.ConfigMap) {
 	data := make(map[string]string, 0)
 	for k, v := range c.ConfigData {

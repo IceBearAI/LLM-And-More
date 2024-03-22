@@ -5,7 +5,7 @@ LABEL maintainer="solacowa@gmail.com"
 #RUN sed -i 's#http://deb.debian.org#https://mirrors.163.com#g' /etc/apt/sources.list.d/debian.sources
 COPY sources.list /etc/apt/sources.list
 
-RUN apt-get update -y && apt-get install -y curl wget git vim
+RUN apt-get update -y && apt-get install -y curl wget git vim jq
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get install -y cuda-toolkit --fix-missing
@@ -42,7 +42,7 @@ RUN pip3 install transformers_stream_generator==0.0.4 aiohttp
 RUN pip3 install torchaudio
 RUN pip3 install vllm==0.3.1
 RUN pip3 install transformers==4.37.2
-RUN pip3 install optimum auto-gptq exllamav2
+RUN pip3 install optimum auto-gptq exllamav2 autoawq
 #RUN pip3 uninstall -y flash-attn
 
 # https://github.com/Dao-AILab/flash-attention/tree/main/csrc/layer_norm

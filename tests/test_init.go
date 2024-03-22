@@ -228,7 +228,6 @@ var (
 	// [runtime]
 	runtimePlatform, runtimeShmSize, runtimeK8sHost, runtimeK8sToken, runtimeK8sConfigPath, runtimeK8sNamespace string
 	runtimeK8sInsecure                                                                                          bool
-	runtimePaasHost, runtimePaasAccessKey, runtimePaasSecretKey                                                 string
 
 	corsHeaders   = make(map[string]string, 3)
 	rateBucketNum = 50000

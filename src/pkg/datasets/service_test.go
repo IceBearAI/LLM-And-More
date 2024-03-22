@@ -7,7 +7,7 @@ import (
 )
 
 func initSvc() Service {
-	_, _, err := tests.Init()
+	_, err := tests.Init()
 	if err != nil {
 		return nil
 	}

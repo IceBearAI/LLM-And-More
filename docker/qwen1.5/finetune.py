@@ -405,7 +405,7 @@ def train():
 def job_finished(status: str = "success", message: str = ""):
     job_id = os.getenv("JOB_ID")
     authorization = os.getenv("AUTH")
-    url = 'http://paas-chat-api.paas.paas.idc/v1/fine_tuning/jobs/' + job_id + '/finish'
+    url = 'http://aigc-server:8080/v1/fine_tuning/jobs/' + job_id + '/finish'
     headers = {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + authorization

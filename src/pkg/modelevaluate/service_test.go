@@ -10,17 +10,10 @@ import (
 )
 
 func initSvc() Service {
-	_ = os.Setenv("AIGC_RUNTIME_K8S_CONFIG_PATH", "/Users/cong/go/src/IceBearAI/aigc/k8sconfig.yaml")
-	//_ = os.Setenv("AIGC_RUNTIME_PLATFORM", "docker")
-	_ = os.Setenv("AIGC_RUNTIME_PLATFORM", "paas")
+	_ = os.Setenv("AIGC_RUNTIME_K8S_CONFIG_PATH", "IceBearAI/aigc/k8sconfig.yaml")
+	_ = os.Setenv("AIGC_RUNTIME_PLATFORM", "docker")
 	_ = os.Setenv("AIGC_STORAGE_TYPE", "local")
-	//AIGC_RUNTIME_PAAS_HOST=http://paas-api.paas.paas.test/api/v1/aigc
-	//AIGC_RUNTIME_PAAS_ACCESS_KEY=nHFwZFD0bPdFA9eTa82821uu
-	//AIGC_RUNTIME_PAAS_SECRET_KEY=x1LcanK3J9DP30qVf5qsa80Gh3I2Q3yt
 	_ = os.Setenv("AIGC_RUNTIME_K8S_VOLUME_NAME", "aigc-data-cfs")
-	_ = os.Setenv("AIGC_RUNTIME_PAAS_HOST", "http://paas-api.paas.paas.test/api/v1")
-	_ = os.Setenv("AIGC_RUNTIME_PAAS_ACCESS_KEY", "t3w5ggPMFuly8fe550zD1S36")
-	_ = os.Setenv("AIGC_RUNTIME_PAAS_SECRET_KEY", "obKB2yPSZ4e32zI7omNZI0oE48lCfMaH")
 
 	//_ = os.Setenv("DOCKER_HOST", "tcp://10.143.151.50:2376")
 	apiSvc, _ := tests.Init()
