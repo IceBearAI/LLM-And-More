@@ -1,0 +1,8 @@
+# Created by .ignore support plugin (hsz.mobi)
+.idea
+.DS_Store
+docs/_book
+vendor/
+.cache
+storage
+.env

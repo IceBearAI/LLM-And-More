@@ -1,0 +1,24 @@
+.single-line-alert {
+    .v-alert__close,
+    .v-alert__prepend {
+        align-self: center !important;
+    }
+}
+
+@media (max-width: 500px) {
+    .single-line-alert {
+        display: flex;
+        flex-wrap: wrap;
+       
+        .v-alert__append {
+            margin-inline-start: 0px;
+        }
+        .v-alert__close {
+            margin-left: auto;
+        }
+        .v-alert__content {
+            width: 100%;
+            margin-top: 5px;
+        }
+    }
+}

@@ -1,0 +1,30 @@
+.v-table .v-table__wrapper > table > tbody > tr:not(:last-child) > td,
+.v-table .v-table__wrapper > table > tbody > tr:not(:last-child) > th,
+.v-table .v-table__wrapper > table > thead > tr:last-child > th {
+    border-bottom: thin solid rgba(var(--v-border-color), 1) !important;
+}
+
+.v-data-table{
+    th.v-data-table__th{
+        font-size:16px;
+        color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+    }
+    td.v-data-table__td{
+        font-size: 14px;
+        text-wrap: nowrap;
+    }
+    .v-data-table-footer{
+        padding: 15px 8px;
+    }
+    .v-data-table-header__sort-badge{
+        background-color:rgb(var(--v-theme-borderColor)) !important;
+    }
+    .tdhead{
+        font-size:16px;
+    }
+}
+@media screen and (max-width:767px) {
+    .v-data-table-footer{
+        justify-content: center;
+    }
+}

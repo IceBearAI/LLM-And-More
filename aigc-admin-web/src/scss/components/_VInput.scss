@@ -1,0 +1,34 @@
+// variant
+.v-input--density-default,
+.v-field--variant-solo,
+.v-field--variant-filled {
+    --v-input-control-height: 51px;
+    --v-input-padding-top: 14px;
+}
+
+// comfortable
+.v-input--density-comfortable {
+    --v-input-control-height: 44px;
+}
+
+// compact
+.v-input--density-compact {
+    --v-input-padding-top: 10px;
+}
+.v-label {
+    font-size: 0.875rem;
+    opacity: 1;
+}
+.v-switch .v-label,
+.v-checkbox .v-label {
+    opacity: 1;
+}
+
+.v-text-field__suffix {
+    opacity: 1;
+    padding-left: 20px;
+}
+
+.shadow-none .v-field--variant-solo {
+    box-shadow: none !important;
+}

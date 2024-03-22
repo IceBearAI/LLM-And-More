@@ -1,0 +1,71 @@
+$sizes: (
+  "display-1": 44px,
+  "display-2": 40px,
+  "display-3": 30px,
+  "h1": 36px,
+  "h2": 30px,
+  "h3": 21px,
+  "h4": 18px,
+  "h5": 16px,
+  "h6": 14px,
+  "text-10": 10px,
+  "text-13": 13px,
+  "text-18": 18px,
+  "text-20": 20px,
+  "text-24": 24px,
+  "body-text-1": 10px
+);
+
+@each $pixel, $size in $sizes {
+  .#{$pixel} {
+    font-size: $size;
+    line-height: $size + 10;
+  }
+}
+
+.textSecondary {
+  color: rgb(var(--v-theme-textSecondary)) !important;
+}
+
+.textPrimary {
+  color: rgb(var(--v-theme-textPrimary)) !important;
+}
+
+// line height
+
+.lh-md {
+  line-height: 1.57;
+}
+
+.font-weight-semibold {
+  font-weight: 600;
+}
+
+// hover text
+.text-hover-primary {
+  color: rgb(var(--v-theme-textPrimary));
+  &:hover {
+    color: rgb(var(--v-theme-primary));
+  }
+}
+
+.link {
+  cursor: pointer;
+  color: rgb(var(--v-theme-info));
+  text-decoration: none;
+}
+
+a.link {
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.link-hover {
+  &:hover {
+    text-decoration: underline;
+  }
+}
+.link-ellipsis-color .el-tooltip {
+  color: rgb(var(--v-theme-info));
+}

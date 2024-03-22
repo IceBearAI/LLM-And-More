@@ -1,0 +1,9 @@
+numpy
+transformers==4.33.2
+torch==2.0.0
+sentencepiece
+tokenizers==0.13.3
+accelerate
+deepspeed
+xformers==0.0.19
+jsonlines

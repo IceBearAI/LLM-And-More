@@ -1,0 +1,25 @@
+.v-app-bar {
+    .v-toolbar__content {
+        padding: 0 15px;
+        > .v-btn:first-child {
+            margin-inline-start: 0;
+        }
+        .v-btn {
+            color: rgba(var(--v-theme-textsurface)) !important;
+        }
+    }
+}
+
+.custom-text-primary {
+    &.v-list-item:hover > .v-list-item__overlay {
+        display: none;
+    }
+    .custom-title {
+        color: rgb(var(--v-theme-textPrimary)) !important;
+    }
+    &:hover {
+        .custom-title {
+            color: rgb(var(--v-theme-primary)) !important;
+        }
+    }
+}

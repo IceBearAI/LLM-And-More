@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .undo {
+    @apply text-amber-500;
+  }
+  .doing {
+    @apply text-emerald-500;
+  }
+  .status-gray {
+    @apply text-gray-400;
+  }
+  .status-red {
+    @apply text-red-500;
+  }
+  .done {
+    @apply text-purple-600;
+  }
+
+  .btn-danger {
+    @apply bg-red-500 text-white;
+    &[plain] {
+      @apply bg-white border text-red-500 border-red-500;
+    }
+  }
+}
+
+*,
+:after,
+:before {
+  box-sizing: border-box;
+  border: 0 solid #e5e7eb;
+}
