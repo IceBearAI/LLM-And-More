@@ -1,0 +1,87 @@
+html {
+  .bg-success {
+    color: white !important;
+  }
+
+  .bg-primary {
+    color: $white !important;
+  }
+
+  .bg-secondary {
+    color: $white !important;
+  }
+
+  .bg-warning,
+  .bg-error {
+    color: $white !important;
+  }
+}
+
+.border,
+.v-divider {
+  border-color: rgba(var(--v-border-color), 1) !important;
+  --v-border-opacity: 1 !important;
+}
+.avtar-border {
+  border: 2px solid rgb(var(--v-theme-surface)) !important;
+}
+.subtext {
+  font-size: $font-size-root;
+  line-height: 1.75rem;
+}
+.border-right {
+  border-right: 1px solid rgba(var(--v-border-color), 1) !important;
+}
+
+.v-btn {
+  &.bg-white {
+    background: #efefef !important;
+  }
+}
+
+.v-field-label--floating {
+  color: #777;
+}
+
+// .vue-notification {
+//   font-size: 14px;
+//   padding: 15px 10px !important;
+//   border-radius: 4px !important;
+// }
+
+.Toastify {
+  .Toastify__toast-container {
+    font-size: 14px;
+  }
+  .Toastify__toast-body {
+    word-break: break-all;
+  }
+}
+
+//Select.vue 在 Pane.vue中，显示不出来选项
+.v-overlay--active:not(.normal-z-index) {
+  z-index: 8000 !important;
+}
+
+//fixed: v-text-field 设置为disabled以后，#prepend 里的 Explian 无法交互了
+.v-input--disabled {
+  pointer-events: inherit;
+}
+
+//fixed: v-switch 设置为disabled以后，难以看出是on 还是 off 状态
+.v-selection-control--disabled {
+  opacity: 1;
+}
+
+#nprogress .bar {
+  background: rgb(251, 150, 120) !important;
+}
+
+.v-btn--size-small {
+  &.v-btn--loading {
+    .v-progress-circular {
+      width: 16px !important;
+      height: 16px !important;
+    }
+  }
+}

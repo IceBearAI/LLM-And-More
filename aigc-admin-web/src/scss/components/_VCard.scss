@@ -1,0 +1,47 @@
+// Outline Card
+.v-card--variant-outlined {
+    border-color: rgba(var(--v-theme-borderColor)) !important;
+}
+
+.v-card--variant-elevated,
+.v-card--variant-flat {
+    color: rgb(var(--v-theme-textPrimary));
+}
+
+.card-hover {
+    transition: box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+    &:hover {
+        scale: 1.01;
+        transition: all 0.1s ease-in 0s;
+    }
+}
+
+.v-card {
+    width: 100%;
+    overflow: hidden;
+    .color-inherits {
+        color: inherit;
+    }
+    .feature-card {
+        .v-responsive__content {
+            height: 100%;
+        }
+    }
+    .v-timeline-divider__before,.v-timeline-divider__after {
+        background: rgba(var(--v-border-color), 1);
+    }
+}
+
+// Theme cards
+.cardBordered {
+    .v-card {
+        box-shadow: none !important;
+        border: 1px solid rgb(var(--v-theme-borderColor));
+    }
+}
+
+.elevation-o-card{
+    .v-card-item{
+        padding: 0.625rem 1rem;
+    }
+}

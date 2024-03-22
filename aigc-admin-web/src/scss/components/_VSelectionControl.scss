@@ -1,0 +1,6 @@
+// For checkbox & radios
+.v-selection-control__input > .v-icon.mdi-checkbox-blank-outline,
+.v-selection-control__input > .v-icon.mdi-radiobox-blank {
+    color: rgb(var(--v-theme-inputBorder));
+    opacity: 1;
+}

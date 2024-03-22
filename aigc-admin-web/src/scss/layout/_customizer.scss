@@ -1,0 +1,73 @@
+.customizer-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    border-radius: 50%;
+    .icon {
+        animation: progress-circular-rotate 1.4s linear infinite;
+        transform-origin: center center;
+        transition: all 0.2s ease-in-out;
+    }
+}
+
+.btn-group-custom {
+    &.v-btn-group {
+        height: 66px;
+        overflow: unset !important;
+        .v-btn {
+            height: 66px;
+            padding: 0 20px;
+            border: 1px solid rgb(var(--v-theme-borderColor), 0.7);
+            transition: all 0.1s ease-in 0s;
+            &:hover {
+                transform: scale(1.05);
+            }
+            &.text-primary {
+                .v-btn__overlay {
+                    background: transparent !important;
+                }
+                .icon {
+                    color: rgb(var(--v-theme-primary)) !important;
+                    fill: rgb(var(--v-theme-primary), 0.2);
+                }
+                color: rgb(var(--v-theme-textSecondary)) !important;
+            }
+        }
+    }
+}
+
+.hover-btns {
+    transition: all 0.1s ease-in 0s;
+    &:hover {
+        transform: scale(1.05);
+    }
+}
+
+// all theme colors
+.themeBlue,
+.themeDarkBlue {
+    background: #1a9bfc;
+}
+.themeRed,
+.themeDarkRed {
+    background: #ff5c8e;
+}
+
+.themePurple,
+.themeDarkPurple {
+    background: #7352ff;
+}
+.themeGreen,
+.themeDarkGreen {
+    background: #00cec3;
+}
+
+.themeIndigo,
+.themeDarkIndigo {
+    background: #1e4db7;
+}
+
+.themeOrange,
+.themeDarkOrange {
+    background: #fb9678;
+}
