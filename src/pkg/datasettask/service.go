@@ -501,6 +501,9 @@ func (s *service) AsyncCheckTaskDatasetSimilar(ctx context.Context, tenantId uin
 	}, runtime.Env{
 		Name:  "HTTPS_PROXY",
 		Value: os.Getenv("HTTPS_PROXY"),
+	}, runtime.Env{
+		Name:  "NO_PROXY",
+		Value: os.Getenv("NO_PROXY"),
 	})
 	for _, v := range envs {
 		envVars = append(envVars, fmt.Sprintf("%s=%s", v.Name, v.Value))

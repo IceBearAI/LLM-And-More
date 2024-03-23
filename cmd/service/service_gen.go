@@ -1,9 +1,6 @@
 package service
 
 import (
-	"database/sql"
-	"fmt"
-	"github.com/IceBearAI/aigc/src/encode"
 	"github.com/IceBearAI/aigc/src/repository/types"
 	"github.com/IceBearAI/aigc/src/util"
 	"github.com/go-kit/log"
@@ -11,11 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/driver/mysql"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 	"os"
-	"strings"
 )
 
 var (
@@ -53,56 +46,7 @@ aigc-server generate table all
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			logger = log.NewLogfmtLogger(os.Stdout)
-			// 连接数据库
-			var dbErr error
-			if strings.EqualFold(dbDrive, "mysql") {
-				dbUrl := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local&timeout=20m&collation=utf8mb4_unicode_ci",
-					mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)
-				sqlDB, err := sql.Open("mysql", dbUrl)
-				if err != nil {
-					_ = level.Error(logger).Log("sql", "Open", "err", err.Error())
-					return err
-				}
-				gormDB, err = gorm.Open(mysql.New(mysql.Config{
-					Conn:              sqlDB,
-					DefaultStringSize: 255,
-				}), &gorm.Config{
-					DisableForeignKeyConstraintWhenMigrating: true,
-				})
-				if dbErr != nil {
-					_ = level.Error(logger).Log("db", "connect", "err", dbErr.Error())
-					dbErr = encode.ErrServerStartDbConnect.Wrap(dbErr)
-					return dbErr
-				}
-				//gormDB.Statement.Clauses["soft_delete_enabled"] = clause.Clause{}
-				db, dbErr = gormDB.DB()
-				if dbErr != nil {
-					_ = level.Error(logger).Log("gormDB", "DB", "err", dbErr.Error())
-					dbErr = encode.ErrServerStartDbConnect.Wrap(dbErr)
-					return dbErr
-				}
-				_ = level.Debug(logger).Log("mysql", "connect", "success", true)
-			} else if strings.EqualFold(dbDrive, "sqlite") {
-				_ = os.MkdirAll(fmt.Sprintf("%s/database", serverStoragePath), 0755)
-				sqliteDB, err := gorm.Open(sqlite.Open(fmt.Sprintf("%s/database/aigc.db", serverStoragePath)), &gorm.Config{
-					DisableForeignKeyConstraintWhenMigrating: true,
-				})
-				if err != nil {
-					_ = level.Error(logger).Log("sqlite", "connect", "err", err.Error())
-					return err
-				}
-				db, dbErr = sqliteDB.DB()
-				if dbErr != nil {
-					_ = level.Error(logger).Log("sqlite", "connect", "err", dbErr.Error())
-					return dbErr
-				}
-				_ = level.Debug(logger).Log("sqlite", "connect", "success", true)
-			} else {
-				err = fmt.Errorf("db drive not support: %s", dbDrive)
-				_ = level.Error(logger).Log("db", "drive", "err", err.Error())
-				return err
-			}
-			return nil
+			return prepare(cmd.Context())
 		},
 	}
 )
