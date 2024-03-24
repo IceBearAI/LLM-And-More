@@ -19,7 +19,6 @@ var (
 		"finetuning.run-waiting-train",
 		"finetuning.running-log",
 		"deployment.status",
-		"llmeval.run-pending",
 	}
 
 	cronJobCmd = &cobra.Command{

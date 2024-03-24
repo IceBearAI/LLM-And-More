@@ -306,12 +306,6 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		return err
 	}
 
-	modelWorker := "fastchat.serve.model_worker"
-
-	if request.Vllm {
-		modelWorker = "fastchat.serve.vllm_worker"
-	}
-
 	if request.Quantization == "8bit" {
 		request.Quantization = "--load-8bit"
 	}
@@ -342,9 +336,6 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 	}, runtime.Env{
 		Name:  "INFERRED_TYPE",
 		Value: request.InferredType,
-	}, runtime.Env{
-		Name:  "MODEL_WORKER",
-		Value: modelWorker,
 	}, runtime.Env{
 		Name:  "CONTROLLER_ADDRESS",
 		Value: s.options.controllerAddress,

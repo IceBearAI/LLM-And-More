@@ -33,7 +33,7 @@ services:
       - -m
       - fastchat.serve.controller
       - --host
-      - 0.0.0.0
+      - '0.0.0.0'
       - --port
       - 21001
   fschat-api:
@@ -46,7 +46,7 @@ services:
       - -m
       - fastchat.serve.openai_api_server
       - --host
-      - 0.0.0.0
+      - '0.0.0.0'
       - --port
       - 8000
       - --controller-address
