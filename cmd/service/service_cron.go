@@ -92,7 +92,7 @@ func cronStart(ctx context.Context, args []string) (err error) {
 	for _, v := range args {
 		switch v {
 		case "finetuning.run-waiting-train":
-			entryID, err := crontab.AddJob("0 0/2 * * * *", &fineTuningRunWaitingTrainCronJob{
+			entryID, err := crontab.AddJob("0 0/1 * * * *", &fineTuningRunWaitingTrainCronJob{
 				fineTuning: fineTuningSvc,
 				logger:     log.With(logger, "cron", "finetuning.run-waiting-train"),
 				Name:       "finetuning.run-waiting-train",
@@ -130,19 +130,6 @@ func cronStart(ctx context.Context, args []string) (err error) {
 				return err
 			}
 			_ = level.Info(logger).Log("msg", "add cron job success", "entryID", entryID, "name", "deployment.status")
-		case "llmeval.run-pending":
-			entryID, err := crontab.AddJob("0 0/2 * * * *", &llmWaitingEvalCronJob{
-				logger: log.With(logger, "cron", "llmeval.run-pending"),
-				Name:   "llmeval.run-pending",
-				ctx:    ctx,
-				store:  store,
-				apiSvc: apiSvc,
-			})
-			if err != nil {
-				_ = level.Error(logger).Log("msg", "add cron job failed", "err", err.Error())
-				return err
-			}
-			_ = level.Info(logger).Log("msg", "add cron job success", "entryID", entryID, "name", "llmeval.run-pending")
 		default:
 			return fmt.Errorf("unknown command: %s", v)
 		}
