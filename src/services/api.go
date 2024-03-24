@@ -88,6 +88,7 @@ func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tr
 	fastChatSvc := fastchat.New(cfg.FastChat, fastChatSvcOpts)
 	ldapSvc := ldapcli.New(cfg.Ldap)
 	runtimeSvc, err := runtime.New(cfg.RuntimePlatform, cfg.Runtime...)
+	_ = level.Info(logger).Log("runtimePlatform", cfg.RuntimePlatform)
 	if err != nil {
 		_ = level.Error(logger).Log("runtime.New", "err", err.Error())
 	}

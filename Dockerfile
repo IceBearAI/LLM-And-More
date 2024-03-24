@@ -4,8 +4,8 @@ FROM golang:1.21.5 AS build-env
 ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn
 ENV BUILDPATH=github.com/IceBearAI/aigc
-ENV GOINSECURE=github.com/IceBear-CreditEase-LLM
-#ENV CGO_ENABLED=0
+ENV GOINSECURE=github.com/IceBearAI/aigc
+ENV CGO_ENABLED=0
 #ENV GOOS=linux
 #ENV GOARCH=amd64
 RUN mkdir -p /go/src/${BUILDPATH}

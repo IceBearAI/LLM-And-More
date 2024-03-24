@@ -231,6 +231,9 @@ func (s *service) Create(ctx context.Context, req createRequest) (err error) {
 	}, runtime.Env{
 		Name:  "HTTPS_PROXY",
 		Value: os.Getenv("HTTPS_PROXY"),
+	}, runtime.Env{
+		Name:  "NO_PROXY",
+		Value: os.Getenv("NO_PROXY"),
 	})
 	// 如果是其他指标，则传以下参数
 	envs = append(envs, runtime.Env{
