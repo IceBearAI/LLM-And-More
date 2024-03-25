@@ -76,7 +76,7 @@ func CheckAuthMiddleware(logger log.Logger, tracer opentracing.Tracer) endpoint.
 			var clustom asdjwt.ArithmeticCustomClaims
 			tk, err := jwt.ParseWithClaims(token, &clustom, asdjwt.JwtKeyFunc)
 			if err != nil || tk == nil {
-				_ = level.Error(logger).Log("jwt", "ParseWithClaims", "err", err)
+				_ = level.Error(logger).Log("jwt", "ParseWithClaims", "err", err, "token", token)
 				err = encode.ErrAuthNotLogin.Wrap(err)
 				return
 			}
