@@ -60,6 +60,7 @@ func CheckAuthMiddleware(logger log.Logger, tracer opentracing.Tracer) endpoint.
 			//	ctx = context.WithValue(ctx, ContextKeyUserEmail, token)
 			//	return next(ctx, request)
 			//}
+			token = strings.ReplaceAll(token, "Bearer ", "")
 
 			u, _ := url.Parse(ctx.Value(kithttp.ContextKeyRequestURI).(string))
 			if strings.EqualFold(token, "") && uriWhitelist(u.Path, uriArray) {

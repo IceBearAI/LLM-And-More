@@ -119,8 +119,14 @@ func start(ctx context.Context) (err error) {
 	channelSvc = channels.NewService(logger, traceId, store, apiSvc)
 	modelSvc = models.NewService(logger, traceId, store, apiSvc,
 		models.WithGPUTolerationValue(datasetsGpuToleration),
+		models.WithVolumeName(runtimeK8sVolumeName),
+		models.WithControllerAddress(fsChatControllerAddress),
 	)
-	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, finetuning.WithGpuTolerationValue(datasetsGpuToleration))
+	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc,
+		finetuning.WithGpuTolerationValue(datasetsGpuToleration),
+		finetuning.WithCallbackHost(serverDomain),
+		finetuning.WithVolumeName(runtimeK8sVolumeName),
+	)
 	sysSvc = sys.NewService(logger, traceId, store, apiSvc)
 	datasetSvc = datasets.New(logger, traceId, store)
 	toolsSvc = tools.New(logger, traceId, store)
@@ -145,11 +151,13 @@ func start(ctx context.Context) (err error) {
 		datasettask.WithDatasetModel(datasetsModelName),
 		datasettask.WithDatasetDrive(datasetsDevice),
 		datasettask.WithCallbackHost(serverDomain),
+		datasettask.WithVolumeName(runtimeK8sVolumeName),
 	)
 
 	modelEvaluateSvc = modelevaluate.New(logger, traceId, store, apiSvc, fileSvc,
 		modelevaluate.WithDatasetGpuTolerationValue(datasetsGpuToleration),
 		modelevaluate.WithCallbackHost(serverDomain),
+		modelevaluate.WithVolumeName(runtimeK8sVolumeName),
 	)
 
 	if logger != nil {

@@ -19,7 +19,6 @@ var (
 		"finetuning.run-waiting-train",
 		"finetuning.running-log",
 		"deployment.status",
-		"llmeval.run-pending",
 	}
 
 	cronJobCmd = &cobra.Command{
@@ -85,7 +84,10 @@ func cronStart(ctx context.Context, args []string) (err error) {
 		files.WithServerUrl(fmt.Sprintf("%s/storage", serverDomain)),
 		files.WithStorageType("local"),
 	}...)
-	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, finetuning.WithGpuTolerationValue(datasetsGpuToleration))
+	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc,
+		finetuning.WithGpuTolerationValue(datasetsGpuToleration),
+		finetuning.WithCallbackHost(serverDomain),
+	)
 
 	crontab := cron.New(cron.WithSeconds()) //精确到秒
 

@@ -66,6 +66,7 @@ type CreationOptions struct {
 	datasetDrive       string
 	callbackHost       string
 	gpuTolerationValue string
+	volumeName         string
 	fileSvc            files.Service
 }
 
@@ -111,6 +112,13 @@ func WithDatasetGpuTolerationValue(gpuTolerationValue string) CreationOption {
 func WithFileSvc(fileSvc files.Service) CreationOption {
 	return func(co *CreationOptions) {
 		co.fileSvc = fileSvc
+	}
+}
+
+// WithVolumeName returns a CreationOption  that sets the dataset drive.
+func WithVolumeName(volumeName string) CreationOption {
+	return func(co *CreationOptions) {
+		co.volumeName = volumeName
 	}
 }
 
@@ -522,6 +530,7 @@ func (s *service) AsyncCheckTaskDatasetSimilar(ctx context.Context, tenantId uin
 		},
 		EnvVars:            envVars,
 		GpuTolerationValue: s.options.gpuTolerationValue,
+		Volumes:            []runtime.Volume{{Key: s.options.volumeName, Value: "/data"}},
 	})
 	if err != nil {
 		err = errors.Wrap(err, "create job failed")
@@ -748,10 +757,10 @@ func (s *service) CreateTask(ctx context.Context, tenantId uint, req taskCreateR
 func New(traceId string, logger log.Logger, repository repository.Repository, apiSvc services.Service, fileSvc files.Service, opts ...CreationOption) Service {
 	logger = log.With(logger, "service", "datasettask")
 	options := &CreationOptions{
-		datasetImage: "dudulu/llmops-0306:v0.1",
+		datasetImage: "dudulu/llmops:latest",
 		datasetModel: "uer/sbert-base-chinese-nli",
 		callbackHost: "http://localhost:8080",
-		datasetDrive: "mps",
+		//volumeName:   "aigc-data-cfs",
 	}
 	for _, opt := range opts {
 		opt(options)
