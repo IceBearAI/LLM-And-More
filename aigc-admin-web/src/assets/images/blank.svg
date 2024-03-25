@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="258px" height="259px" viewBox="0 0 258 259" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 52.2 (67145) - http://www.bohemiancoding.com/sketch -->
+    <title>分组 19@2x</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="97.7555997%" id="linearGradient-1">
+            <stop stop-color="#D8E0FF" offset="0%"></stop>
+            <stop stop-color="#B8D1FC" offset="100%"></stop>
+        </linearGradient>
+        <linearGradient x1="50%" y1="3.75948338%" x2="50%" y2="95.5789379%" id="linearGradient-2">
+            <stop stop-color="#EBF5FF" offset="0%"></stop>
+            <stop stop-color="#FBFDFF" offset="100%"></stop>
+        </linearGradient>
+        <linearGradient x1="50%" y1="3.75948338%" x2="50%" y2="95.5789379%" id="linearGradient-3">
+            <stop stop-color="#E1F0FF" offset="0%"></stop>
+            <stop stop-color="#FBFDFF" offset="100%"></stop>
+        </linearGradient>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-4">
+            <stop stop-color="#CEE4FF" offset="0%"></stop>
+            <stop stop-color="#C6DEFF" offset="94.6486633%"></stop>
+            <stop stop-color="#D1E1FF" offset="100%"></stop>
+        </linearGradient>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-5">
+            <stop stop-color="#DFEAFC" offset="0%"></stop>
+            <stop stop-color="#B2D0FF" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="logo" transform="translate(-2046.000000, -86.000000)">
+            <g id="分组-19" transform="translate(2046.000000, 86.000000)">
+                <polygon id="路径-108-copy" fill="url(#linearGradient-1)" points="11.6363636 181 7.63636364 188.953846 0 193.292308 7.63636364 196.907692 11.6363636 204.5 15.6363636 196.907692 24 193.292308 15.6363636 188.953846"></polygon>
+                <g id="分组-18" opacity="0.398088728" transform="translate(12.000000, 37.000000)">
+                    <rect id="矩形" fill="url(#linearGradient-2)" x="0" y="0" width="70" height="168"></rect>
+                    <rect id="矩形" fill="#FDFFFF" x="12" y="17" width="15" height="28"></rect>
+                    <rect id="矩形-copy-3" fill="#FDFFFF" x="12" y="58" width="15" height="28"></rect>
+                </g>
+                <g id="分组-18-copy" transform="translate(228.500000, 125.000000) scale(-1, 1) translate(-228.500000, -125.000000) translate(199.000000, 54.000000)">
+                    <rect id="矩形" fill="url(#linearGradient-3)" x="0" y="0" width="59" height="142"></rect>
+                    <rect id="矩形" fill="#FDFFFF" x="10" y="14" width="13" height="24"></rect>
+                    <rect id="矩形-copy-3" fill="#FDFFFF" x="10" y="49" width="13" height="24"></rect>
+                </g>
+                <g id="分组-18-copy" transform="translate(135.000000, 0.000000)">
+                    <rect id="矩形" fill="url(#linearGradient-2)" x="0" y="0" width="70" height="168"></rect>
+                    <rect id="矩形" fill="#FDFFFF" x="12" y="17" width="15" height="28"></rect>
+                    <rect id="矩形-copy-3" fill="#FDFFFF" x="12" y="58" width="15" height="28"></rect>
+                </g>
+                <g id="分组-15" transform="translate(46.000000, 103.000000)">
+                    <ellipse id="椭圆形" fill="#EAF4FF" cx="81.5" cy="147.5" rx="46.5" ry="8.5"></ellipse>
+                    <polygon id="矩形" fill="url(#linearGradient-4)" points="0 54 39 0 39 96 0 96"></polygon>
+                    <polygon id="矩形" fill="url(#linearGradient-4)" transform="translate(142.500000, 48.000000) scale(-1, 1) translate(-142.500000, -48.000000) " points="123 54 162 0 162 96 123 96"></polygon>
+                    <rect id="矩形" fill="#E1EEFF" x="39" y="0" width="85" height="68"></rect>
+                    <polygon id="矩形" fill="#F0F9FF" points="39 32 124 32 150.5 72.5 17 72.5"></polygon>
+                    <path d="M66,54 C66,62.2842712 72.7157288,69 81,69 C89.2842712,69 96,62.2842712 96,54 L162,54 L162,117 C162,119.209139 160.209139,121 158,121 L4,121 C1.790861,121 2.705415e-16,119.209139 0,117 L0,54 L66,54 Z" id="合并形状" fill="url(#linearGradient-5)"></path>
+                </g>
+                <polygon id="路径-108" fill="url(#linearGradient-1)" points="198 58 192.5 69 182 75 192.5 80 198 90.5 203.5 80 215 75 203.5 69"></polygon>
+            </g>
+        </g>
+    </g>
+</svg>

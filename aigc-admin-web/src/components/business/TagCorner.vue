@@ -1,0 +1,31 @@
+<template>
+  <div class="compo-tagCorner">
+    <slot></slot>
+  </div>
+</template>
+<script setup lang="ts">
+import { reactive, toRefs, ref } from "vue";
+const state = reactive({
+  style: {},
+  formData: {}
+});
+const { style, formData } = toRefs(state);
+</script>
+<style lang="scss">
+.compo-tagCorner {
+  position: absolute;
+  background-color: #05b187;
+  z-index: 999;
+  width: 70px;
+  text-align: center;
+  height: 40px;
+  line-height: 50px;
+  border-radius: 3px;
+  color: #fff;
+  padding: 2px 4px 0;
+  top: -11px;
+  left: -26px;
+  transform: rotate(-45deg);
+  transition: transform 0.1s ease-in;
+}
+</style>

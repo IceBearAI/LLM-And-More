@@ -1,0 +1,50 @@
+.h-100 {
+    height: 100%;
+}
+.w-100 {
+    width: 100%;
+}
+
+.h-100vh {
+    height: 100vh;
+}
+
+.gap-2 {
+    gap: 8px;
+}
+
+.gap-3 {
+    gap: 16px;
+}
+
+.gap-4 {
+    gap: 24px;
+}
+
+.text-white {
+    color: rgb(255, 255, 255) !important;
+}
+
+// border
+.border-bottom {
+    border-bottom: 1px solid rgba(var(--v-theme-borderColor), 0.05);
+}
+
+.opacity-1 {
+    opacity: 1 !important;
+}
+
+.opacity-50 {
+    opacity: 0.5;
+}
+
+.z-auto.v-card {
+    z-index: auto;
+}
+
+.obj-cover {
+    object-fit: cover;
+}
+.cursor-move{
+    cursor: move;
+}

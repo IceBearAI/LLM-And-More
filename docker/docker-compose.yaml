@@ -1,0 +1,53 @@
+version: "3"
+services:
+  aigc-server:
+    image: dudulu/aigc-server:v0.0.0-beta03
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    command:
+      - aigc-server
+      - start
+    volumes:
+      - .cache:/usr/local/aigc-server/storage
+  aigc-server-cronjob:
+    image: dudulu/aigc-server:v0.0.0-beta03
+    restart: always
+    env_file:
+      - .env
+    command:
+      - aigc-server
+      - cronjob
+      - start
+    volumes:
+      - .cache:/usr/local/aigc-server/storage
+  fschat-controller:
+    image: dudulu/fschat:v0.2.36
+    restart: always
+    ports:
+      - "21001:21001"
+    command:
+      - python3
+      - -m
+      - fastchat.serve.controller
+      - --host
+      - 0.0.0.0
+      - --port
+      - 21001
+  fschat-api:
+    image: dudulu/fschat:v0.2.36
+    restart: always
+    ports:
+      - "8000:8000"
+    command:
+      - python3
+      - -m
+      - fastchat.serve.openai_api_server
+      - --host
+      - 0.0.0.0
+      - --port
+      - 8000
+      - --controller-address
+      - http://fschat-controller:21001

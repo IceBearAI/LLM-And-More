@@ -1,0 +1,9 @@
+body {
+  --el-overlay-color-lighter: rgba(0, 0, 0, 0.2);
+}
+.el-popover.text-popover {
+  min-width: 0;
+  border: none;
+  padding: 1px 3px;
+  border-radius: 12px;
+}

@@ -1,0 +1,41 @@
+html {
+  overflow-y: auto;
+}
+.v-main {
+  background: rgb(var(--v-theme-background)) !important;
+}
+@media (max-width: 1279px) {
+  .v-main {
+    margin: 0 10px;
+  }
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.page-wrapper {
+  min-height: calc(100vh - 100px);
+  padding: 24px;
+  padding-top: 0;
+  // border-radius: $border-radius-root;
+  @media screen and (max-width: 767px) {
+    padding: 20px 10px;
+  }
+}
+
+.maxWidth {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.fixed-width {
+  max-width: 1300px;
+}
+
+.right-pos-img {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+}

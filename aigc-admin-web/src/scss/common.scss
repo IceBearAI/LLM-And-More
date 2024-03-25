@@ -1,0 +1,191 @@
+.hv-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.h-center {
+  display: flex;
+  justify-content: center;
+}
+
+.v-center {
+  display: flex;
+  align-items: center;
+}
+
+.flex-end {
+  justify-content: flex-end;
+}
+.items-center {
+  align-items: center;
+}
+
+.h-box {
+  display: flex;
+  flex-direction: row;
+  &.space-between {
+    justify-content: space-between;
+  }
+
+  &.align-bottom {
+    align-items: flex-end;
+  }
+  &.wrap {
+    flex-wrap: wrap;
+  }
+}
+.v-box {
+  display: flex;
+  flex-direction: column;
+}
+
+$i: 1;
+@while $i<13 {
+  .flex-#{$i} {
+    flex: $i;
+    min-width: 1px;
+    min-height: 1px;
+  }
+  $i: $i + 1;
+}
+
+[pointer] {
+  cursor: pointer;
+}
+
+.my-form {
+  > * {
+    margin-bottom: 15px;
+  }
+
+  label,
+  .label {
+    font-weight: 500 !important;
+    &.required {
+      &:before {
+        content: "*";
+        color: red;
+        margin-right: 4px;
+        align-self: flex-start;
+        margin-top: 1px;
+      }
+    }
+  }
+
+  &.waterfall {
+    .v-input__prepend {
+      width: auto;
+      margin-right: 2px;
+      label {
+        &:after {
+          content: "：";
+        }
+      }
+    }
+  }
+}
+
+.opacity-0 {
+  opacity: 0 !important;
+}
+
+.color-font {
+  color: #333;
+}
+
+.color-font-light {
+  color: #666;
+}
+
+.text-hover-primary {
+  &:hover {
+    color: rgb(var(--v-theme-primary));
+  }
+}
+
+.bg-hover-primary {
+  transition: all 0.3s linear;
+  &:hover {
+    background-color: rgba(var(--v-theme-primary), 0.2);
+  }
+}
+
+.text-hover-secondary {
+  &:hover {
+    color: rgb(var(--v-theme-secondary));
+  }
+}
+
+.bg-hover-secondary {
+  transition: all 0.3s linear;
+  &:hover {
+    background-color: rgba(var(--v-theme-secondary), 0.2);
+  }
+}
+
+.text-black {
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+}
+
+.text-light {
+  color: #666;
+}
+
+.whitespace-pre-wrap {
+  white-space: pre-wrap;
+}
+
+/* 自动显示滚动条 */
+.scrollbar-auto {
+  overflow: auto;
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 100px;
+  }
+  //容器背景为深色
+  &.dark {
+    &::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  }
+}
+
+.line1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line2 {
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.line3 {
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+textarea {
+  &[readonly] {
+    color: #b9bdc3;
+  }
+}

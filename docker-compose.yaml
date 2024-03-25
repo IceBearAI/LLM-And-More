@@ -1,0 +1,31 @@
+version: "3"
+services:
+  aigc-server:
+    image: dudulu/aigc-server:v0.0.0-beta01
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    command:
+      - aigc-server
+      - start
+    volumes:
+      - .cache:/usr/local/aigc-server/storage
+  aigc-server-cronjob:
+    image: dudulu/aigc-server:v0.0.0-beta01
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command:
+      - aigc-server
+      - cronjob
+      - start
+    volumes:
+      - .cache:/usr/local/aigc-server/storage

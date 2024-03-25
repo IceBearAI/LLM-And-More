@@ -1,0 +1,48 @@
+.v-selection-control.v-selection-control--density-default {
+    .v-switch__track,
+    .v-switch__thumb {
+        background-color: rgb(var(--v-theme-grey200));
+    }
+    &.v-selection-control--dirty {
+        .v-selection-control__wrapper.text-primary {
+            .v-switch__track {
+                background-color: rgba(var(--v-theme-primary), 0.6);
+            }
+            .v-switch__thumb {
+                background-color: rgb(var(--v-theme-primary));
+            }
+        }
+        .v-selection-control__wrapper.text-secondary {
+            .v-switch__track {
+                background-color: rgba(var(--v-theme-secondary), 0.6);
+            }
+            .v-switch__thumb {
+                background-color: rgb(var(--v-theme-secondary));
+            }
+        }
+        .v-selection-control__wrapper.text-warning {
+            .v-switch__track {
+                background-color: rgba(var(--v-theme-warning), 0.6);
+            }
+            .v-switch__thumb {
+                background-color: rgb(var(--v-theme-warning));
+            }
+        }
+        .v-selection-control__wrapper.text-error {
+            .v-switch__track {
+                background-color: rgba(var(--v-theme-error), 0.6);
+            }
+            .v-switch__thumb {
+                background-color: rgb(var(--v-theme-error));
+            }
+        }
+        .v-selection-control__wrapper.text-success {
+            .v-switch__track {
+                background-color: rgba(var(--v-theme-success), 0.6);
+            }
+            .v-switch__thumb {
+                background-color: rgb(var(--v-theme-success));
+            }
+        }
+    }
+}
