@@ -20,6 +20,13 @@ func WithWorkspace(workspace string) CreationOption {
 	}
 }
 
+// WithGpuNum returns a CreationOption that sets the workspace.
+func WithGpuNum(gpuNum int) CreationOption {
+	return func(co *CreationOptions) {
+		co.gpuNum = gpuNum
+	}
+}
+
 type docker struct {
 	options       *CreationOptions
 	dockerCli     *client.Client
@@ -84,11 +91,21 @@ func (s docker) CreateJob(ctx context.Context, config Config) (jobName string, e
 	}
 	var dr []container.DeviceRequest
 	if config.GPU != 0 {
+		availableGPUs, err := s.getContainerGpuNum(ctx)
+		if err != nil {
+			return "", errors.Wrap(err, "getContainerGpuNum err")
+		}
+		if len(availableGPUs) < config.GPU {
+			err = errors.New("No enough GPU")
+			return "", err
+		}
 		dr = append(dr, container.DeviceRequest{
-			Driver:       "nvidia",
-			Count:        -1,
+			Driver: "nvidia",
+			//Count:        -1,
 			Capabilities: [][]string{{"gpu"}},
+			DeviceIDs:    availableGPUs[:config.GPU],
 		})
+
 	}
 	hcf.Resources.DeviceRequests = dr
 
@@ -105,6 +122,44 @@ func (s docker) CreateJob(ctx context.Context, config Config) (jobName string, e
 	}
 
 	return resp.ID, nil
+}
+
+func (s docker) getContainerGpuNum(ctx context.Context) (gpuNum []string, err error) {
+	containers, err := s.dockerCli.ContainerList(ctx, container.ListOptions{All: true})
+	if err != nil {
+		err = errors.Wrap(err, "ContainerList err")
+		return
+	}
+	usedGPUs := make(map[string]bool)
+	for _, _container := range containers {
+		containerJSON, err := s.dockerCli.ContainerInspect(ctx, _container.ID)
+		if err != nil {
+			fmt.Printf("Error inspecting container %s: %s\n", _container.ID, err)
+			continue
+		}
+
+		for _, deviceRequest := range containerJSON.HostConfig.DeviceRequests {
+			if deviceRequest.Driver == "nvidia" {
+				for _, id := range deviceRequest.DeviceIDs {
+					usedGPUs[id] = true
+					fmt.Printf("Container %s is using GPU %s\n", _container.ID[:12], id)
+				}
+			}
+		}
+	}
+
+	// Assuming you have a maximum of 8 GPUs
+	totalGPUs := s.options.gpuNum
+	availableGPUs := []string{}
+	for i := 0; i < totalGPUs; i++ {
+		if !usedGPUs[fmt.Sprint(i)] {
+			availableGPUs = append(availableGPUs, fmt.Sprint(i))
+		}
+	}
+
+	fmt.Println("availableGPUs", availableGPUs)
+
+	return availableGPUs, nil
 }
 
 func (s docker) CreateDeployment(ctx context.Context, config Config) (deploymentName string, err error) {
@@ -164,6 +219,7 @@ func (s docker) RemoveDeployment(ctx context.Context, deploymentName string) (er
 func NewDocker(opts ...CreationOption) Service {
 	options := &CreationOptions{
 		workspace: "/tmp",
+		gpuNum:    8,
 	}
 	for _, opt := range opts {
 		opt(options)

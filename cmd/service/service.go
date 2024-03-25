@@ -131,6 +131,7 @@ const (
 	EnvNameRuntimeK8sInsecure     = "AIGC_RUNTIME_K8S_INSECURE"
 	EnvNameRuntimeK8sVolumeName   = "AIGC_RUNTIME_K8S_VOLUME_NAME"
 	EnvNameRuntimeDockerWorkspace = "AIGC_RUNTIME_DOCKER_WORKSPACE"
+	EnvNameRuntimeGpuNum          = "AIGC_RUNTIME_GPU_NUM"
 
 	// [local]
 	EnvNameStorageType = "AIGC_STORAGE_TYPE"
@@ -285,6 +286,7 @@ var (
 	runtimePlatform, runtimeShmSize, runtimeK8sHost, runtimeK8sToken, runtimeK8sConfigPath, runtimeK8sNamespace, runtimeK8sVolumeName string
 	runtimeDockerWorkspace                                                                                                            string
 	runtimeK8sInsecure                                                                                                                bool
+	runtimeGpuNum                                                                                                                     int
 
 	// [fschat]
 	fsChatControllerAddress, fsChatApiAddress string
@@ -405,6 +407,7 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVar(&runtimeK8sVolumeName, "runtime.k8s.volume.name", DefaultRuntimeK8sVolumeName, "K8s挂载的存储名")
 	rootCmd.PersistentFlags().BoolVar(&runtimeK8sInsecure, "runtime.k8s.insecure", DefaultRuntimeK8sInsecure, "K8s是否不安全")
 	rootCmd.PersistentFlags().StringVar(&runtimeDockerWorkspace, "runtime.docker.workspace", defaultStoragePath, "Docker工作目录")
+	rootCmd.PersistentFlags().IntVar(&runtimeGpuNum, "runtime.gpu.num", 8, "GPU数量")
 
 	// [dataset]
 	startCmd.PersistentFlags().StringVar(&datasetsImage, "datasets.image", DefaultDatasetsImage, "datasets image")
@@ -576,6 +579,7 @@ func prepare(ctx context.Context) error {
 		runtime2.WithK8sVolumeName(runtimeK8sVolumeName),
 		runtime2.WithNamespace(runtimeK8sNamespace),
 		runtime2.WithWorkspace(runtimeDockerWorkspace),
+		runtime2.WithGpuNum(runtimeGpuNum),
 	)
 	apiSvc = services.NewApi(ctx, logger, traceId, serverDebug, tracer, &services.Config{
 		Namespace: namespace, ServiceName: serverName,
@@ -703,6 +707,7 @@ func Run() {
 	runtimeK8sVolumeName = envString(EnvNameRuntimeK8sVolumeName, DefaultRuntimeK8sVolumeName)
 	runtimeK8sInsecure, _ = strconv.ParseBool(envString(EnvNameRuntimeK8sInsecure, strconv.FormatBool(DefaultRuntimeK8sInsecure)))
 	runtimeDockerWorkspace = envString(EnvNameRuntimeDockerWorkspace, defaultStoragePath)
+	runtimeGpuNum, _ = strconv.Atoi(envString(EnvNameRuntimeGpuNum, "8"))
 
 	// [fschat]
 	fsChatControllerAddress = envString(EnvNameFsChatControllerAddress, "http://fschat-controller:21001")
