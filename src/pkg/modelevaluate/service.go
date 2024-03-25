@@ -27,6 +27,7 @@ type CreationOptions struct {
 	httpClientOpts     []kithttp.ClientOption
 	callbackHost       string
 	gpuTolerationValue string
+	volumeName         string
 }
 
 // CreationOption is a creation option for the faceswap service.
@@ -43,6 +44,13 @@ func WithCallbackHost(host string) CreationOption {
 func WithDatasetGpuTolerationValue(gpuTolerationValue string) CreationOption {
 	return func(co *CreationOptions) {
 		co.gpuTolerationValue = gpuTolerationValue
+	}
+}
+
+// WithVolumeName returns a CreationOption  that sets the dataset drive.
+func WithVolumeName(volumeName string) CreationOption {
+	return func(co *CreationOptions) {
+		co.volumeName = volumeName
 	}
 }
 
@@ -264,6 +272,7 @@ func (s *service) Create(ctx context.Context, req createRequest) (err error) {
 			"/app/eval/" + shellName,
 		},
 		EnvVars: envVars,
+		Volumes: []runtime.Volume{{Key: s.options.volumeName, Value: "/data"}},
 	}
 
 	if req.Label != "" {
@@ -279,6 +288,7 @@ func (s *service) Create(ctx context.Context, req createRequest) (err error) {
 	if err != nil {
 		status = string(types.EvaluateStatusFailed)
 		statusMsg = err.Error()
+		_ = level.Warn(logger).Log("apiSvc.Runtime", "CreateJob", "err", err.Error())
 	}
 	// 更新数据库状态
 	data.JobName = jobName
@@ -546,6 +556,7 @@ func New(logger log.Logger, traceId string, repository repository.Repository, ap
 	logger = log.With(logger, "evaluate", "service")
 	options := &CreationOptions{
 		callbackHost: "http://localhost:8080",
+		//volumeName:   "aigc-data-cfs",
 	}
 	for _, opt := range opts {
 		opt(options)

@@ -10,6 +10,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"net/http"
+	"strings"
 )
 
 var validate = validator.New()
@@ -19,6 +20,10 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 	ems = append(ems, dmw...)
 	var kitopts = []kithttp.ServerOption{
 		kithttp.ServerBefore(func(ctx context.Context, request *http.Request) context.Context {
+			vars := mux.Vars(request)
+			if fineTuningJobId, ok := vars["fineTuningJobId"]; ok && !strings.EqualFold(fineTuningJobId, "") {
+				ctx = context.WithValue(ctx, contextKeyFineTuningJobId, fineTuningJobId)
+			}
 			return ctx
 		}),
 	}
@@ -77,6 +82,12 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 		encode.JsonResponse,
 		kitopts...,
 	)).Methods(http.MethodPost)
+	r.Handle("/finetuning/{fineTuningJobId}/finish", kithttp.NewServer(
+		eps.UpdateJobFinishedStatusEndpoint,
+		decodeUpdateJobFinishedStatusRequest,
+		encode.JsonResponse,
+		kitopts...,
+	)).Methods(http.MethodPut)
 	return r
 }
 
@@ -107,6 +118,18 @@ func decodeJobIdRequest(ctx context.Context, r *http.Request) (interface{}, erro
 	jobId := vars["jobId"]
 	req := JobIdRequest{
 		JobId: jobId,
+	}
+	return req, nil
+}
+
+func decodeUpdateJobFinishedStatusRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	var req updateTrainStatusRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return nil, encode.InvalidParams.Wrap(err)
+	}
+	err := validate.Struct(req)
+	if err != nil {
+		return nil, encode.InvalidParams.Wrap(err)
 	}
 	return req, nil
 }

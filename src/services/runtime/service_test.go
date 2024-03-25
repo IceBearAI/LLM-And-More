@@ -9,16 +9,17 @@ import (
 // var id string = ""
 
 // var s, err = NewK8s(WithK8sConfigPath("./k8sconfig.yaml"), WithNamespace("dev"))
-var token string = `rQ-a28Qz1HxPZYMxYUjB51zqAK8M3hs8hvIKbh30r3Z2FpRjIBboFZaoRTClp9UirJj_SoYs4XOKBcxoDmJAxPuvQXD4QPyR8TrCswIAHeP5DOtovFg_9HgN_0wGRROzmSg6VKR096PljPB0YqOMulZPMyS52qKE8PHy8IA6ggf_CSzzwEesv4Zs9002zf8TOJAH6ZmJyyVut2i1zgg8mnb6eSN1Oe8nHl210bukpaIz2N1l1b5vEzHb3jE-NjKw5Q9EoacL0t-_pFEMsBjNMyMQuXlshb9KIDeRqcEmke9SCqY1I1EKyHXsaTHs4qMD87QviT9v_Ffz8X-DM7xDNw`
-var s, err = NewK8s(WithK8sToken("https://127.0.0.1:6443", token, true), WithNamespace("default"))
-var id string = "ddwded2"
-var image = "dudulu/llmops:v0.5-0314"
+// var token string = `rQ-a28Qz1HxPZYMxYUjB51zqAK8M3hs8hvIKbh30r3Z2FpRjIBboFZaoRTClp9UirJj_SoYs4XOKBcxoDmJAxPuvQXD4QPyR8TrCswIAHeP5DOtovFg_9HgN_0wGRROzmSg6VKR096PljPB0YqOMulZPMyS52qKE8PHy8IA6ggf_CSzzwEesv4Zs9002zf8TOJAH6ZmJyyVut2i1zgg8mnb6eSN1Oe8nHl210bukpaIz2N1l1b5vEzHb3jE-NjKw5Q9EoacL0t-_pFEMsBjNMyMQuXlshb9KIDeRqcEmke9SCqY1I1EKyHXsaTHs4qMD87QviT9v_Ffz8X-DM7xDNw`
+// var s, err = NewK8s(WithK8sToken("https://127.0.0.1:6443", token, true), WithNamespace("default"))
+// var id string = "ddwded2"
+var id string = "74ef6a371ef98d3c8bac5a54b88031db9d792f5f3a205dd8d8c6ed29b3b127a1"
+var image = "nginx:latest"
+
+var s = NewDocker(WithWorkspace("/Users/cong/go/src/github.com/icowan/LLM-And-More/storage"))
 
 func TestService_CreateDeployment(t *testing.T) {
-	if err != nil {
-		t.Error(err.Error())
-		return
-	}
+
+	//_ = os.Setenv("DOCKER_HOST", "tcp://10.170.32.94:2375")
 
 	ctx := context.Background()
 
@@ -26,12 +27,17 @@ func TestService_CreateDeployment(t *testing.T) {
 		ServiceName: id,
 		Image:       image,
 		Cpu:         1,
-		Memory:      1,
 		GPU:         0,
 		// Command: []string{
 		// "/bin/bash",
 		// "/app/dataset_analyze_similar.sh",
 		// },
+		Volumes: []Volume{
+			{
+				Key:   "/Users/cong/go/src/github.com/icowan/LLM-And-More/storage",
+				Value: "/data/",
+			},
+		},
 		Command: []string{
 			"/bin/bash",
 			"-c",
@@ -45,6 +51,7 @@ func TestService_CreateDeployment(t *testing.T) {
 			"/app/hello":        "say hello",
 		},
 		Replicas: 1,
+		ShmSize:  "24MB",
 	})
 	if err != nil {
 		t.Error(err.Error())
@@ -55,11 +62,6 @@ func TestService_CreateDeployment(t *testing.T) {
 }
 
 func TestService_CreateJob(t *testing.T) {
-	if err != nil {
-		t.Error(err.Error())
-		return
-	}
-
 	jobName, err := s.CreateJob(context.Background(), Config{
 		ServiceName: id,
 		Image:       image,

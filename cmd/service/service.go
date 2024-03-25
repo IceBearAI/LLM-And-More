@@ -136,6 +136,10 @@ const (
 	EnvNameStorageType = "AIGC_STORAGE_TYPE"
 	//EnvNameLocalDataPath = "AIGC_LOCAL_DATA_PATH"
 
+	// [fschat]
+	EnvNameFsChatControllerAddress = "AIGC_FSCHAT_CONTROLLER_ADDRESS"
+	EnvNameFsChatApiAddress        = "AIGC_FSCHAT_API_ADDRESS"
+
 	DefaultRuntimePlatform      = "docker"
 	DefaultRuntimeShmSize       = "16G"
 	DefaultRuntimeK8sHost       = ""
@@ -282,6 +286,9 @@ var (
 	runtimeDockerWorkspace                                                                                                            string
 	runtimeK8sInsecure                                                                                                                bool
 
+	// [fschat]
+	fsChatControllerAddress, fsChatApiAddress string
+
 	channelId     int
 	corsHeaders   = make(map[string]string, 3)
 	rateBucketNum = 5000000
@@ -364,6 +371,8 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiHost, "service.openai.host", DefaultServiceOpenAiHost, "OpenAI服务地址")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiModel, "service.openai.model", DefaultServiceOpenAiModel, "OpenAI模型名称")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiOrgId, "service.openai.org.id", DefaultServiceOpenAiOrgId, "OpenAI OrgId")
+	rootCmd.PersistentFlags().StringVar(&fsChatControllerAddress, "service.fschat.controller.host", "http://fschat-controller:21001", "fastchat controller address")
+	rootCmd.PersistentFlags().StringVar(&fsChatApiAddress, "service.fschat.api.host", "http://fschat-api:8000", "fastchat api address")
 
 	// [s3]
 	//rootCmd.PersistentFlags().StringVar(&serviceS3Host, "service.s3.host", DefaultServiceS3Host, "S3服务地址")
@@ -694,6 +703,10 @@ func Run() {
 	runtimeK8sVolumeName = envString(EnvNameRuntimeK8sVolumeName, DefaultRuntimeK8sVolumeName)
 	runtimeK8sInsecure, _ = strconv.ParseBool(envString(EnvNameRuntimeK8sInsecure, strconv.FormatBool(DefaultRuntimeK8sInsecure)))
 	runtimeDockerWorkspace = envString(EnvNameRuntimeDockerWorkspace, defaultStoragePath)
+
+	// [fschat]
+	fsChatControllerAddress = envString(EnvNameFsChatControllerAddress, "http://fschat-controller:21001")
+	fsChatApiAddress = envString(EnvNameFsChatControllerAddress, "http://fschat-api:8000")
 
 	if err = rootCmd.Execute(); err != nil {
 		fmt.Println("rootCmd.Execute", err.Error())

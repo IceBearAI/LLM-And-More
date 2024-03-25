@@ -54,9 +54,12 @@ func (s docker) CreateJob(ctx context.Context, config Config) (jobName string, e
 		if config.HasConfigData(v.Key) {
 			hostBinds = append(hostBinds, fmt.Sprintf("%s:%s", filepath.Join(s.options.workspace, config.ServiceName, v.Key), v.Value))
 		} else {
-			hostBinds = append(hostBinds, fmt.Sprintf("%s:%s", v.Key, v.Value))
+			hostBinds = append(hostBinds, fmt.Sprintf("%s:%s", filepath.Join(s.options.workspace, v.Key), v.Value))
 		}
 	}
+	//if s.options.k8sVolumeName != "" {
+	//	hostBinds = append(hostBinds, fmt.Sprintf("%s:%s", filepath.Join(s.options.workspace, s.options.k8sVolumeName), "/data"))
+	//}
 
 	for k, _ := range config.ConfigData {
 		hostBinds = append(hostBinds, fmt.Sprintf("%s:%s", filepath.Join(s.options.workspace, config.ServiceName, k), k))
@@ -75,6 +78,7 @@ func (s docker) CreateJob(ctx context.Context, config Config) (jobName string, e
 			CPUCount: config.CPU,
 			Memory:   config.Memory,
 		},
+		NetworkMode: "host",
 		//Mounts: hostMount,
 		Binds: hostBinds,
 	}
@@ -82,7 +86,7 @@ func (s docker) CreateJob(ctx context.Context, config Config) (jobName string, e
 	if config.GPU != 0 {
 		dr = append(dr, container.DeviceRequest{
 			Driver:       "nvidia",
-			Count:        config.GPU,
+			Count:        -1,
 			Capabilities: [][]string{{"gpu"}},
 		})
 	}

@@ -315,7 +315,7 @@ func (s *service) CreateImage(ctx context.Context, prompt, size, format string) 
 }
 
 func (s *service) Models(ctx context.Context) (res []openai.Model, err error) {
-	client, _ := s.getClient(ctx, "")
+	client, _ := s.getClient(ctx, "localai")
 	models, err := client.ListModels(ctx)
 	if err != nil {
 		err = errors.Wrap(err, "ListModels")
@@ -342,7 +342,7 @@ func (s *service) getClient(ctx context.Context, model string) (*openai.Client, 
 		return openai.NewClientWithConfig(config), model
 	}
 
-	fmt.Println("apiKey", s.localAiToken)
+	fmt.Println("localAiHost", s.localAiHost, "apiKey", s.localAiToken)
 
 	apiKey := s.localAiToken
 	platform, ok := ctx.Value(ContextKeyPlatform).(Platform)

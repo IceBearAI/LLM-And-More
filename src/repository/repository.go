@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"github.com/IceBearAI/aigc/src/pkg/tenant"
 	"github.com/IceBearAI/aigc/src/repository/assistants"
 	"github.com/IceBearAI/aigc/src/repository/auth"
 	"github.com/IceBearAI/aigc/src/repository/channel"
@@ -13,6 +12,7 @@ import (
 	"github.com/IceBearAI/aigc/src/repository/model"
 	"github.com/IceBearAI/aigc/src/repository/modelevaluate"
 	"github.com/IceBearAI/aigc/src/repository/sys"
+	"github.com/IceBearAI/aigc/src/repository/tenant"
 	"github.com/IceBearAI/aigc/src/repository/tools"
 	"gorm.io/gorm"
 

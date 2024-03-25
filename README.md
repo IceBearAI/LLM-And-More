@@ -195,7 +195,7 @@ graph LR
 
 build完通常会保存在 `$(GOPATH)/bin/` 目录下
 
-#### Docker部署
+#### Docker-compose部署
 
 安装docker和docker-compose可以参考官网教程：[Install Docker Engine](https://docs.docker.com/engine/install/)
 
@@ -451,6 +451,22 @@ chat的一些配置，假设使用的FastChat作为服务的推理框架，则�
 
 - `AIGC_RUNTIME_DOCKER_WORKSPACE` 是指本机的模型目录，会映射到运行模型容器里的`/data/`目录。
 
+要使用Docker API创建容器并挂载NVIDIA GPU，你需要确保你的系统上安装了NVIDIA Docker支持（例如nvidia-docker2）并且Docker守护进程配置正确。以下是使用Docker Engine API创建容器并挂载NVIDIA GPU的基本步骤：
+
+确保你的Docker守护进程启用了NVIDIA GPU支持。这通常意味着你需要在Docker守护进程的配置文件中添加默认的运行时，例如`/etc/docker/daemon.json`：
+
+```json
+{
+  "default-runtime": "nvidia",
+  "runtimes": {
+    "nvidia": {
+      "path": "nvidia-container-runtime",
+      "runtimeArgs": []
+    }
+  }
+}
+```
+
 ###### k8s 平台
 
 kubernetes支持两种方式连接
@@ -500,6 +516,9 @@ kubernetes支持两种方式连接
 | `HTTP_PROXY`  | HTTP代理              |                         |
 | `HTTPS_PROXY` | HTTPS代理             |                         |
 | `NO_PROXY`    | 不使用代理的地址            |                         |
+
+
+## Docker 部署
 
 ## Docker镜像
 
