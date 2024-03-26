@@ -344,11 +344,11 @@ func (s *service) UpdateJobFinishedStatus(ctx context.Context, fineTuningJob str
 		_ = level.Error(logger).Log("repository.FineTuningJob", "UpdateFineTuningJob", "err", err.Error())
 		return errors.Wrap(err, "repository.FineTuningJob.UpdateFineTuningJob")
 	}
-	err = s.api.Runtime().RemoveJob(ctx, jobInfo.PaasJobName)
-	if err != nil {
-		_ = level.Error(logger).Log("api.DockerApi", "Remove", "err", err.Error())
-		return err
-	}
+	defer func() {
+		if err = s.api.Runtime().RemoveJob(ctx, jobInfo.PaasJobName); err != nil {
+			_ = level.Error(logger).Log("api.DockerApi", "Remove", "err", err.Error())
+		}
+	}()
 
 	if status == types.TrainStatusFailed {
 		_ = level.Warn(logger).Log("msg", "任务失败")
@@ -408,10 +408,10 @@ func (s *service) RunWaitingTrain(ctx context.Context) (err error) {
 	// 数据库获取等待中的微调任务
 	jobs, err := s.store.FineTuning().FindFineTuningJobLastByStatus(ctx, types.TrainStatusWaiting, "id asc")
 	if err != nil {
-		_ = level.Error(logger).Log("repository.FineTuningJob", "FindFineTuningJobLastByStatus", "err", err.Error())
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
 		}
+		_ = level.Warn(logger).Log("repository.FineTuningJob", "FindFineTuningJobLastByStatus", "err", err.Error())
 		return
 	}
 	if jobs.ID == 0 {
@@ -441,8 +441,7 @@ func (s *service) _createFineTuningJob(ctx context.Context, jobId string) (err e
 	}
 	jobInfo.TrainScript = tplContent
 
-	serviceName := strings.ReplaceAll(strings.ReplaceAll(jobInfo.FineTunedModel, "::", "-"), ":", "-")
-	serviceName = strings.ReplaceAll(serviceName, ".", "-")
+	serviceName := util.ReplacerServiceName(jobInfo.FineTunedModel)
 	gpuTolerationValue := s.options.gpuTolerationValue
 
 	tenantUUid, _ := ctx.Value(middleware.ContextKeyPublicTenantId).(string)
@@ -970,29 +969,27 @@ func NewFile(data []byte) *File {
 // GetTrainInfoFromLog 从训练日志获取训练信息
 func GetTrainInfoFromLog(jobLog string) (logEntryList []LogEntry, err error) {
 	lineArr := strings.Split(jobLog, "\n")
-	re := regexp.MustCompile(`(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (\{.*?\})`)
+	re := regexp.MustCompile(`\{[^}]*\}`)
 
 	for _, l := range lineArr {
-		matches := re.FindStringSubmatch(l)
-		if len(matches) == 3 {
-			timestampStr, jsonStr := matches[1], matches[2]
+		l = strings.TrimSpace(l)
+		matches := re.FindAllString(l, -1)
+		for _, match := range matches {
+			if len(match) > 0 {
+				// 将单引号替换为双引号以符合JSON格式
+				jsonStr := strings.Replace(match, "'", "\"", -1)         // 将单引号替换为双引号
+				jsonStr = strings.Replace(jsonStr, "False", "false", -1) // 将 False 替换为 false
+				jsonStr = strings.Replace(jsonStr, "True", "true", -1)   // 将 True 替换为 true
 
-			timestamp, err := time.Parse(time.RFC3339Nano, timestampStr)
-			if err != nil {
-				continue
+				var entry LogEntry
+				err := json.Unmarshal([]byte(jsonStr), &entry)
+				if err != nil {
+					fmt.Println("json.Unmarshal", "unmarshal json failed", "err", err.Error())
+					continue
+				}
+
+				logEntryList = append(logEntryList, entry)
 			}
-
-			jsonStr = strings.Replace(jsonStr, "'", "\"", -1)        // 将单引号替换为双引号
-			jsonStr = strings.Replace(jsonStr, "False", "false", -1) // 将 False 替换为 false
-			jsonStr = strings.Replace(jsonStr, "True", "true", -1)   // 将 True 替换为 true
-
-			var entry LogEntry
-			err = json.Unmarshal([]byte(jsonStr), &entry)
-			if err != nil {
-				continue
-			}
-			entry.Timestamp = timestamp
-			logEntryList = append(logEntryList, entry)
 		}
 	}
 	if len(logEntryList) < 1 {

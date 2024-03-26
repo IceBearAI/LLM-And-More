@@ -10,6 +10,7 @@ import (
 	"github.com/IceBearAI/aigc/src/repository/types"
 	"github.com/IceBearAI/aigc/src/services"
 	"github.com/IceBearAI/aigc/src/services/runtime"
+	"github.com/IceBearAI/aigc/src/util"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -145,9 +146,7 @@ func (s *service) Create(ctx context.Context, req createRequest) (err error) {
 		return
 	}
 
-	serviceName := strings.ReplaceAll(modelInfo.ModelName, ":", "-")
-	serviceName = strings.ReplaceAll(modelInfo.ModelName, "::", "-")
-	serviceName = strings.ReplaceAll(modelInfo.ModelName, ".", "-")
+	serviceName := util.ReplacerServiceName(modelInfo.ModelName)
 
 	var (
 		baseModel = modelInfo.ModelName
@@ -163,10 +162,14 @@ func (s *service) Create(ctx context.Context, req createRequest) (err error) {
 		baseModel = finetunedModel.BaseModel
 		modelPath = finetunedModel.OutputDir
 	}
+
 	baseModelTemplate, err := s.repository.FineTuning().FindFineTuningTemplateByModel(ctx, baseModel)
 	if err != nil {
 		_ = level.Warn(logger).Log("repository.FineTuning", "FindFineTuningTemplateByModel", "err", err.Error())
 		return err
+	}
+	if !modelInfo.IsFineTuning {
+		modelPath = baseModelTemplate.BaseModelPath
 	}
 
 	operatorEmail, _ := middleware.GetEmail(ctx)
@@ -387,40 +390,32 @@ func (s *service) getFiveGraphData(ctx context.Context, modelId, evaluateId int)
 
 		if err == nil && fineTuningJob.TrainLog != "" {
 			lineArr := strings.Split(fineTuningJob.TrainLog, "\n")
-			re := regexp.MustCompile(`(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (\{.*?\})`)
+			re := regexp.MustCompile(`\{[^}]*\}`)
 
 			var logEntryList []logEntry
+			for _, _log := range lineArr {
+				_log = strings.TrimSpace(_log)
+				matches := re.FindAllString(_log, -1)
+				for _, match := range matches {
+					if len(match) > 0 {
+						// 将单引号替换为双引号以符合JSON格式
+						jsonStr := strings.Replace(match, "'", "\"", -1)         // 将单引号替换为双引号
+						jsonStr = strings.Replace(jsonStr, "False", "false", -1) // 将 False 替换为 false
+						jsonStr = strings.Replace(jsonStr, "True", "true", -1)   // 将 True 替换为 true
 
-			for _, log := range lineArr {
-				matches := re.FindStringSubmatch(log)
-				if len(matches) == 3 {
-					timestampStr, jsonStr := matches[1], matches[2]
-
-					timestamp, err := time.Parse(time.RFC3339Nano, timestampStr)
-					if err != nil {
-						_ = level.Warn(logger).Log("msg", "parse timestamp failed", "err", err.Error())
-						continue
+						var entry logEntry
+						err := json.Unmarshal([]byte(jsonStr), &entry)
+						if err != nil {
+							_ = level.Info(logger).Log("json.Unmarshal", "unmarshal json failed", "err", err.Error())
+							continue
+						}
+						logEntryList = append(logEntryList, entry)
 					}
-
-					jsonStr = strings.Replace(jsonStr, "'", "\"", -1)        // 将单引号替换为双引号
-					jsonStr = strings.Replace(jsonStr, "False", "false", -1) // 将 False 替换为 false
-					jsonStr = strings.Replace(jsonStr, "True", "true", -1)   // 将 True 替换为 true
-
-					var entry logEntry
-					err = json.Unmarshal([]byte(jsonStr), &entry)
-					if err != nil {
-						_ = level.Warn(logger).Log("msg", "unmarshal json failed", "err", err.Error())
-						continue
-					}
-
-					entry.Timestamp = timestamp
-					logEntryList = append(logEntryList, entry)
 				}
 			}
 			lastLine := logEntryList[len(logEntryList)-1]
 			lastLoss = lastLine.Loss
 		}
-
 	}
 
 	var riskOver, riskUnder, riskDisaster bool

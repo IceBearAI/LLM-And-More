@@ -86,62 +86,54 @@ type logEntry struct {
 	Loss         float64   `json:"loss"`
 	LearningRate float64   `json:"learning_rate"`
 	Epoch        float64   `json:"epoch"`
+	GradNorm     float64   `json:"grad_norm"`
 }
 
 func fineTuningRunningJobLog(ctx context.Context, jobs []types.FineTuningTrainJob) (err error) {
 	for _, job := range jobs {
-		//jobLog, err := apiSvc.Paas().GetJobPodsLog(ctx, "aigc", job.PaasJobName)
-		//if err != nil {
-		//	_ = level.Warn(logger).Log("msg", "get job pods log failed", "err", err.Error())
-		//	continue
-		//}
 		var jobLog string
 		jobLog, err = apiSvc.Runtime().GetJobLogs(ctx, job.PaasJobName)
 		if err != nil {
 			_ = level.Warn(logger).Log("msg", "get job pods log failed", "err", err.Error())
 			continue
 		}
+		if len(strings.TrimSpace(jobLog)) == 0 {
+			continue
+		}
 
 		lineArr := strings.Split(jobLog, "\n")
-		re := regexp.MustCompile(`(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (\{.*?\})`)
+		re := regexp.MustCompile(`\{[^}]*\}`)
 
 		var logEntryList []logEntry
 
 		for _, log := range lineArr {
-			matches := re.FindStringSubmatch(log)
-			if len(matches) == 3 {
-				timestampStr, jsonStr := matches[1], matches[2]
+			log = strings.TrimSpace(log)
+			matches := re.FindAllString(log, -1)
+			for _, match := range matches {
+				if len(match) > 0 {
+					// 将单引号替换为双引号以符合JSON格式
+					jsonStr := strings.Replace(match, "'", "\"", -1)         // 将单引号替换为双引号
+					jsonStr = strings.Replace(jsonStr, "False", "false", -1) // 将 False 替换为 false
+					jsonStr = strings.Replace(jsonStr, "True", "true", -1)   // 将 True 替换为 true
 
-				timestamp, err := time.Parse(time.RFC3339Nano, timestampStr)
-				if err != nil {
-					_ = level.Warn(logger).Log("msg", "parse timestamp failed", "err", err.Error())
-					continue
+					var entry logEntry
+					err := json.Unmarshal([]byte(jsonStr), &entry)
+					if err != nil {
+						level.Info(logger).Log("json.Unmarshal", "unmarshal json failed", "err", err.Error())
+						continue
+					}
+
+					logEntryList = append(logEntryList, entry)
 				}
-
-				jsonStr = strings.Replace(jsonStr, "'", "\"", -1)        // 将单引号替换为双引号
-				jsonStr = strings.Replace(jsonStr, "False", "false", -1) // 将 False 替换为 false
-				jsonStr = strings.Replace(jsonStr, "True", "true", -1)   // 将 True 替换为 true
-
-				var entry logEntry
-				err = json.Unmarshal([]byte(jsonStr), &entry)
-				if err != nil {
-					_ = level.Warn(logger).Log("msg", "unmarshal json failed", "err", err.Error())
-					continue
-				}
-
-				entry.Timestamp = timestamp
-				logEntryList = append(logEntryList, entry)
 			}
 		}
-		if len(logEntryList) < 1 {
-			continue
+		if len(logEntryList) > 1 {
+			lastLine := logEntryList[len(logEntryList)-1]
+			job.ProgressLoss = lastLine.Loss
+			job.ProgressLearningRate = lastLine.LearningRate
+			job.ProgressEpochs = lastLine.Epoch
+			job.Progress = util.RoundToFourDecimalPlaces(lastLine.Epoch / float64(job.TrainEpoch))
 		}
-		lastLine := logEntryList[len(logEntryList)-1]
-		job.ProgressLoss = lastLine.Loss
-		job.ProgressLearningRate = lastLine.LearningRate
-		job.ProgressEpochs = lastLine.Epoch
-		progress := util.RoundToFourDecimalPlaces(lastLine.Epoch / float64(job.TrainEpoch))
-		job.Progress = progress
 		job.TrainLog = jobLog
 		if err = store.FineTuning().UpdateFineTuningJob(ctx, &job); err != nil {
 			_ = level.Warn(logger).Log("msg", "update job log failed", "err", err)

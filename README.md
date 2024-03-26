@@ -173,13 +173,10 @@ graph LR
 
 ### 安装使用步骤
 
-**将子项目一起克**
-
-- 克隆项目: `git clone --recursive https://github.com/IceBearAI/aigc.git`
+- 克隆项目: `git clone https://github.com/IceBearAI/aigc.git`
 - 进入项目: `cd aigc-server`
-- 更新子项目: `git submodule update`
 
-该系统依赖**Mysql**、**Redis**和**Docker**需要安装此服务
+该系统依赖**Docker**需要安装此服务
 
 推理或训练节点只需要安装**Docker**和**Nvidia-Docker**
 即可。[NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-toolkit)
@@ -267,13 +264,14 @@ Flags:
       --service.openai.host string        OpenAI服务地址 (default "https://api.openai.com/v1")
       --service.openai.model string       OpenAI模型名称 (default "gpt-3.5-turbo")
       --service.openai.org.id string      OpenAI OrgId
+      --service.openai.token string       OpenAI Token
 
 Use "aigc-server [command] --help" for more information about a command.
 ```
 
 ##### 启动http服务
 
-执行: `./aigc-server start` 启动服务
+执行: `./aigc-server start --cronjob.auto false` 启动服务
 
 ```
 Usage:
@@ -310,11 +308,20 @@ Flags:
       --tracer.jaeger.param float        Tracer Jaeger Param (default 1)
       --tracer.jaeger.type string        采样器的类型 const: 固定采样, probabilistic: 随机取样, ratelimiting: 速度限制取样, remote: 基于Jaeger代理的取样 (default "const")
       --web.embed                        是否使用embed.FS (default true)
+      --cronjob.auto                     是否自动执行定时任务 (default true)
 ```
 
 ##### 启动定时任务
 
+改模块可以独立启动
+
 执行: `./aigc-server cronjob start` 启动定时任务
+
+定时任务主要有
+
+- 获取模型部署状态
+- 获取训练日志
+- 获取正在等待调度训练的任务
 
 ```
 Usage:
@@ -330,7 +337,38 @@ Flags:
   -h, --help           help for start
 ```
 
-#### 系统公共环境变量配置
+##### 启动参考
+
+**使用命令行传参**
+
+```
+$ export HF_ENDPOINT=https://hf-mirror.com DOCKER_HOST=tcp://127.0.0.1:2376
+$ ./aigc-server-linux-amd64 start \
+    --runtime.gpu.num 4 \
+    --service.fschat.controller.host http://127.0.0.1:21001 \
+    --service.fschat.api.host http://127.0.0.1:8000 \
+    --server.storage.path /data/aigc/storage \
+    --datasets.image dudulu/llmops:latest \
+    --runtime.platform docker \
+    --runtime.docker.workspace /data/aigc/storage\
+```
+
+**使用环境变量启动**
+
+```
+$ export AIGC_RUNTIME_GPU_NUM=4 
+$ export AIGC_FSCHAT_CONTROLLER_ADDRESS=http://127.0.0.1:21001 
+$ export AIGC_SERVICE_CHAT_API_HOST=http://127.0.0.1:8000 
+$ export HF_ENDPOINT=https://hf-mirror.com 
+$ export AIGC_ADMIN_SERVER_STORAGE_PATH=/data/aigc/storage
+$ export AIGC_DATASETS_IMAGE=dudulu/llmops:latest
+$ export AIGC_RUNTIME_PLAORM=docker DOCKER_HOST=tcp://127.0.0.1:2376 
+$ export AIGC_RUNTIME_DOCKER_WORKSPACE=/data/aigc/storage
+$ export AIGC_ADMIN_SERVER_DOMAIN=http://127.0.0.1:8080
+$ ./aigc-server-linux-amd64 start
+```
+
+#### 系统环境变量配置
 
 可以修改`.env`调整相关配置
 
@@ -382,13 +420,17 @@ chat的一些配置，假设使用的FastChat作为服务的推理框架，则�
 
 如果还有使用OpenAI的相关模型，则设置OpenAI的相关信息。
 
-| 变量名                           | 描述            | 值                           |
-|-------------------------------|---------------|-----------------------------|
-| `AIGC_SERVICE_CHAT_API_HOST`  | 聊天API服务地址     | `http://fschat-api:8000/v1` |
-| `AIGC_SERVICE_CHAT_API_TOKEN` | 聊天API服务访问令牌   |                             |
-| `AIGC_SERVICE_OPENAI_ORG_ID`  | OpenAI 组织ID   |                             |
-| `AIGC_SERVICE_OPENAI_HOST`    | OpenAI 服务地址   | `https://api.openai.com/v1` |
-| `AIGC_SERVICE_OPENAI_TOKEN`   | OpenAI 服务访问令牌 |                             |
+- `AIGC_SERVICE_CHAT_API_HOST`: 指的就是我们启动的fschat-api的服务地址，也就是模型推理地下
+- `AIGC_FSCHAT_CONTROLLER_ADDRESS`: 指的就是我们启动的fschat-controller的地址，模型部署时会将该变理注入进去模型启动后会将信息注册到该地址
+
+| 变量名                              | 描述                     | 值                                |
+|----------------------------------|------------------------|----------------------------------|
+| `AIGC_SERVICE_CHAT_API_HOST`     | 聊天API服务地址              | `http://fschat-api:8000`         |
+| `AIGC_SERVICE_CHAT_API_TOKEN`    | 聊天API服务访问令牌            |                                  |
+| `AIGC_SERVICE_OPENAI_ORG_ID`     | OpenAI 组织ID            |                                  |
+| `AIGC_SERVICE_OPENAI_HOST`       | OpenAI 服务地址            | `https://api.openai.com/v1`      |
+| `AIGC_SERVICE_OPENAI_TOKEN`      | OpenAI 服务访问令牌          |                                  |
+| `AIGC_FSCHAT_CONTROLLER_ADDRESS` | FastChat Controller的地址 | `http://fschat-controller:21001` |
 
 ##### S3 存储配置
 
@@ -450,10 +492,14 @@ chat的一些配置，假设使用的FastChat作为服务的推理框架，则�
 当`AIGC_RUNTIME_PLATFORM`设置为`docker`时可设置Docker本身支持的变量，如：`DOCKER_`开头的相关环境变量
 
 - `AIGC_RUNTIME_DOCKER_WORKSPACE` 是指本机的模型目录，会映射到运行模型容器里的`/data/`目录。
+- `AIGC_RUNTIME_GPU_NUM` 当前主机的GPU总数量，如果不设置默认是`8`，默认会从第`0`块卡启动
+-
 
-要使用Docker API创建容器并挂载NVIDIA GPU，你需要确保你的系统上安装了NVIDIA Docker支持（例如nvidia-docker2）并且Docker守护进程配置正确。以下是使用Docker Engine API创建容器并挂载NVIDIA GPU的基本步骤：
+要使用Docker API创建容器并挂载NVIDIA GPU，你需要确保你的系统上安装了NVIDIA
+Docker支持（例如nvidia-docker2）并且Docker守护进程配置正确。以下是使用Docker Engine API创建容器并挂载NVIDIA GPU的基本步骤：
 
-确保你的Docker守护进程启用了NVIDIA GPU支持。这通常意味着你需要在Docker守护进程的配置文件中添加默认的运行时，例如`/etc/docker/daemon.json`：
+确保你的Docker守护进程启用了NVIDIA
+GPU支持。这通常意味着你需要在Docker守护进程的配置文件中添加默认的运行时，例如`/etc/docker/daemon.json`：
 
 ```json
 {
@@ -465,6 +511,35 @@ chat的一些配置，假设使用的FastChat作为服务的推理框架，则�
     }
   }
 }
+```
+
+需要注意的是`DOCKER_HOST`暂时只支持tcp连接docker，使用`unix:///run/containerd/containerd.sock`
+
+- `DOCKER_HOST=tcp://127.0.0.1:2376`
+
+**配置docker**
+
+使用`systemctl status docker`查看`Unit`的位置，通常会在`/usr/lib/systemd/system/docker.service`
+
+在`ExecStart=/usr/bin/dockerd`后面加上`-H tcp://0.0.0.0:2376`，保存后重启动docker
+
+```
+[Service]
+Type=notify
+# the default is not to use systemd for cgroups because the delegate issues still
+# exists and systemd currently does not support the cgroup feature set required
+# for containers run by docker
+ExecStart=/usr/bin/dockerd -H tcp://0.0.0.0:2376 -H fd:// --containerd=/run/containerd/containerd.sock
+ExecReload=/bin/kill -s HUP $MAINPID
+TimeoutStartSec=0
+RestartSec=2
+Restart=always
+```
+
+**重启docker**
+
+```
+$ systemctl daemon-reload && systemctl restart docker
 ```
 
 ###### k8s 平台
@@ -481,6 +556,8 @@ kubernetes支持两种方式连接
 
 - `AIGC_RUNTIME_K8S_NAMESPACE`: 最终创建的job或deployment所在的空间，默认是`default`
 - `AIGC_RUNTIME_K8S_VOLUME_NAME`: 存储的PVC名称，会将它挂载到容器的`/data`目录
+  > 如果`AIGC_RUNTIME_K8S_VOLUME_NAME=aigc-data`
+  > 会在`AIGC_RUNTIME_DOCKER_WORKSPACE`下的`aigc-data`目录
 
 | 变量名                             | 描述                | 值                  |
 |---------------------------------|-------------------|--------------------|
@@ -493,6 +570,7 @@ kubernetes支持两种方式连接
 | `AIGC_RUNTIME_K8S_VOLUME_NAME`  | Kubernetes 卷名称    | `aigc-data`        |
 | `AIGC_RUNTIME_SHM_SIZE`         | 共享内存大小            | `16G`              |
 | `AIGC_RUNTIME_DOCKER_WORKSPACE` | Docker 工作空间       | `/tmp`             |
+| `AIGC_RUNTIME_GPU_NUM`          | 当前主机的GPU总数量       | `8`                |
 
 ##### Datasets
 
@@ -512,13 +590,10 @@ kubernetes支持两种方式连接
 | 变量名           | 描述                  | 值                       |
 |---------------|---------------------|-------------------------|
 | `HF_ENDPOINT` | Hugging Face 终端地址   | `https://hf-mirror.com` |
-| `HF_HOME`     | Hugging Face 内容缓存目录 | `~/.cache/huggingface`  |
+| `HF_HOME`     | Hugging Face 内容缓存目录 | `/data/hf`              |
 | `HTTP_PROXY`  | HTTP代理              |                         |
 | `HTTPS_PROXY` | HTTPS代理             |                         |
 | `NO_PROXY`    | 不使用代理的地址            |                         |
-
-
-## Docker 部署
 
 ## Docker镜像
 
@@ -538,5 +613,5 @@ $ docker buildx create --driver-opt image=moby/buildkit:master --name builder --
 $ docker buildx inspect --bootstrap
 $ docker buildx create --platform linux/amd64,linux/arm64
 $ docker login
-$ docker buildx build --push -t dudulu/aigc-server:v0.0.0-bet03 --platform linux/amd64,linux/arm64 .
+$ docker buildx build --push -t dudulu/aigc-server:latest --platform linux/amd64,linux/arm64 .
 ```

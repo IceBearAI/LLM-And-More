@@ -1,11 +1,11 @@
 version: "3"
 services:
   aigc-server:
-    image: dudulu/aigc-server:v0.0.0-beta01
+    image: dudulu/aigc-server:v0.0.0-beta05
     restart: always
-    build:
-      context: .
-      dockerfile: Dockerfile
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
     ports:
       - "8080:8080"
     env_file:
@@ -14,18 +14,35 @@ services:
       - aigc-server
       - start
     volumes:
-      - .cache:/usr/local/aigc-server/storage
-  aigc-server-cronjob:
-    image: dudulu/aigc-server:v0.0.0-beta01
+      - ./storage:/usr/local/aigc-server/storage
+    network_mode: host
+  fschat-controller:
+    image: dudulu/fschat:v0.2.36
     restart: always
-    build:
-      context: .
-      dockerfile: Dockerfile
-    env_file:
-      - .env
+    ports:
+      - "21001:21001"
     command:
-      - aigc-server
-      - cronjob
-      - start
-    volumes:
-      - .cache:/usr/local/aigc-server/storage
+      - python3
+      - -m
+      - fastchat.serve.controller
+      - --host
+      - '0.0.0.0'
+      - --port
+      - '21001'
+    network_mode: host
+  fschat-api:
+    image: dudulu/fschat:v0.2.36
+    restart: always
+    ports:
+      - "8000:8000"
+    command:
+      - python3
+      - -m
+      - fastchat.serve.openai_api_server
+      - --host
+      - '0.0.0.0'
+      - --port
+      - '8000'
+      - --controller-address
+      - http://localhost:21001
+    network_mode: host

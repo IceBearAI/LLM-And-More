@@ -41,8 +41,8 @@ type TenantAccountAssociations struct {
 	ID        uint `gorm:"primarykey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	TenantID  uint `gorm:"column:tenant_id;type:bigint(20) unsigned;NOT NULL"`  // 租户ID
-	AccountID uint `gorm:"column:account_id;type:bigint(20) unsigned;NOT NULL"` // 账户ID
+	TenantID  uint `gorm:"column:tenant_id;type:bigint(20);NOT NULL"`  // 租户ID
+	AccountID uint `gorm:"column:account_id;type:bigint(20);NOT NULL"` // 账户ID
 }
 
 func (m *TenantAccountAssociations) TableName() string {

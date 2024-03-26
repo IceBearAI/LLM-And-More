@@ -406,11 +406,13 @@ def job_finished(status: str = "success", message: str = ""):
     job_id = os.getenv("JOB_ID")
     authorization = os.getenv("AUTH")
     api_url = os.getenv("API_URL")
+    tenant_id = os.getenv("TENANT_ID")
     if not api_url:
-        api_url = 'http://aigc-server:8080/v1/fine_tuning/jobs/' + job_id + '/finish'
+        api_url = 'http://aigc-server:8080/v1/finetuning/jobs/' + job_id + '/finish'
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + authorization
+        'Authorization': 'Bearer ' + authorization,
+        'X-Tenant-Id': tenant_id
     }
     data = {"status": status, "message": message}
 

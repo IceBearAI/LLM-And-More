@@ -220,3 +220,13 @@ func RoundToTwoDecimalPlaces(f float64) float64 {
 func RoundToFourDecimalPlaces(f float64) float64 {
 	return math.Round(f*10000) / 10000
 }
+
+func ReplacerServiceName(name string) string {
+	replacer := strings.NewReplacer(
+		"_", "-",
+		".", "-",
+		"::", "-", // 这个可能不需要，因为前一个已经将单个冒号替换了
+		":", "-",
+	)
+	return replacer.Replace(name)
+}

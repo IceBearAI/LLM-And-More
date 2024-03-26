@@ -194,6 +194,10 @@ func start(ctx context.Context) (err error) {
 	//initGRPCHandler(g)
 	initCancelInterrupt(ctx, g)
 
+	if cronJobAuto {
+		autoCronjobHandler(ctx, g)
+	}
+
 	_ = level.Error(logger).Log("server exit", g.Run())
 	return nil
 }
@@ -344,7 +348,6 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 	}, func(e error) {
 		closeConnection(ctx)
 		_ = level.Error(httpLogger).Log("transport", "HTTP", "httpListener.Close", "http", "err", e)
-		_ = level.Debug(logger).Log("db", "close", "err", db.Close())
 		//if rdb != nil {
 		//	_ = level.Debug(logger).Log("rdb", "close", "err", rdb.Close())
 		//}
@@ -370,6 +373,16 @@ func initCancelInterrupt(ctx context.Context, g *group.Group) {
 	}, func(err error) {
 		close(cancelInterrupt)
 	})
+}
+
+func autoCronjobHandler(ctx context.Context, g *group.Group) {
+	g.Add(func() error {
+		return cronStart(ctx, cronJobNames)
+	}, func(err2 error) {
+		closeConnection(ctx)
+		_ = level.Warn(logger).Log("")
+	})
+
 }
 
 var localAddr string

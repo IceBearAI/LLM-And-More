@@ -1,0 +1,107 @@
+{
+  "welcome": "Bienvenido a usar",
+  "appName": "aigc-admin-web",
+  "homePage": "Página de inicio",
+  "aiAssistant": "Asistente de Ia",
+  "toolsList": "Lista de herramientas",
+  "assistantList": "Lista de asistentes",
+  "sampleLibrary": "Banco de muestras",
+  "soundSample": "Muestra de sonido",
+  "textSample": "Muestra de texto",
+  "fine-tuneSampleList": "Ajustar la lista de muestras",
+  "dataSampleList": "Lista de muestras de datos",
+  "textAnnotationList": "Lista de etiquetas de texto",
+  "intelligentVoiceprint": "Huella vocal inteligente",
+  "voiceprintLibrary": "Lista de bibliotecas de huellas vocales",
+  "voiceprintCompareList": "Lista de comparación de huellas vocales",
+  "audioAnnotation": "Etiquetado de audio",
+  "voiceServices": "Servicio de voz",
+  "voiceToText": "Sonido a texto",
+  "voiceSynthesis": "Síntesis sonora",
+  "speakerManagement": "Gestión de vocalistas",
+  "voiceList": "Lista de sonidos",
+  "syntheticSound": "Sonido sintético",
+  "voiceDenoiseList": "Lista de reducción de ruido",
+  "videoService": "Servicios de vídeo",
+  "digitalHuman": "Hombre digital",
+  "characterList": "Lista de perfiles",
+  "videoList": "Lista de vídeos",
+  "textModel": "Modelo de texto",
+  "modelManagement": "Gestión de modelos",
+  "modelList": "Lista de modelos",
+  "modelChatPlayground": "Patio de recreo de chat modelo",
+  "modelFine-tuning": "Ajuste fino del modelo",
+  "fine-tuneTasks": "Tareas de ajuste fino",
+  "sceneManagement": "Gestión de escenarios",
+  "sceneList": "Lista de escenas",
+  "systemManagement": "Gestión del sistema",
+  "menuManagement": "Gestión de menús",
+  "accountManagement": "Gestión de cuentas",
+  "roleManagement": "Gestión de roles",
+  "systemDictionary": "Diccionario del sistema",
+  "templateManagement": "Gestión de plantillas",
+  "fileName": "Nombre del archivo",
+  "language": "Idiomas",
+  "duration": "Duración",
+  "size": "Tamaño",
+  "tryListening": "Audición",
+  "operation": "Operación",
+  "cancel": "Cancelación",
+  "confirm": "Determinar",
+  "save": "Guardar",
+  "close": "Cierre",
+  "more": "Más",
+  "noData": "No hay datos por el momento",
+  "api": {
+    "success": "Operación exitosa"
+  },
+  "pane": {
+    "closeTip": "Cierre la ventana emergente",
+    "errorMsg": "Por favor, procese el lugar equivocado de la página antes de intentar enviar"
+  },
+  "aiAudio": {
+    "loadingText": "En el procesamiento de audio...",
+    "noUrl": "No se detectan archivos de audio"
+  },
+  "options": {
+    "boolean": {
+      "true": "Sí",
+      "false": "No"
+    },
+    "markLanguage": {
+      "zh": "Chino",
+      "en": "Inglés",
+      "es": "Español",
+      "de": "Alemán",
+      "tl": "Filipino",
+      "fil": "Filipino"
+    }
+  },
+  "audioMark": {
+    "taggedStatus": "Estado de la etiqueta",
+    "alertBlock": "Consultar el contenido de acuerdo con el Estado de la etiqueta",
+    "audio": "Audio",
+    "confirm delete": "¿¿ está seguro de abandonar",
+    "tableHeader": {
+      "taggedStatus": "Si marcar",
+      "originalContent": "Contenido original",
+      "taggedContent": "Contenido después del estándar",
+      "taggedLanguage": "Idioma después del estándar",
+      "updatedAt": "Marcar el tiempo",
+      "lastOperator": "Marcar usuario",
+      "mark": "Etiquetado",
+      "confirm": "Determinar",
+      "discard": "Abandono",
+      "audioNameTip": "Haga clic para realizar la operación de etiquetado",
+      "exportBtn": "Exportar"
+    },
+    "pane": {
+      "originalContent": "Contenido original del audio",
+      "originalLanguage": "Idioma original del audio",
+      "taggedContent": "Contenido modificado",
+      "ruleTaggedContent": "Por favor, introduzca el contenido modificado.",
+      "taggedLanguage": "Idioma modificado",
+      "ruleTaggedLanguage": "Por favor, elija el idioma modificado"
+    }
+  }
+}
