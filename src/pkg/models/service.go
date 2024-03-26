@@ -292,7 +292,9 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		_ = level.Warn(logger).Log("repository.FineTuning", "FindFineTuningTemplateByModel", "err", err.Error())
 		return err
 	}
-	modelPath = baseModelTemplate.BaseModelPath
+	if !m.IsFineTuning {
+		modelPath = baseModelTemplate.BaseModelPath
+	}
 	minPort := 1024
 	maxPort := 65535
 	randomPort := rand.Intn(maxPort-minPort+1) + minPort

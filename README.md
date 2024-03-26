@@ -178,7 +178,8 @@ graph LR
 
 该系统依赖**Docker**需要安装此服务
 
-推理或训练节点只需要安装**Docker**和**Nvidia-Docker**即可。[NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-toolkit)
+推理或训练节点只需要安装**Docker**和**Nvidia-Docker**
+即可。[NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-toolkit)
 
 #### 本地开发
 
@@ -336,7 +337,38 @@ Flags:
   -h, --help           help for start
 ```
 
-#### 系统公共环境变量配置
+##### 启动参考
+
+**使用命令行传参**
+
+```
+$ export HF_ENDPOINT=https://hf-mirror.com DOCKER_HOST=tcp://127.0.0.1:2376
+$ ./aigc-server-linux-amd64 start \
+    --runtime.gpu.num 4 \
+    --service.fschat.controller.host http://127.0.0.1:21001 \
+    --service.fschat.api.host http://127.0.0.1:8000 \
+    --server.storage.path /data/aigc/storage \
+    --datasets.image dudulu/llmops:latest \
+    --runtime.platform docker \
+    --runtime.docker.workspace /data/aigc/storage\
+```
+
+**使用环境变量启动**
+
+```
+$ export AIGC_RUNTIME_GPU_NUM=4 
+$ export AIGC_FSCHAT_CONTROLLER_ADDRESS=http://127.0.0.1:21001 
+$ export AIGC_SERVICE_CHAT_API_HOST=http://127.0.0.1:8000 
+$ export HF_ENDPOINT=https://hf-mirror.com 
+$ export AIGC_ADMIN_SERVER_STORAGE_PATH=/data/aigc/storage
+$ export AIGC_DATASETS_IMAGE=dudulu/llmops:latest
+$ export AIGC_RUNTIME_PLAORM=docker DOCKER_HOST=tcp://127.0.0.1:2376 
+$ export AIGC_RUNTIME_DOCKER_WORKSPACE=/data/aigc/storage
+$ export AIGC_ADMIN_SERVER_DOMAIN=http://127.0.0.1:8080
+$ ./aigc-server-linux-amd64 start
+```
+
+#### 系统环境变量配置
 
 可以修改`.env`调整相关配置
 
@@ -461,10 +493,13 @@ chat的一些配置，假设使用的FastChat作为服务的推理框架，则�
 
 - `AIGC_RUNTIME_DOCKER_WORKSPACE` 是指本机的模型目录，会映射到运行模型容器里的`/data/`目录。
 - `AIGC_RUNTIME_GPU_NUM` 当前主机的GPU总数量，如果不设置默认是`8`，默认会从第`0`块卡启动
-- 
-要使用Docker API创建容器并挂载NVIDIA GPU，你需要确保你的系统上安装了NVIDIA Docker支持（例如nvidia-docker2）并且Docker守护进程配置正确。以下是使用Docker Engine API创建容器并挂载NVIDIA GPU的基本步骤：
+-
 
-确保你的Docker守护进程启用了NVIDIA GPU支持。这通常意味着你需要在Docker守护进程的配置文件中添加默认的运行时，例如`/etc/docker/daemon.json`：
+要使用Docker API创建容器并挂载NVIDIA GPU，你需要确保你的系统上安装了NVIDIA
+Docker支持（例如nvidia-docker2）并且Docker守护进程配置正确。以下是使用Docker Engine API创建容器并挂载NVIDIA GPU的基本步骤：
+
+确保你的Docker守护进程启用了NVIDIA
+GPU支持。这通常意味着你需要在Docker守护进程的配置文件中添加默认的运行时，例如`/etc/docker/daemon.json`：
 
 ```json
 {
@@ -476,6 +511,35 @@ chat的一些配置，假设使用的FastChat作为服务的推理框架，则�
     }
   }
 }
+```
+
+需要注意的是`DOCKER_HOST`暂时只支持tcp连接docker，使用`unix:///run/containerd/containerd.sock`
+
+- `DOCKER_HOST=tcp://127.0.0.1:2376`
+
+**配置docker**
+
+使用`systemctl status docker`查看`Unit`的位置，通常会在`/usr/lib/systemd/system/docker.service`
+
+在`ExecStart=/usr/bin/dockerd`后面加上`-H tcp://0.0.0.0:2376`，保存后重启动docker
+
+```
+[Service]
+Type=notify
+# the default is not to use systemd for cgroups because the delegate issues still
+# exists and systemd currently does not support the cgroup feature set required
+# for containers run by docker
+ExecStart=/usr/bin/dockerd -H tcp://0.0.0.0:2376 -H fd:// --containerd=/run/containerd/containerd.sock
+ExecReload=/bin/kill -s HUP $MAINPID
+TimeoutStartSec=0
+RestartSec=2
+Restart=always
+```
+
+**重启docker**
+
+```
+$ systemctl daemon-reload && systemctl restart docker
 ```
 
 ###### k8s 平台

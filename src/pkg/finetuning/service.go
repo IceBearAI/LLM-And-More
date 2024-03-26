@@ -441,8 +441,7 @@ func (s *service) _createFineTuningJob(ctx context.Context, jobId string) (err e
 	}
 	jobInfo.TrainScript = tplContent
 
-	serviceName := strings.ReplaceAll(strings.ReplaceAll(jobInfo.FineTunedModel, "::", "-"), ":", "-")
-	serviceName = strings.ReplaceAll(serviceName, ".", "-")
+	serviceName := util.ReplacerServiceName(jobInfo.FineTunedModel)
 	gpuTolerationValue := s.options.gpuTolerationValue
 
 	tenantUUid, _ := ctx.Value(middleware.ContextKeyPublicTenantId).(string)
