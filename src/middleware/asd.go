@@ -149,6 +149,11 @@ func uriWhitelist(uri string, uriArray []string) bool {
 	if strings.EqualFold(uri, "/") {
 		return true
 	}
+	regex := regexp.MustCompile(`^/api/finetuning/([A-Za-z0-9_-]+)/finish$`)
+	matches := regex.FindStringSubmatch(uri)
+	if len(matches) > 1 {
+		return true
+	}
 	for _, v := range uriArray {
 		if strings.EqualFold(v, uri) {
 			return true

@@ -206,7 +206,7 @@ func NewEndpoint(s Service, dwm map[string][]endpoint.Middleware) Endpoints {
 		eps.DeleteJobEndpoint = m(eps.DeleteJobEndpoint)
 		eps.GetJobEndpoint = m(eps.GetJobEndpoint)
 		eps.EstimateEndpoint = m(eps.EstimateEndpoint)
-		eps.UpdateJobFinishedStatusEndpoint = m(eps.UpdateJobFinishedStatusEndpoint)
+		//eps.UpdateJobFinishedStatusEndpoint = m(eps.UpdateJobFinishedStatusEndpoint)
 	}
 	return eps
 }

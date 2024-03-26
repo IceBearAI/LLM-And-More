@@ -26,7 +26,7 @@ const (
 // ModelEvaluate 模型评测
 type ModelEvaluate struct {
 	gorm.Model
-	ModelId        int     `gorm:"column:model_id;type:bigint(20) unsigned;NOT NULL"`         // 模型表主键 models.id
+	ModelId        int     `gorm:"column:model_id;type:bigint(20);NOT NULL"`                  // 模型表主键 models.id
 	ModelPath      string  `gorm:"column:model_path;type:varchar(255);NOT NULL"`              // 模型部署路径
 	Status         string  `gorm:"column:status;type:varchar(32)"`                            // 状态
 	StatusMsg      string  `gorm:"column:status_msg;type:varchar(1000)"`                      // 状态原因

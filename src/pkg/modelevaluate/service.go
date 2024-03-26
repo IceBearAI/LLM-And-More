@@ -10,6 +10,7 @@ import (
 	"github.com/IceBearAI/aigc/src/repository/types"
 	"github.com/IceBearAI/aigc/src/services"
 	"github.com/IceBearAI/aigc/src/services/runtime"
+	"github.com/IceBearAI/aigc/src/util"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -145,9 +146,7 @@ func (s *service) Create(ctx context.Context, req createRequest) (err error) {
 		return
 	}
 
-	serviceName := strings.ReplaceAll(modelInfo.ModelName, ":", "-")
-	serviceName = strings.ReplaceAll(modelInfo.ModelName, "::", "-")
-	serviceName = strings.ReplaceAll(modelInfo.ModelName, ".", "-")
+	serviceName := util.ReplacerServiceName(modelInfo.ModelName)
 
 	var (
 		baseModel = modelInfo.ModelName
