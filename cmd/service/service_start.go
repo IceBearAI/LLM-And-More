@@ -382,7 +382,6 @@ func autoCronjobHandler(ctx context.Context, g *group.Group) {
 		closeConnection(ctx)
 		_ = level.Warn(logger).Log("")
 	})
-
 }
 
 var localAddr string

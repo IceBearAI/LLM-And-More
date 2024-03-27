@@ -151,7 +151,7 @@ const (
 	DefaultRuntimeK8sVolumeName = ""
 
 	// [cronjob]
-	AigcEnvNameCronJobAuto = "AIGC_CRONJOB_AUTO"
+	EnvNameCronJobAuto = "AIGC_CRONJOB_AUTO"
 
 	DefaultDbDrive       = "sqlite"
 	DefaultMysqlHost     = "mysql"
@@ -659,7 +659,7 @@ func Run() {
 	serverAdminUser = envString(EnvNameServerAdminPass, DefaultServerAdminPass)
 	serverStoragePath = envString(EnvNameServerStoragePath, defaultStoragePath)
 	serverDomain = envString(EnvNameServerDomain, fmt.Sprintf("http://localhost%s", httpAddr))
-	cronJobAuto, _ = strconv.ParseBool(envString(AigcEnvNameCronJobAuto, "true"))
+	cronJobAuto, _ = strconv.ParseBool(envString(EnvNameCronJobAuto, "true"))
 
 	// [service.gpt]
 	serviceOpenAiEnable, _ = strconv.ParseBool(envString(EnvNameServiceOpenAiEnable, "false"))

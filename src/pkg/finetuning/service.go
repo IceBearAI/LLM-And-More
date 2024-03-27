@@ -68,6 +68,7 @@ type CreationOptions struct {
 	gpuTolerationValue string
 	callbackHost       string
 	volumeName         string
+	convertUrlFun      func(fileUrl string) string
 }
 
 // CreationOption is a creation option for the faceswap service.
@@ -91,6 +92,13 @@ func WithCallbackHost(host string) CreationOption {
 func WithVolumeName(volumeName string) CreationOption {
 	return func(co *CreationOptions) {
 		co.volumeName = volumeName
+	}
+}
+
+// WithConvertUrl returns a CreationOption that sets the callback host.
+func WithConvertUrl(convertFunc func(fileUrl string) string) CreationOption {
+	return func(co *CreationOptions) {
+		co.convertUrlFun = convertFunc
 	}
 }
 
@@ -183,6 +191,8 @@ func (s *service) _createJob(ctx context.Context, tenantId, channelId uint, trai
 
 	fineTunedModel := fmt.Sprintf("ft::%s:%d-%s", baseModel, tenantId, suffix)
 
+	serviceName := util.ReplacerServiceName(fineTunedModel)
+
 	// 创建job
 	ftJob := &types.FineTuningTrainJob{
 		JobId:          uuid.New().String(),
@@ -192,7 +202,7 @@ func (s *service) _createJob(ctx context.Context, tenantId, channelId uint, trai
 		TrainEpoch:     epochs,
 		BaseModelPath:  ftJobTpl.BaseModelPath,
 		DataPath:       fmt.Sprintf("/data/train-data/%s", trainingFileId),
-		OutputDir:      fmt.Sprintf("%s/ft-%s-%d-%s", ftJobTpl.OutputDir, baseModel, tenantId, strings.ReplaceAll(strings.ReplaceAll(suffix, ".", "-"), ":", "-")),
+		OutputDir:      fmt.Sprintf("%s/ft-%s-%d-%s", ftJobTpl.OutputDir, baseModel, tenantId, serviceName),
 		ScriptFile:     ftJobTpl.ScriptFile,
 		MasterPort:     rand.IntnRange(20000, 30000),
 		FileUrl:        panUrl,
@@ -787,7 +797,7 @@ func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url
 		return
 	}
 
-	return fileUrl, nil
+	return s.options.convertUrlFun(fileUrl), nil
 }
 
 func New(traceId string, logger log.Logger, store repository.Repository, fileSvc files.Service, apiSvc services.Service, opts ...CreationOption) Service {
@@ -795,6 +805,9 @@ func New(traceId string, logger log.Logger, store repository.Repository, fileSvc
 	options := &CreationOptions{
 		callbackHost: "http://aigc-server:8080",
 		//volumeName:   "aigc-data-cfs",
+		convertUrlFun: func(fileUrl string) string {
+			return fileUrl
+		},
 	}
 	for _, opt := range opts {
 		opt(options)

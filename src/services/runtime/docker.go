@@ -34,6 +34,8 @@ type docker struct {
 }
 
 func (s docker) CreateJob(ctx context.Context, config Config) (jobName string, err error) {
+	_ = s.RemoveJob(ctx, config.ServiceName)
+
 	exposedPorts := make(nat.PortSet)
 	hostPortBindings := make(nat.PortMap)
 	hostBinds := make([]string, 0)

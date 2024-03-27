@@ -21,7 +21,7 @@ type Service interface {
 	// FindFiveGraphLastByModelId 获取最新的五维图信息
 	FindFiveGraphLastByModelId(ctx context.Context, modelId, evaluateId uint) (res types.ModelEvaluate, err error)
 	// CountEvaluate 数量统计
-	CountEvaluate(ctx context.Context, evalTargetType string, status []string) (res int64, err error)
+	CountEvaluate(ctx context.Context, modelId int, evalTargetType string, status []string) (res int64, err error)
 	// GetByUuid 获取详情
 	GetByUuid(ctx context.Context, uuid string) (res types.ModelEvaluate, err error)
 	// IsExistFiveByModelId 判断模型是否五维图数据
@@ -69,7 +69,7 @@ func (s *service) DeleteById(ctx context.Context, id uint) (err error) {
 func (s *service) FindFiveGraphLastByModelId(ctx context.Context, modelId, evaluateId uint) (res types.ModelEvaluate, err error) {
 	query := s.db.WithContext(ctx).Model(&types.ModelEvaluate{}).Preload("Models")
 
-	query = query.Where("model_id = ?", modelId)
+	query = query.Where("model_id = ?", modelId).Where("status = ?", string(types.EvaluateStatusSuccess)).Where("eval_target_type = ?", string(types.EvaluateTargetTypeFive))
 
 	if evaluateId > 0 {
 		query = query.Where("id = ?", evaluateId)
@@ -80,8 +80,8 @@ func (s *service) FindFiveGraphLastByModelId(ctx context.Context, modelId, evalu
 	return
 }
 
-func (s *service) CountEvaluate(ctx context.Context, evalTargetType string, status []string) (res int64, err error) {
-	query := s.db.WithContext(ctx).Model(&types.ModelEvaluate{})
+func (s *service) CountEvaluate(ctx context.Context, modelId int, evalTargetType string, status []string) (res int64, err error) {
+	query := s.db.WithContext(ctx).Model(&types.ModelEvaluate{}).Where("model_id = ?", modelId)
 
 	if !strings.EqualFold(evalTargetType, "") {
 		query = query.Where("eval_target_type = ?", evalTargetType)
