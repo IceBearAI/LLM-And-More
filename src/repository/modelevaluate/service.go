@@ -69,7 +69,7 @@ func (s *service) DeleteById(ctx context.Context, id uint) (err error) {
 func (s *service) FindFiveGraphLastByModelId(ctx context.Context, modelId, evaluateId uint) (res types.ModelEvaluate, err error) {
 	query := s.db.WithContext(ctx).Model(&types.ModelEvaluate{}).Preload("Models")
 
-	query = query.Where("model_id = ?", modelId).Where("status = ?", string(types.EvaluateStatusSuccess)).Where("eval_target_type = ?", string(types.EvaluateTargetTypeFive))
+	query = query.Where("model_id = ?", modelId)
 
 	if evaluateId > 0 {
 		query = query.Where("id = ?", evaluateId)

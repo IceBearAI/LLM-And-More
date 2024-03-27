@@ -491,11 +491,11 @@ func (s *service) EvalFinish(ctx context.Context, req finishRequest) (err error)
 
 		if data0.Status == "success" {
 			info.Status = string(types.EvaluateStatusSuccess)
-			info.Five1 = data0.Data.ChineseLanguageSkill
-			info.Five2 = data0.Data.InferenceAbility
-			info.Five3 = data0.Data.CommandCompliance
-			info.Five4 = data0.Data.InnovationCapacity
-			info.Five5 = data0.Data.ReadingComprehension
+			info.Five1 = data0.Data.ChineseLanguageSkill * 10
+			info.Five2 = data0.Data.InferenceAbility * 10
+			info.Five3 = data0.Data.CommandCompliance * 10
+			info.Five4 = data0.Data.InnovationCapacity * 10
+			info.Five5 = data0.Data.ReadingComprehension * 10
 			info.Score, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", info.Five1+info.Five2+info.Five3+info.Five4+info.Five5), 64)
 		} else {
 			info.Status = string(types.EvaluateStatusFailed)

@@ -116,6 +116,11 @@ func (s *service) TemplateCreate(ctx context.Context, req templateCreateRequest)
 		Lora:          req.Lora,
 		Enabled:       req.Enabled,
 		TemplateType:  req.TemplateType,
+		GpuLabel:      req.GpuLabel,
+		ParallelNum:   req.ParallelNum,
+		K8sCluster:    req.K8sCluster,
+		Cpu:           req.Cpu,
+		Memory:        req.Memory,
 	}
 
 	err = s.store.Sys().SaveFineTuningTemplate(ctx, data)
@@ -129,7 +134,6 @@ func (s *service) TemplateCreate(ctx context.Context, req templateCreateRequest)
 
 func (s *service) TemplateUpdate(ctx context.Context, req templateCreateRequest) (err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "TemplateUpdate")
-	fmt.Println("XXX", req)
 	templateInfo, err := s.store.Sys().GetFineTuningTemplate(ctx, req.Name)
 	if err != nil {
 		_ = level.Error(logger).Log("s.store.Sys", "GetFineTuningTemplate", "err", err.Error())
@@ -155,6 +159,12 @@ func (s *service) TemplateUpdate(ctx context.Context, req templateCreateRequest)
 	templateInfo.MaxTokens = maxTokens
 	templateInfo.Lora = req.Lora
 	templateInfo.Enabled = req.Enabled
+	templateInfo.GpuLabel = req.GpuLabel
+	templateInfo.ParallelNum = req.ParallelNum
+	templateInfo.K8sCluster = req.K8sCluster
+	templateInfo.Cpu = req.Cpu
+	templateInfo.Memory = req.Memory
+	templateInfo.TemplateType = req.TemplateType
 
 	err = s.store.Sys().SaveFineTuningTemplate(ctx, &templateInfo)
 	if err != nil {

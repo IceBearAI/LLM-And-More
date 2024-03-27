@@ -146,6 +146,10 @@ func decodeDeleteChannelRequest(ctx context.Context, r *http.Request) (interface
 
 func decodeListChannelModelsRequest(ctx context.Context, r *http.Request) (interface{}, error) {
 	req := ListChannelModelsRequest{}
+	req.BaseModelName = r.URL.Query().Get("baseModelName")
+	req.ModelType = r.URL.Query().Get("modelType")
+	req.ProviderName = r.URL.Query().Get("providerName")
+	req.EvalTag = r.URL.Query().Get("evalTag")
 	return req, nil
 }
 
@@ -172,7 +176,7 @@ func encodeChatCompletionsStreamResponse(ctx context.Context, writer http.Respon
 	}
 	flushWriter := writer.(http.Flusher)
 	writer.Header().Set("Content-Type", "application/octet-stream")
-	writer.Header().Set("aigc-model", "chat/stream")
+	writer.Header().Set("Paas-model", "chat/stream")
 	//writer.Header().Set("Transfer-Encoding", "chunked")
 	writer.WriteHeader(http.StatusOK)
 	traceId, _ := ctx.Value("traceId").(string)
