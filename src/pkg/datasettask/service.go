@@ -323,6 +323,12 @@ func (s *service) GetTaskSegmentNext(ctx context.Context, tenantId uint, taskId 
 		_ = level.Warn(logger).Log("msg", "get task segment next failed", "err", err)
 		return
 	}
+	if strings.TrimSpace(segment.Instruction) == "" {
+		if prevSegment, err := s.repository.DatasetTask().GetTaskSegmentPrev(ctx, task.ID, types.DatasetAnnotationStatusCompleted); err == nil {
+			segment.Instruction = prevSegment.Instruction
+		}
+	}
+
 	res = taskSegmentDetail{
 		UUID:           segment.UUID,
 		AnnotationType: string(segment.AnnotationType),

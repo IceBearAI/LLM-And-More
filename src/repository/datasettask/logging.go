@@ -15,6 +15,18 @@ type logging struct {
 	traceId string
 }
 
+func (s *logging) GetTaskSegmentPrev(ctx context.Context, taskId uint, status types.DatasetAnnotationStatus) (res types.DatasetAnnotationTaskSegment, err error) {
+	defer func(begin time.Time) {
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "GetTaskSegmentPrev", "taskId", taskId, "status", status,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next.GetTaskSegmentPrev(ctx, taskId, status)
+}
+
 func (s *logging) GetDatasetDocumentByUUID(ctx context.Context, tenantId uint, uuid string, preload ...string) (res *types.DatasetDocument, err error) {
 	defer func(begin time.Time) {
 		_ = s.logger.Log(
