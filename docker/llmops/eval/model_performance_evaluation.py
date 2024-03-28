@@ -40,7 +40,7 @@ def load_model(model_name_or_path, device):
     if "llama" in model_name_or_path.lower() or "Llama" in model_name_or_path:
         # 加载 Llama Tokenizer
         tokenizer = LlamaTokenizer.from_pretrained(
-            model_name_or_path, trust_remote_code=True, padding_side="left")
+            model_name_or_path, trust_remote_code=True, padding_side = "left")
         tokenizer.pad_token = tokenizer.eos_token
 
     else:
@@ -77,56 +77,47 @@ def generate_answers_batch(model, tokenizer, batch_questions, max_length, device
     """
     使用模型批量生成答案
     """
-    inputs = tokenizer(batch_questions, padding=True,
-                       return_tensors='pt').to(device)
-
+    inputs = tokenizer(batch_questions, return_tensors="pt", padding=True,
+                        truncation=True, max_length=1024).to(device)
     # 使用模型生成答案
     outputs = model.generate(
         **inputs,
-        max_length=max_length,
-        pad_token_id=tokenizer.pad_token_id)
+        pad_token_id=tokenizer.pad_token_id,
+        num_return_sequences=1,  # 每次生成一个答案
+        max_new_tokens=max_length,
+        eos_token_id = tokenizer.eos_token_id
+    )
 
     results = []
     for i in range(len(batch_questions)):
-        output = tokenizer.decode(outputs[i], skip_special_tokens=True)
-        if output.startswith(batch_questions[i]):
-            output = output[len(batch_questions[i]):]
-        output = output.strip()
-        results.append(output)
+        generated_text = tokenizer.decode(outputs[i], skip_special_tokens=True)
+        ChatGLM_sop = "[gMASK]sop "
+        if generated_text.startswith(ChatGLM_sop):
+            generated_text = generated_text[len(ChatGLM_sop):]
+        generated_text = generated_text[len(batch_questions[i]):]
+        generated_text = generated_text.strip()
+        results.append(generated_text)
 
     # 解码生成的答案
     return results
 
 
-def write_evaluation_results_json(eval_output_path, hyperparams, evaluation_results, dataset, candidates, scores):
+def write_evaluation_results_json(eval_output_path, hyperparams, evaluation_results, scores):
     """
     将评测结果以JSON格式写入文件
     """
     results = {
         "config": hyperparams,
         "overall_evaluation_metrics": evaluation_results,
-        "detailed_results": []
+        "detailed_results": scores
     }
-
-    for item, cand, score in zip(dataset, candidates, scores):
-        question = item['messages'][0]['content']
-        reference = item['messages'][1]['content']
-        detailed_result = {
-            "question": question,
-            "reference": reference,
-            "model_output": cand,
-            "scores": score
-        }
-        results["detailed_results"].append(detailed_result)
-
     with open(eval_output_path, 'w', encoding='utf-8') as file:
         json.dump(results, file, indent=4, ensure_ascii=False)
 
     print(f"evaluation results written to {eval_output_path}")
 
 
-def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq_len, per_device_batch_size, gpu_id,
-                   output_path):
+def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq_len, per_device_batch_size, gpu_id, output_path):
     """
     真实的评估函数
     """
@@ -135,22 +126,35 @@ def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq
         f'cuda:{gpu_id}' if torch.cuda.is_available() else 'cpu')
     # 加载模型和分词器
     model, tokenizer = load_model(model_name_or_path, device)
+    # print(f"Model loaded from {model_name_or_path}, running on {device}")
     # 加载测试集
     dataset = load_dataset(dataset_path)
+    # print(f"Dataset loaded from {dataset_path}")
 
     # 初始化评估结果
     evaluation_results = {}
 
+    # 如果evaluation_metrics是字符串，则转换为列表
+    if isinstance(evaluation_metrics, str):
+        evaluation_metrics = [evaluation_metrics]
+
     # 准备问题列表
-    questions = [item['messages'][0]['content'] for item in dataset]
-    references = [item['messages'][1]['content'] for item in dataset]
+    # 分为2轮和3轮对话
+    item = dataset[0]
+    if len(item['messages']) == 2:
+        questions = [item['messages'][0]['content'] for item in dataset]
+        references = [item['messages'][1]['content'] for item in dataset]
+    else:
+        questions = [item['messages'][0]['content'] +
+                     item['messages'][1]['content'] for item in dataset]
+        references = [item['messages'][2]['content'] for item in dataset]
     scores = []
 
     # 分批处理问题
     candidates = []
     for i in tqdm(range(0, len(questions), per_device_batch_size), desc="Evaluating", unit="batch"):
-        batch_questions = questions[i:i + per_device_batch_size]
-        batch_references = references[i:i + per_device_batch_size]
+        batch_questions = questions[i:i+per_device_batch_size]
+        batch_references = references[i:i+per_device_batch_size]
         batch_answers = generate_answers_batch(
             model, tokenizer, batch_questions, max_seq_len, device)
 
@@ -158,7 +162,11 @@ def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq
 
         batch_scores = []
         for reference, answer in zip(batch_references, batch_answers):
-            single_score = {}
+            single_score = {
+                "question": reference,
+                "reference": reference,
+                "model_output": answer
+            }
             if "Acc" in evaluation_metrics:
                 single_score["Acc"] = int(reference == answer)
             if "F1" in evaluation_metrics:
@@ -173,8 +181,7 @@ def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq
         scores.extend(batch_scores)
 
     # 计算平均值
-    evaluation_metrics_list = evaluation_metrics.split(",")
-    for metric in evaluation_metrics_list:
+    for metric in evaluation_metrics:
         evaluation_results[metric] = sum(
             [score[metric] for score in scores]) / len(scores)
 
@@ -189,8 +196,7 @@ def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq
     }
     eval_output_path = output_path + "/eval_results.json"
 
-    write_evaluation_results_json(eval_output_path, hyperparams,
-                                  evaluation_results, dataset, candidates, scores)
+    write_evaluation_results_json(eval_output_path, hyperparams, evaluation_results, scores)
 
     # 清理模型以释放内存
     del model
@@ -208,10 +214,8 @@ def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq
 
     return result
 
-
 # 模型评估主函数
-def evaluate(model_name_or_path, dataset_path, evaluation_metrics, max_seq_len, per_device_batch_size, gpu_id,
-             output_path):
+def evaluate(model_name_or_path, dataset_path, evaluation_metrics, max_seq_len, per_device_batch_size, gpu_id, output_path):
     """
     模型评估主函数
     :param model_name_or_path: 模型名称或路径
@@ -234,7 +238,6 @@ def evaluate(model_name_or_path, dataset_path, evaluation_metrics, max_seq_len, 
     )
 
     return result
-
 
 if __name__ == '__main__':
     fire.Fire(evaluate)
