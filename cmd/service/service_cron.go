@@ -121,7 +121,7 @@ func cronStart(ctx context.Context, args []string) (err error) {
 			}
 			_ = level.Info(logger).Log("msg", "add cron job success", "entryID", entryID, "name", "finetuning.running-log")
 		case "deployment.status":
-			entryID, err := crontab.AddJob("0 0/1 * * * *", &deploymentStatusCronJob{
+			entryID, err := crontab.AddJob("0/30 * * * * *", &deploymentStatusCronJob{
 				logger: log.With(logger, "cron", "deployment.status"),
 				Name:   "deployment.status",
 				ctx:    ctx,
