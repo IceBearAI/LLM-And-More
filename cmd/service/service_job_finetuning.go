@@ -38,6 +38,7 @@ aigc-server job -h
 				files.WithStorageType("local"),
 			}...)
 			fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc,
+				finetuning.WithVolumeName(runtimeK8sVolumeName),
 				finetuning.WithGpuTolerationValue(datasetsGpuToleration),
 				finetuning.WithCallbackHost(serverDomain),
 			)

@@ -12,6 +12,19 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (s *tracing) CountEvaluate(ctx context.Context, modelId int, evalTargetType string, status []string) (res int64, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "CountEvaluate", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "repository.modelevaluate",
+	})
+	defer func() {
+		span.LogKV("modelId", modelId, "evalTargetType", evalTargetType, "status", status, "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return s.next.CountEvaluate(ctx, modelId, evalTargetType, status)
+}
+
 func (s *tracing) IsExistFiveByModelId(ctx context.Context, modelId uint) (res bool, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "IsExistFiveByModelId", opentracing.Tag{
 		Key:   string(ext.Component),
@@ -49,19 +62,6 @@ func (s *tracing) ListModelEvaluate(ctx context.Context, page, pageSize int, mod
 		span.Finish()
 	}()
 	return s.next.ListModelEvaluate(ctx, page, pageSize, modelId, status, evalTargetType)
-}
-
-func (s *tracing) CountEvaluate(ctx context.Context, evalTargetType string, status []string) (res int64, err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "CountEvaluate", opentracing.Tag{
-		Key:   string(ext.Component),
-		Value: "repository.modelevaluate",
-	})
-	defer func() {
-		span.LogKV("evalTargetType", evalTargetType, "status", status, "err", err)
-		span.SetTag(string(ext.Error), err != nil)
-		span.Finish()
-	}()
-	return s.next.CountEvaluate(ctx, evalTargetType, status)
 }
 
 func (s *tracing) FindFiveGraphLastByModelId(ctx context.Context, modelId, evaluateId uint) (res types.ModelEvaluate, err error) {

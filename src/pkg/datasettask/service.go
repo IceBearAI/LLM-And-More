@@ -68,6 +68,7 @@ type CreationOptions struct {
 	gpuTolerationValue string
 	volumeName         string
 	fileSvc            files.Service
+	convertUrlFun      func(fileUrl string) string
 }
 
 // CreationOption is a creation option for the faceswap service.
@@ -119,6 +120,13 @@ func WithFileSvc(fileSvc files.Service) CreationOption {
 func WithVolumeName(volumeName string) CreationOption {
 	return func(co *CreationOptions) {
 		co.volumeName = volumeName
+	}
+}
+
+// WithConvertUrl returns a CreationOption that sets the callback host.
+func WithConvertUrl(convertFunc func(fileUrl string) string) CreationOption {
+	return func(co *CreationOptions) {
+		co.convertUrlFun = convertFunc
 	}
 }
 
@@ -315,6 +323,12 @@ func (s *service) GetTaskSegmentNext(ctx context.Context, tenantId uint, taskId 
 		_ = level.Warn(logger).Log("msg", "get task segment next failed", "err", err)
 		return
 	}
+	if strings.TrimSpace(segment.Instruction) == "" {
+		if prevSegment, err := s.repository.DatasetTask().GetTaskSegmentPrev(ctx, task.ID, types.DatasetAnnotationStatusCompleted); err == nil {
+			segment.Instruction = prevSegment.Instruction
+		}
+	}
+
 	res = taskSegmentDetail{
 		UUID:           segment.UUID,
 		AnnotationType: string(segment.AnnotationType),
@@ -481,7 +495,7 @@ func (s *service) AsyncCheckTaskDatasetSimilar(ctx context.Context, tenantId uin
 		Value: s.options.datasetModel,
 	}, runtime.Env{
 		Name:  "DATASET_PATH",
-		Value: fileUrl,
+		Value: s.options.convertUrlFun(fileUrl),
 	}, runtime.Env{
 		Name:  "DATASET_TYPE",
 		Value: annotationTask.AnnotationType,
@@ -761,6 +775,9 @@ func New(traceId string, logger log.Logger, repository repository.Repository, ap
 		datasetModel: "uer/sbert-base-chinese-nli",
 		callbackHost: "http://localhost:8080",
 		//volumeName:   "aigc-data-cfs",
+		convertUrlFun: func(fileUrl string) string {
+			return fileUrl
+		},
 	}
 	for _, opt := range opts {
 		opt(options)

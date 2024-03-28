@@ -44,7 +44,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompleti
 		TopP:        request.TopP,
 	})
 	if err != nil {
-		_ = level.Error(logger).Log("apiSvc.FastChat", "ChatCompletionStream", "err", err.Error())
+		_ = level.Error(logger).Log("apiSvc.PaasChat", "ChatCompletionStream", "err", err.Error())
 		return stream, err
 	}
 
@@ -85,11 +85,21 @@ func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompleti
 func (s *service) ListChannelModels(ctx context.Context, request ListChannelModelsRequest) (resp ChannelModelList, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "ListChannelModels")
 	if request.TenantId == types.SystemTenant {
-		enabled := true
+
+		//五维图时，不判断状态
+		var enabled *bool
+		if request.EvalTag != string(types.EvaluateTargetTypeFive) {
+			e := true
+			enabled = &e
+		}
+
 		req := model.ListModelRequest{
-			Page:     -1,
-			PageSize: -1,
-			Enabled:  &enabled,
+			Page:          -1,
+			PageSize:      -1,
+			Enabled:       enabled,
+			ProviderName:  request.ProviderName,
+			ModelType:     request.ModelType,
+			BaseModelName: request.BaseModelName,
 		}
 		res, total, err := s.store.Model().ListModels(ctx, req)
 		if err != nil {
@@ -99,6 +109,16 @@ func (s *service) ListChannelModels(ctx context.Context, request ListChannelMode
 		resp.Total = total
 		resp.Models = make([]Model, 0)
 		for _, v := range res {
+
+			// 查询有五维图评测试数据的模型
+			if request.EvalTag == string(types.EvaluateTargetTypeFive) {
+				//判断是否有有五维图数据
+				isFive, _ := s.store.ModelEvaluate().IsExistFiveByModelId(ctx, v.ID)
+				if isFive == false {
+					continue
+				}
+			}
+
 			resp.Models = append(resp.Models, convertModel(&v))
 		}
 		return resp, nil
@@ -111,6 +131,15 @@ func (s *service) ListChannelModels(ctx context.Context, request ListChannelMode
 	resp.Models = make([]Model, 0)
 	for _, v := range res {
 		if v.Enabled {
+			// 查询有五维图评测试数据的模型
+			if request.EvalTag == string(types.EvaluateTargetTypeFive) {
+				//判断是否有有五维图数据
+				isFive, _ := s.store.ModelEvaluate().IsExistFiveByModelId(ctx, v.ID)
+				if isFive == false {
+					continue
+				}
+			}
+
 			resp.Models = append(resp.Models, convertModel(&v))
 		}
 	}
@@ -225,10 +254,11 @@ func convert(data *types.ChatChannels) Channel {
 	for _, v := range data.ChannelModels {
 		models = append(models, Model{
 			Id:           v.ID,
-			ProviderName: string(v.ProviderName),
-			ModelType:    string(v.ModelType),
+			ProviderName: v.ProviderName.String(),
+			ModelType:    v.ModelType.String(),
 			ModelName:    v.ModelName,
 			MaxTokens:    v.MaxTokens,
+			//IsPrivate:    v.IsPrivate,
 			Remark:       v.Remark,
 			Enabled:      v.Enabled,
 			IsFineTuning: v.IsFineTuning,
@@ -244,15 +274,17 @@ func convert(data *types.ChatChannels) Channel {
 func convertModel(data *types.Models) Model {
 	m := Model{
 		Id:           data.ID,
-		ProviderName: string(data.ProviderName),
-		ModelType:    string(data.ModelType),
+		ProviderName: data.ProviderName.String(),
+		ModelType:    data.ModelType.String(),
 		ModelName:    data.ModelName,
 		MaxTokens:    data.MaxTokens,
-		IsFineTuning: data.IsFineTuning,
-		Enabled:      data.Enabled,
-		Remark:       data.Remark,
-		CreatedAt:    data.CreatedAt,
-		UpdatedAt:    data.UpdatedAt,
+		//IsPrivate:     data.IsPrivate,
+		IsFineTuning:  data.IsFineTuning,
+		Enabled:       data.Enabled,
+		Remark:        data.Remark,
+		BaseModelName: data.BaseModelName,
+		CreatedAt:     data.CreatedAt,
+		UpdatedAt:     data.UpdatedAt,
 	}
 	return m
 }

@@ -21,6 +21,7 @@ type (
 		ModelID        int       `json:"modelId"`
 		Status         string    `json:"status"`
 		EvalTargetType string    `json:"evalTargetType"`
+		StatusMsg      string    `json:"statusMsg"`
 		Remark         string    `json:"remark"`
 		DataSize       int       `json:"dataSize"`
 		Complete       string    `json:"complete"`

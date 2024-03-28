@@ -38,6 +38,11 @@ type FineTuningTemplate struct {
 	MaxTokens     int          `gorm:"column:max_tokens;default:2048;null;"`       // comment:最大token数
 	Lora          bool         `gorm:"column:lora;null;default:false;"`            // comment:是否使用lora微调
 	Enabled       bool         `gorm:"column:enabled;default:false;"`              // comment:可用状态
+	ParallelNum   int          `gorm:"column:parallel_num;default:1;null;"`        // comment:并行数量
+	GpuLabel      string       `gorm:"column:gpu_label;size:500;null;"`            // comment:gpu标签
+	K8sCluster    string       `gorm:"column:k8s_cluster;size:500;null;"`          // comment:k8s集群
+	Cpu           int          `gorm:"column:cpu;default:1;null;"`                 // comment:CPU核数
+	Memory        int          `gorm:"column:memory;default:1;null;"`              // comment:内存G
 	TemplateType  TemplateType `gorm:"column:template_type;size:24;null;"`         // comment:模版类型
 }
 

@@ -3,6 +3,7 @@ package datasettask
 import (
 	"context"
 	"github.com/IceBearAI/aigc/src/repository/types"
+	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
@@ -50,10 +51,23 @@ type Service interface {
 	AddDatasetDocumentSegments(ctx context.Context, data []types.DatasetDocumentSegment) (err error)
 	// UpdateDatasetDocumentSegmentCount 更新数据集文档样本数量
 	UpdateDatasetDocumentSegmentCount(ctx context.Context, datasetDocumentId uint, count int) (err error)
+	// GetTaskSegmentPrev 获取上一条已标注的内容
+	GetTaskSegmentPrev(ctx context.Context, taskId uint, status types.DatasetAnnotationStatus) (res types.DatasetAnnotationTaskSegment, err error)
 }
 
 type service struct {
 	db *gorm.DB
+}
+
+func (s *service) GetTaskSegmentPrev(ctx context.Context, taskId uint, status types.DatasetAnnotationStatus) (res types.DatasetAnnotationTaskSegment, err error) {
+	err = s.db.WithContext(ctx).Model(types.DatasetAnnotationTaskSegment{}).
+		Where("data_annotation_id = ? and status = ?", taskId, status).
+		Order("id desc").
+		First(&res).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return res, nil
+	}
+	return
 }
 
 func (s *service) GetTaskSegmentByRand(ctx context.Context, datasetId uint, percent float64, status types.DatasetAnnotationStatus, segmentType types.DatasetAnnotationSegmentType, preload ...string) (res []types.DatasetAnnotationTaskSegment, err error) {

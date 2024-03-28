@@ -127,6 +127,11 @@ type (
 		OutputDir     string             `json:"outputDir"`                      //输出目录
 		Lora          bool               `json:"lora"`                           //是否使用lora微调
 		Enabled       bool               `json:"enabled"`                        //是否可用
+		GpuLabel      string             `json:"gpuLabel"`                       //GPU 标签
+		ParallelNum   int                `json:"parallelNum"`                    //并行数量
+		K8sCluster    string             `json:"k8sCluster"`                     //K8S集群
+		Cpu           int                `json:"cpu"`                            //CPU 核数
+		Memory        int                `json:"memory"`                         //内存大小 G
 		TemplateType  types.TemplateType `json:"templateType"`
 	}
 

@@ -12,6 +12,19 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (s *tracing) GetTaskSegmentPrev(ctx context.Context, taskId uint, status types.DatasetAnnotationStatus) (res types.DatasetAnnotationTaskSegment, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "GetTaskSegmentPrev", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "repository.datasettask",
+	})
+	defer func() {
+		span.LogKV("taskId", taskId, "status", status, "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return s.next.GetTaskSegmentPrev(ctx, taskId, status)
+}
+
 func (s *tracing) GetDatasetDocumentByUUID(ctx context.Context, tenantId uint, uuid string, preload ...string) (res *types.DatasetDocument, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "GetDatasetDocumentByUUID", opentracing.Tag{
 		Key:   string(ext.Component),

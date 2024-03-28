@@ -95,6 +95,7 @@ func (s *service) List(ctx context.Context, req listRequest) (res []listResult, 
 			Uuid:           v.Uuid,
 			ModelID:        v.ModelId,
 			Status:         v.Status,
+			StatusMsg:      v.StatusMsg,
 			EvalTargetType: v.EvalTargetType,
 			Score:          v.Score,
 			DataType:       v.DataType,
@@ -115,7 +116,7 @@ func (s *service) Create(ctx context.Context, req createRequest) (err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "Create")
 
 	//如果有同类型的评测，不能重复提交
-	count, err := s.repository.ModelEvaluate().CountEvaluate(ctx, req.EvalTargetType, []string{string(types.EvaluateStatusWaiting), string(types.EvaluateStatusRunning)})
+	count, err := s.repository.ModelEvaluate().CountEvaluate(ctx, req.ModelId, req.EvalTargetType, []string{string(types.EvaluateStatusWaiting), string(types.EvaluateStatusRunning)})
 	if err != nil {
 		_ = level.Error(logger).Log("s.repository.ModelEvaluate", "CountEvaluate", "err", err.Error())
 		return
@@ -490,14 +491,15 @@ func (s *service) EvalFinish(ctx context.Context, req finishRequest) (err error)
 
 		if data0.Status == "success" {
 			info.Status = string(types.EvaluateStatusSuccess)
-			info.Five1 = data0.Data.ChineseLanguageSkill
-			info.Five2 = data0.Data.InferenceAbility
-			info.Five3 = data0.Data.CommandCompliance
-			info.Five4 = data0.Data.InnovationCapacity
-			info.Five5 = data0.Data.ReadingComprehension
+			info.Five1 = data0.Data.ChineseLanguageSkill * 10
+			info.Five2 = data0.Data.InferenceAbility * 10
+			info.Five3 = data0.Data.CommandCompliance * 10
+			info.Five4 = data0.Data.InnovationCapacity * 10
+			info.Five5 = data0.Data.ReadingComprehension * 10
 			info.Score, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", info.Five1+info.Five2+info.Five3+info.Five4+info.Five5), 64)
 		} else {
 			info.Status = string(types.EvaluateStatusFailed)
+			info.StatusMsg = req.Result
 		}
 
 	}
@@ -524,6 +526,7 @@ func (s *service) EvalFinish(ctx context.Context, req finishRequest) (err error)
 			}
 		} else {
 			info.Status = string(types.EvaluateStatusFailed)
+			info.StatusMsg = req.Result
 		}
 	}
 

@@ -74,12 +74,12 @@
           placeholder="请输入GPU内存"
           :rules="rules.maxGpuMemory"
           v-model.number="formData.maxGpuMemory"
-          @input="validNumberInput(formData.maxGpuMemory, 1, 80, '请输入GPU内存', true)"
+          @input="validNumberInput(formData.maxGpuMemory, 1, 80, '', true)"
           max="80"
           hide-details="auto"
         >
           <template #prepend>
-            <label class="required"
+            <label
               >GPU内存
               <Explain
                 >指定每个 GPU
@@ -186,7 +186,7 @@ const rules = reactive({
   label: [v => !!v || "请选择调度标签"],
   gpu: [v => validNumberInput(v, 1, 8, "请输入使用GPU数量", true)],
   cpu: [v => validNumberInput(v, 1, 80, "请输入使用CPU数量", true)],
-  maxGpuMemory: [v => validNumberInput(v, 1, 80, "请输入GPU内存", true)],
+  maxGpuMemory: [v => validNumberInput(v, 1, 80, "", true)],
   quantization: [v => !!v || "请选择精度"],
   isQuantify: [
     value => {
@@ -225,9 +225,11 @@ const onSubmit = async ({ valid, showLoading }) => {
     const data = { ...state.formData };
     if (data.inferredType === "cpu") {
       data.gpu = 0;
+      data.maxGpuMemory = 0;
     } else {
       data.cpu = 0;
     }
+    data.maxGpuMemory = data.maxGpuMemory || 0;
     const [err, res] = await http.post({
       ...showLoading,
       showSuccess: true,

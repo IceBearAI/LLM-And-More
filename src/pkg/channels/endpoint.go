@@ -73,17 +73,18 @@ type (
 	}
 
 	Model struct {
-		Id           uint      `json:"id"`
-		ProviderName string    `json:"providerName"`
-		ModelName    string    `json:"modelName"`
-		ModelType    string    `json:"modelType"`
-		MaxTokens    int       `json:"maxTokens"`
-		IsPrivate    bool      `json:"isPrivate"`
-		IsFineTuning bool      `json:"isFineTuning"`
-		Enabled      bool      `json:"enabled"`
-		Remark       string    `json:"remark"`
-		CreatedAt    time.Time `json:"createdAt"`
-		UpdatedAt    time.Time `json:"updatedAt"`
+		Id            uint      `json:"id"`
+		ProviderName  string    `json:"providerName"`
+		ModelName     string    `json:"modelName"`
+		ModelType     string    `json:"modelType"`
+		MaxTokens     int       `json:"maxTokens"`
+		IsPrivate     bool      `json:"isPrivate"`
+		IsFineTuning  bool      `json:"isFineTuning"`
+		Enabled       bool      `json:"enabled"`
+		Remark        string    `json:"remark"`
+		BaseModelName string    `json:"baseModelName"`
+		CreatedAt     time.Time `json:"createdAt"`
+		UpdatedAt     time.Time `json:"updatedAt"`
 	}
 
 	CreateModelRequest struct {
@@ -120,7 +121,11 @@ type (
 		Total  int64   `json:"total"`
 	}
 	ListChannelModelsRequest struct {
-		TenantId uint `json:"tenantId"`
+		TenantId      uint   `json:"tenantId"`
+		ProviderName  string `json:"providerName"`
+		ModelType     string `json:"modelType"`
+		BaseModelName string `json:"baseModelName"` // null, notNull, 为空时，查全部
+		EvalTag       string `json:"evalTag"`       // five 匹配有五维图的模型
 	}
 	ChannelModelList struct {
 		Models []Model `json:"list"`

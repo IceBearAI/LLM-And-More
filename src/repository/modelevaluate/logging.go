@@ -14,6 +14,18 @@ type logging struct {
 	traceId string
 }
 
+func (s *logging) CountEvaluate(ctx context.Context, modelId int, evalTargetType string, status []string) (res int64, err error) {
+	defer func(begin time.Time) {
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "CountEvaluate", "modelId", modelId, "evalTargetType", evalTargetType, "status", status,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next.CountEvaluate(ctx, modelId, evalTargetType, status)
+}
+
 func (s *logging) IsExistFiveByModelId(ctx context.Context, modelId uint) (res bool, err error) {
 	defer func(begin time.Time) {
 		_ = s.logger.Log(
@@ -48,18 +60,6 @@ func (s *logging) ListModelEvaluate(ctx context.Context, page, pageSize int, mod
 		)
 	}(time.Now())
 	return s.next.ListModelEvaluate(ctx, page, pageSize, modelId, status, evalTargetType)
-}
-
-func (s *logging) CountEvaluate(ctx context.Context, evalTargetType string, status []string) (res int64, err error) {
-	defer func(begin time.Time) {
-		_ = s.logger.Log(
-			s.traceId, ctx.Value(s.traceId),
-			"method", "CountEvaluate", "evalTargetType", evalTargetType, "status", status,
-			"took", time.Since(begin),
-			"err", err,
-		)
-	}(time.Now())
-	return s.next.CountEvaluate(ctx, evalTargetType, status)
 }
 
 func (s *logging) FindFiveGraphLastByModelId(ctx context.Context, modelId, evaluateId uint) (res types.ModelEvaluate, err error) {
