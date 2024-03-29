@@ -28,6 +28,7 @@
       <v-col cols="12" lg="3" md="4" sm="6">
         <ButtonsInForm>
           <v-btn color="primary" @click="onAdd">创建微调任务</v-btn>
+          <refresh-button ref="refreshButtonRef" @refresh="doQueryCurrentPage" />
         </ButtonsInForm>
       </v-col>
       <v-col cols="12">
@@ -100,7 +101,7 @@
       </v-col>
     </v-row>
   </UiParentCard>
-  <DialogLog ref="refDialogLog" />
+  <DialogLog ref="refDialogLog" :interval="30" @refresh="getLog" />
   <ConfirmByInput ref="refConfirmAbort" @submit="doAbort">
     <template #text>
       此操作将会<span class="text-primary">取消</span>正在进行的训练任务<br />
@@ -196,6 +197,8 @@ const confirmAbort = reactive({
 });
 const refConfirmDelete = ref();
 const confirmDeleteId = ref("");
+const currentJobId = ref("");
+const refreshButtonRef = ref();
 
 const getButtons = row => {
   let ret = [];
@@ -242,16 +245,25 @@ const doTableQuery = async (options = {}) => {
     tableInfos.list = [];
     tableInfos.total = 0;
   }
+  refreshButtonRef.value.start();
 };
 
 const doQueryFirstPage = () => {
   tableWithPagerRef.value.query({ page: 1 });
 };
 
+const doQueryCurrentPage = () => {
+  tableWithPagerRef.value.query();
+};
+
 const onLog = async ({ jobId }) => {
+  currentJobId.value = jobId;
   refDialogLog.value.show();
+};
+
+const getLog = async () => {
   let [err, res] = await http.get({
-    url: `/api/finetuning/${jobId}`
+    url: `/api/finetuning/${currentJobId.value}`
   });
   if (res) {
     refDialogLog.value.setContent(res.trainLog);

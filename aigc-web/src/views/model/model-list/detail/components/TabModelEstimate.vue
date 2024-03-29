@@ -54,11 +54,17 @@
           </el-table-column>
           <el-table-column label="评估状态" min-width="120px">
             <template #default="{ row }">
-              <el-tooltip :disabled="row.status !== 'failed'" :content="row.statusMsg" placement="top" raw-content>
-                <v-chip label size="small" :color="map.statusMap[row.status].color">{{
+              <el-tooltip v-if="row.status === 'failed'" :content="row.statusMsg" placement="top" raw-content>
+                <span :class="`text-${map.statusMap[row.status].color}`">{{
                   getLabels([["model_eval_status", row.status]])
-                }}</v-chip>
+                }}</span>
               </el-tooltip>
+              <div v-else class="d-flex align-center justify-center">
+                <span :class="`text-${map.statusMap[row.status].color}`">{{
+                  getLabels([["model_eval_status", row.status]])
+                }}</span>
+                <div v-if="['running', 'success'].includes(row.status)" class="link ml-1" @click="onLog(row)">(日志)</div>
+              </div>
             </template>
           </el-table-column>
           <el-table-column label="数据量" min-width="100px">
@@ -92,6 +98,7 @@
       </v-col>
     </v-row>
   </div>
+  <DialogLog ref="refDialogLog" :interval="30" @refresh="getLog" />
   <ConfirmByInput ref="refConfirmAbort" @submit="doAbort">
     <template #text>
       此操作将会<span class="text-primary">取消</span>正在进行的模型评估<br />
@@ -116,6 +123,7 @@ import ConfirmByInput from "@/components/business/ConfirmByInput.vue";
 import ConfirmByClick from "@/components/business/ConfirmByClick.vue";
 import { useMapRemoteStore } from "@/stores";
 import { useRoute } from "vue-router";
+import DialogLog from "@/components/ui/log/DialogLog.vue";
 interface Props {
   /** 音频地址 */
   showArrange: string;
@@ -155,6 +163,7 @@ const searchData = reactive({
 const confirmDelete = reactive({
   uuid: null
 });
+const refDialogLog = ref();
 const { formData, showTooltip } = toRefs(state);
 
 // const onAdd = () => {
@@ -264,6 +273,22 @@ const getButtons = (row): Array<TypeButtonsInTable> => {
     });
   }
   return ret;
+};
+
+const onLog = async row => {
+  state.currentJobId = row.uuid;
+  refDialogLog.value.show();
+};
+
+const getLog = async () => {
+  let [err, res] = await http.get({
+    url: `/api/evaluate/${modelName}/eval-log/${state.currentJobId}`
+  });
+  if (res) {
+    console.log(res);
+    const content = Object.keys(res).length === 0 ? "" : res;
+    refDialogLog.value.setContent(content);
+  }
 };
 
 onMounted(() => {

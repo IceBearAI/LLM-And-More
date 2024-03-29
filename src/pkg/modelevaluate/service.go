@@ -70,6 +70,8 @@ type Service interface {
 	FiveGraph(ctx context.Context, req fiveGraphRequest) (res1, res2, res3 fiveGraphResult, err error)
 	// EvalFinish 评测结果完成
 	EvalFinish(ctx context.Context, req finishRequest) (err error)
+	// GetEvalLog 获取评估日志
+	GetEvalLog(ctx context.Context, tenantId uint, modelUUID, evalJobId string) (res string, err error)
 }
 
 type service struct {
@@ -79,6 +81,24 @@ type service struct {
 	repository repository.Repository
 	apiSvc     services.Service
 	filesSvc   files.Service
+}
+
+func (s *service) GetEvalLog(ctx context.Context, tenantId uint, modelUUID, evalJobId string) (res string, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	//model, err := s.repository.Model().FindByModelId(ctx, modelUUID)
+	//if err != nil {
+	//	_ = level.Warn(logger).Log("repository.Model", "FindByModelId", err.Error())
+	//	return
+	//}
+
+	evalJob, err := s.repository.ModelEvaluate().GetByUuid(ctx, evalJobId)
+	if evalJob.Status == string(types.EvalStatusRunning) && evalJob.EvaluateLog == "" {
+		evalJob.EvaluateLog, err = s.apiSvc.Runtime().GetJobLogs(ctx, evalJob.JobName)
+		if err != nil {
+			_ = level.Warn(logger).Log("msg", "GetJobLogs failed", "err", err.Error())
+		}
+	}
+	return evalJob.EvaluateLog, nil
 }
 
 func (s *service) List(ctx context.Context, req listRequest) (res []listResult, total int64, err error) {
@@ -317,8 +337,8 @@ func (s *service) Cancel(ctx context.Context, req cancelRequest) (err error) {
 
 	//取消job
 	if err = s.apiSvc.Runtime().RemoveJob(ctx, info.JobName); err != nil {
-		_ = level.Error(logger).Log("s.apiSvc.Runtime", "RemoveJob", "err", err.Error())
-		return
+		_ = level.Warn(logger).Log("s.apiSvc.Runtime", "RemoveJob", "err", err.Error())
+		//return
 	}
 
 	// 更新db
@@ -468,6 +488,15 @@ func (s *service) EvalFinish(ctx context.Context, req finishRequest) (err error)
 	}
 
 	_ = level.Info(logger).Log("modelEvaluate", "EvalFinish", "uuid", req.JobId, "result", req.Result)
+
+	evalLog, err := s.apiSvc.Runtime().GetJobLogs(ctx, info.JobName)
+	if err != nil {
+		_ = level.Warn(logger).Log("msg", "GetJobLogs failed", "err", err.Error())
+	}
+
+	if evalLog != "" {
+		info.EvaluateLog = evalLog
+	}
 
 	// 五维图
 	if info.EvalTargetType == string(types.EvaluateTargetTypeFive) {

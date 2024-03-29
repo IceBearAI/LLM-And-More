@@ -149,6 +149,12 @@ func (s *service) GetCheckTaskDatasetSimilarLog(ctx context.Context, tenantId ui
 		_ = level.Warn(logger).Log("msg", "get task failed", "err", err)
 		return
 	}
+	if task.DetectionStatus == types.DatasetAnnotationDetectionStatusProcessing && task.DetectionLog == "" {
+		task.DetectionLog, err = s.apiSvc.Runtime().GetJobLogs(ctx, task.JobName)
+		if err != nil {
+			_ = level.Warn(logger).Log("msg", "GetJobLogs failed", "err", err.Error())
+		}
+	}
 	return task.DetectionLog, nil
 }
 
@@ -217,6 +223,13 @@ func (s *service) TaskDetectFinish(ctx context.Context, tenantId uint, taskId, t
 		err = errors.Wrap(err, "get task failed")
 		_ = level.Warn(logger).Log("msg", "get task failed", "err", err)
 		return
+	}
+	detectionLog, err := s.apiSvc.Runtime().GetJobLogs(ctx, task.JobName)
+	if err != nil {
+		_ = level.Warn(logger).Log("msg", "GetJobLogs failed", "err", err.Error())
+	}
+	if detectionLog != "" {
+		task.DetectionLog = detectionLog
 	}
 	task.TestReport = testReport
 	task.DetectionStatus = types.DatasetAnnotationDetectionStatusCompleted

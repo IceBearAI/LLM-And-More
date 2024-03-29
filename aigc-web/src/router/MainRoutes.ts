@@ -232,6 +232,25 @@ const MainRoutes: RouteRecordRaw = {
     },
 
     {
+      path: "/sample-library/intention-mark",
+      component: () => import("@/components/business/AspectPage.vue"),
+      meta: {
+        aspectPageInclude: ["intentionMarkList"]
+      },
+      redirect: "/sample-library/intention-mark/list",
+      children: [
+        {
+          path: "list",
+          component: () => import("@/views/sample-library/intention-mark/intentionMarkList.vue")
+        },
+        {
+          path: "detail",
+          component: () => import("@/views/sample-library/intention-mark/detail/intentionMarkDetail.vue")
+        }
+      ]
+    },
+
+    {
       path: "/ai-assistant/tools-list",
       component: () => import("@/views/ai-assistant/tools-list/toolsList.vue")
     },

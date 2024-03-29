@@ -1,6 +1,6 @@
 <template>
   <v-dialog v-model="state.visible" v-bind="$attrs" scrollable>
-    <v-card>
+    <v-card ref="contentRef">
       <v-card-title class="d-flex align-center justify-space-between text-subtitle-1 color-font">
         <slot name="title"></slot>
         <v-btn
@@ -34,7 +34,7 @@
   </v-dialog>
 </template>
 <script setup lang="ts">
-import { reactive } from "vue";
+import { reactive, ref, watch } from "vue";
 import { IconX } from "@tabler/icons-vue";
 import _ from "lodash";
 
@@ -67,6 +67,7 @@ const state = reactive<TypePropsInner & TypePropsOutter>({
   showActions: true,
   showClose: true
 });
+const contentRef = ref();
 
 const closeDialog = () => {
   state.visible = false;
@@ -81,6 +82,13 @@ const onSubmit = () => {
   emits("submit");
 };
 
+watch(
+  () => state.visible,
+  val => {
+    emits("update:modelValue", val);
+  }
+);
+
 defineExpose({
   show({ contentHeight = "auto", showActions = true, showClose = true } = {} as TypePropsOutter) {
     _.assign(state, {
@@ -92,6 +100,15 @@ defineExpose({
   },
   hide() {
     closeDialog();
+  },
+  getContentEl() {
+    return contentRef.value.$el;
   }
 });
 </script>
+<style lang="scss" scoped>
+// 修复el-table tooltip位置偏移的问题
+:deep(.el-table) {
+  transform: scale(1);
+}
+</style>
