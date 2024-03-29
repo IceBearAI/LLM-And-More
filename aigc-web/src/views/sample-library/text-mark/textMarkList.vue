@@ -35,6 +35,7 @@
 
             <ButtonsInForm>
               <v-btn color="primary" @click="onAdd()">创建文本标注任务</v-btn>
+              <refresh-button ref="refreshButtonRef" @refresh="doQueryCurrentPage" />
             </ButtonsInForm>
           </v-col>
           <!-- <v-col cols="12" lg="6" md="4" sm="6" class="flex justify-end">
@@ -96,11 +97,19 @@
                   }}</v-chip>
                 </template>
               </el-table-column>
-              <el-table-column label="检测状态" width="120px">
+              <el-table-column label="检测状态" width="135px">
                 <template #default="{ row }">
-                  <v-chip label size="small" :class="getStatusClassName(row.detectionStatus)">{{
-                    getLabels([["local_mark_detect_status", row.detectionStatus]])
-                  }}</v-chip>
+                  <template v-if="row.annotationType == 'faq'">
+                    <div class="d-flex align-center justify-center">
+                      <span :class="getStatusClassName(row.detectionStatus)">{{
+                        getLabels([["local_mark_detect_status", row.detectionStatus]])
+                      }}</span>
+                      <div v-if="['processing', 'completed'].includes(row.detectionStatus)" class="link ml-1" @click="onLog(row)">
+                        (日志)
+                      </div>
+                    </div>
+                  </template>
+                  <template v-else> -- </template>
                 </template>
               </el-table-column>
               <el-table-column label="完成时间" min-width="180px">
@@ -205,6 +214,8 @@
     </template>
   </ConfirmByClick>
 
+  <DialogLog ref="refDialogLog" :interval="30" @refresh="getLog" />
+
   <Dialog ref="refReport" style="width: 80%; max-width: 800px">
     <template #title>标注数据检测报告</template>
     <div class="box-report" v-html="state.reportHTML"></div>
@@ -227,7 +238,7 @@ import TaskOverview from "@/components/business/TaskOverview.vue";
 import { TypeButtonsInTable } from "@/components/types/components.ts";
 import { IconCircleCheckFilled, IconLoader, IconAlarm } from "@tabler/icons-vue";
 import { ItfAspectPageState } from "@/types/AspectPageTypes.ts";
-// import DialogLog from "@/components/ui/log/DialogLog.vue";
+import DialogLog from "@/components/ui/log/DialogLog.vue";
 
 const provideAspectPage = inject("provideAspectPage") as ItfAspectPageState;
 const { getLabels, loadDictTree } = useMapRemoteStore();
@@ -244,6 +255,8 @@ const refTableWithPager = ref();
 const refConfirmSplit = ref();
 const refReport = ref();
 const refConfirmDownload = ref();
+const refDialogLog = ref();
+const refreshButtonRef = ref();
 
 const state = reactive<{
   [x: string]: any;
@@ -522,6 +535,7 @@ const doTableQuery = async (options = {}) => {
     state.tableInfos.list = [];
     state.tableInfos.total = 0;
   }
+  refreshButtonRef.value.start();
 };
 
 provideAspectPage.methods.refreshListPage = () => {
@@ -594,6 +608,21 @@ const onAdd = () => {
     title: "创建文本标注任务",
     operateType: "add"
   });
+};
+
+const onLog = async info => {
+  state.selectedRow = info;
+  refDialogLog.value.show();
+};
+
+const getLog = async () => {
+  let [err, res] = await http.get({
+    url: `/api/mgr/annotation/task/${state.selectedRow.uuid}/detect/annotation/log`
+  });
+  if (res) {
+    const content = Object.keys(res).length === 0 ? "" : res;
+    refDialogLog.value.setContent(content);
+  }
 };
 
 onMounted(() => {

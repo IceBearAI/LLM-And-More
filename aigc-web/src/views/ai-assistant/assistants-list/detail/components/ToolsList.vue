@@ -83,9 +83,3 @@ onMounted(() => {
   doTableQuery();
 });
 </script>
-<style scoped lang="scss">
-// vuetify 中dialog添加了contain 属性导致tooltip定位便宜。
-:deep(.el-table) {
-  transform: scale(1);
-}
-</style>

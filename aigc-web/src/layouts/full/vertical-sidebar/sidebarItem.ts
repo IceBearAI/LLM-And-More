@@ -104,6 +104,12 @@ let sidebarItem: menu[] = [
         iconSize: "small",
         to: "/sample-library/text-mark/list"
       }
+      // {
+      //   title: "意图模型标注列表",
+      //   icon: IconCircleDot,
+      //   iconSize: "small",
+      //   to: "/sample-library/intention-mark/list"
+      // }
     ]
   },
 

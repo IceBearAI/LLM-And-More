@@ -13,6 +13,20 @@ type logging struct {
 	traceId string
 }
 
+func (s *logging) GetEvalLog(ctx context.Context, tenantId uint, modelUUID, evalJobId string) (res string, err error) {
+	defer func(begin time.Time) {
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "GetEvalLog", "tenantId", tenantId,
+			"modelUUID", modelUUID,
+			"evalJobId", evalJobId,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next.GetEvalLog(ctx, tenantId, modelUUID, evalJobId)
+}
+
 func (s *logging) EvalFinish(ctx context.Context, req finishRequest) (err error) {
 	defer func(begin time.Time) {
 		_ = s.logger.Log(

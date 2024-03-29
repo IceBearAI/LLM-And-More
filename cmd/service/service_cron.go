@@ -19,6 +19,8 @@ var (
 		"finetuning.run-waiting-train",
 		"finetuning.running-log",
 		"deployment.status",
+		"datasets.detection-similar",
+		"model.evaluate-log",
 	}
 
 	cronJobCmd = &cobra.Command{
@@ -82,7 +84,7 @@ func cronStart(ctx context.Context, args []string) (err error) {
 	fileSvc = files.NewService(logger, traceId, store, apiSvc, []files.CreationOption{
 		files.WithLocalDataPath(serverStoragePath),
 		files.WithServerUrl(fmt.Sprintf("%s/storage", serverDomain)),
-		files.WithStorageType("local"),
+		files.WithStorageType(storageType),
 	}...)
 	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc,
 		finetuning.WithVolumeName(runtimeK8sVolumeName),
@@ -133,6 +135,32 @@ func cronStart(ctx context.Context, args []string) (err error) {
 				return err
 			}
 			_ = level.Info(logger).Log("msg", "add cron job success", "entryID", entryID, "name", "deployment.status")
+		case "datasets.detection-similar":
+			entryID, err := crontab.AddJob("0/30 * * * * *", &datasetCheckTaskSimilarCronJob{
+				logger: log.With(logger, "cron", "datasets.detection-similar"),
+				Name:   "datasets.detection-similar",
+				ctx:    ctx,
+				store:  store,
+				apiSvc: apiSvc,
+			})
+			if err != nil {
+				_ = level.Error(logger).Log("msg", "add cron job failed", "err", err.Error())
+				return err
+			}
+			_ = level.Info(logger).Log("msg", "add cron job success", "entryID", entryID, "name", "datasets.detection-similar")
+		case "model.evaluate-log":
+			entryID, err := crontab.AddJob("0/30 * * * * *", &modelEvalLogCronJob{
+				logger: log.With(logger, "cron", "model.evaluate-log"),
+				Name:   "model.evaluate-log",
+				ctx:    ctx,
+				store:  store,
+				apiSvc: apiSvc,
+			})
+			if err != nil {
+				_ = level.Error(logger).Log("msg", "add cron job failed", "err", err.Error())
+				return err
+			}
+			_ = level.Info(logger).Log("msg", "add cron job success", "entryID", entryID, "name", "evaluate-log")
 		default:
 			return fmt.Errorf("unknown command: %s", v)
 		}

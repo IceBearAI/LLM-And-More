@@ -42,6 +42,8 @@ type Service interface {
 	AbandonTaskSegment(ctx context.Context, tenantId uint, taskId, taskSegmentId string) (err error)
 	// AsyncCheckTaskDatasetSimilar 同步检查标注任务的数据集相似
 	AsyncCheckTaskDatasetSimilar(ctx context.Context, tenantId uint, taskId string) (err error)
+	// GetCheckTaskDatasetSimilarLog 获取检测日志
+	GetCheckTaskDatasetSimilarLog(ctx context.Context, tenantId uint, taskId string) (res string, err error)
 	// CancelCheckTaskDatasetSimilar 取消检测
 	CancelCheckTaskDatasetSimilar(ctx context.Context, tenantId uint, taskId string) (err error)
 	// SplitAnnotationDataSegment 将标注数据拆分成训练集和测试集
@@ -139,6 +141,23 @@ type service struct {
 	fileSvc    files.Service
 }
 
+func (s *service) GetCheckTaskDatasetSimilarLog(ctx context.Context, tenantId uint, taskId string) (res string, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	task, err := s.repository.DatasetTask().GetTask(ctx, tenantId, taskId)
+	if err != nil {
+		err = errors.Wrap(err, "get task failed")
+		_ = level.Warn(logger).Log("msg", "get task failed", "err", err)
+		return
+	}
+	if task.DetectionStatus == types.DatasetAnnotationDetectionStatusProcessing && task.DetectionLog == "" {
+		task.DetectionLog, err = s.apiSvc.Runtime().GetJobLogs(ctx, task.JobName)
+		if err != nil {
+			_ = level.Warn(logger).Log("msg", "GetJobLogs failed", "err", err.Error())
+		}
+	}
+	return task.DetectionLog, nil
+}
+
 func (s *service) CancelCheckTaskDatasetSimilar(ctx context.Context, tenantId uint, taskId string) (err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 	task, err := s.repository.DatasetTask().GetTask(ctx, tenantId, taskId)
@@ -204,6 +223,13 @@ func (s *service) TaskDetectFinish(ctx context.Context, tenantId uint, taskId, t
 		err = errors.Wrap(err, "get task failed")
 		_ = level.Warn(logger).Log("msg", "get task failed", "err", err)
 		return
+	}
+	detectionLog, err := s.apiSvc.Runtime().GetJobLogs(ctx, task.JobName)
+	if err != nil {
+		_ = level.Warn(logger).Log("msg", "GetJobLogs failed", "err", err.Error())
+	}
+	if detectionLog != "" {
+		task.DetectionLog = detectionLog
 	}
 	task.TestReport = testReport
 	task.DetectionStatus = types.DatasetAnnotationDetectionStatusCompleted
@@ -828,7 +854,7 @@ func writeSegmentsToFile(segments []types.DatasetAnnotationTaskSegment, filePath
 			switch annotationType {
 			case types.DatasetAnnotationTypeFAQ:
 				messages = append(messages, Message{"system", segment.Instruction},
-					Message{"user", segment.Question + "\n" + segment.Input},
+					Message{"user", segment.Question + "\n" + segment.Intent},
 					Message{"assistant", segment.Output})
 			case types.DatasetAnnotationTypeGeneral:
 				messages = append(messages, Message{"system", segment.Instruction},
@@ -836,7 +862,7 @@ func writeSegmentsToFile(segments []types.DatasetAnnotationTaskSegment, filePath
 					Message{"assistant", segment.Output})
 			case types.DatasetAnnotationTypeRAG:
 				messages = append(messages, Message{"system", segment.Instruction},
-					Message{"user", segment.Document + "\n" + segment.Question},
+					Message{"user", fmt.Sprintf("背景知识: %s\n 问题: %s", segment.Document, segment.Question)},
 					Message{"assistant", segment.Output})
 			}
 

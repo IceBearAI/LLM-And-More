@@ -62,12 +62,12 @@ aigc-server start -p :8080
 				_ = level.Error(logger).Log("cmd", "start.PreRunE", "err", err.Error())
 				return err
 			}
+			if err = generateTable(); err != nil {
+				_ = level.Error(logger).Log("cmd.start.PreRunE", "generateTable", "err", err.Error())
+				return err
+			}
 			// 判断是否需要初始化数据，如果没有则初始化数据
 			if !gormDB.Migrator().HasTable(types.Accounts{}) {
-				if err = generateTable(); err != nil {
-					_ = level.Error(logger).Log("cmd.start.PreRunE", "generateTable", "err", err.Error())
-					return err
-				}
 				if err = initData(); err != nil {
 					_ = level.Error(logger).Log("cmd.start.PreRunE", "initData", "err", err.Error())
 					return err

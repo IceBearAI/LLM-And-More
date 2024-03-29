@@ -60,7 +60,7 @@ type ModelEvaluate struct {
 	Uuid           string  `gorm:"column:uuid;type:varchar(500);"`                            // JobId uuid
 	JobName        string  `gorm:"column:job_name;type:varchar(500);"`                        // JobName
 	Result         string  `gorm:"column:result;type:longtext;"`                              // 回调结果
-
+	EvaluateLog    string  `gorm:"column:evaluate_log;type:longtext;null"`                    // 回调结果
 }
 
 func (m *ModelEvaluate) TableName() string {

@@ -54,6 +54,7 @@
             <ButtonsInForm>
               <v-btn color="primary" @click="onChat">聊天操场</v-btn>
               <v-btn color="primary" @click="onAdd">添加模型</v-btn>
+              <refresh-button ref="refreshButtonRef" @refresh="doQueryCurrentPage" />
             </ButtonsInForm>
           </v-col>
 
@@ -210,6 +211,7 @@ const refArrangeModel = ref();
 const refConfirmDelete = ref();
 const refTableWithPager = ref();
 const refConfirmByClick = ref();
+const refreshButtonRef = ref();
 
 const page = ref({ title: "模型列表" });
 const breadcrumbs = ref([
@@ -317,6 +319,7 @@ const doTableQuery = async (options = {}) => {
     state.tableInfos.list = [];
     state.tableInfos.total = 0;
   }
+  refreshButtonRef.value.start();
 };
 
 const doQueryFirstPage = () => {
