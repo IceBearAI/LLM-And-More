@@ -208,7 +208,19 @@ func (s docker) GetJobStatus(ctx context.Context, jobName string) (status string
 		return
 	}
 
-	return cJson.State.Status, nil
+	switch cJson.State.Status {
+	case "created", "restarting":
+		status = "Pending"
+	case "running", "paused":
+		status = "Running"
+	case "exited":
+		status = "Failed"
+	case "dead":
+		status = "Failed"
+	default:
+		status = "Unknown"
+	}
+	return status, nil
 }
 
 func (s docker) GetDeploymentStatus(ctx context.Context, deploymentName string) (status string, err error) {
@@ -216,9 +228,10 @@ func (s docker) GetDeploymentStatus(ctx context.Context, deploymentName string) 
 }
 
 func (s docker) RemoveJob(ctx context.Context, jobName string) (err error) {
-	timeout := 120
+	timeout := 60
 	err = s.dockerCli.ContainerStop(ctx, jobName, container.StopOptions{
 		Timeout: &timeout,
+		Signal:  "SIGKILL",
 	})
 	if err != nil {
 		err = errors.Wrap(err, "ContainerStop err")

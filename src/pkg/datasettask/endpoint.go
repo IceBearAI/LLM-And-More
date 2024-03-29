@@ -148,6 +148,7 @@ type Endpoints struct {
 	TaskInfoEndpoint                      endpoint.Endpoint
 	CancelCheckTaskDatasetSimilarEndpoint endpoint.Endpoint
 	AsyncCheckTaskDatasetSimilarEndpoint  endpoint.Endpoint
+	GetCheckTaskDatasetSimilarLogEndpoint endpoint.Endpoint
 }
 
 func NewEndpoints(s Service, mdw map[string][]endpoint.Middleware) Endpoints {
@@ -165,6 +166,7 @@ func NewEndpoints(s Service, mdw map[string][]endpoint.Middleware) Endpoints {
 		TaskInfoEndpoint:                      makeTaskInfoEndpoint(s),
 		CancelCheckTaskDatasetSimilarEndpoint: makeCancelCheckTaskDatasetSimilarEndpoint(s),
 		AsyncCheckTaskDatasetSimilarEndpoint:  makeAsyncCheckTaskDatasetSimilarEndpoint(s),
+		GetCheckTaskDatasetSimilarLogEndpoint: makeGetCheckTaskDatasetSimilarLogEndpoint(s),
 	}
 
 	for _, m := range mdw["DatasetTask"] {
@@ -181,6 +183,7 @@ func NewEndpoints(s Service, mdw map[string][]endpoint.Middleware) Endpoints {
 		eps.TaskInfoEndpoint = m(eps.TaskInfoEndpoint)
 		eps.CancelCheckTaskDatasetSimilarEndpoint = m(eps.CancelCheckTaskDatasetSimilarEndpoint)
 		eps.AsyncCheckTaskDatasetSimilarEndpoint = m(eps.AsyncCheckTaskDatasetSimilarEndpoint)
+		eps.GetCheckTaskDatasetSimilarLogEndpoint = m(eps.GetCheckTaskDatasetSimilarLogEndpoint)
 	}
 	return eps
 }
@@ -396,6 +399,22 @@ func makeAsyncCheckTaskDatasetSimilarEndpoint(s Service) endpoint.Endpoint {
 		}
 		err := s.AsyncCheckTaskDatasetSimilar(ctx, tenantId, taskId)
 		return encode.Response{
+			Error: err,
+		}, err
+	}
+}
+
+func makeGetCheckTaskDatasetSimilarLogEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		tenantId, _ := ctx.Value(middleware.ContextKeyTenantId).(uint)
+		taskId, ok := ctx.Value(contextKeyDatasetTaskId).(string)
+		if !ok {
+			err := errors.New("invalid task id")
+			return nil, err
+		}
+		res, err := s.GetCheckTaskDatasetSimilarLog(ctx, tenantId, taskId)
+		return encode.Response{
+			Data:  res,
 			Error: err,
 		}, err
 	}
