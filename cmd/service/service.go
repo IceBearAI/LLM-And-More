@@ -131,10 +131,15 @@ const (
 	EnvNameRuntimeK8sInsecure     = "AIGC_RUNTIME_K8S_INSECURE"
 	EnvNameRuntimeK8sVolumeName   = "AIGC_RUNTIME_K8S_VOLUME_NAME"
 	EnvNameRuntimeDockerWorkspace = "AIGC_RUNTIME_DOCKER_WORKSPACE"
+	EnvNameRuntimeGpuNum          = "AIGC_RUNTIME_GPU_NUM"
 
 	// [local]
 	EnvNameStorageType = "AIGC_STORAGE_TYPE"
 	//EnvNameLocalDataPath = "AIGC_LOCAL_DATA_PATH"
+
+	// [fschat]
+	EnvNameFsChatControllerAddress = "AIGC_FSCHAT_CONTROLLER_ADDRESS"
+	EnvNameFsChatApiAddress        = "AIGC_FSCHAT_API_ADDRESS"
 
 	DefaultRuntimePlatform      = "docker"
 	DefaultRuntimeShmSize       = "16G"
@@ -146,7 +151,7 @@ const (
 	DefaultRuntimeK8sVolumeName = ""
 
 	// [cronjob]
-	AigcEnvNameCronJobAuto = "AIGC_CRONJOB_AUTO"
+	EnvNameCronJobAuto = "AIGC_CRONJOB_AUTO"
 
 	DefaultDbDrive       = "sqlite"
 	DefaultMysqlHost     = "mysql"
@@ -281,6 +286,10 @@ var (
 	runtimePlatform, runtimeShmSize, runtimeK8sHost, runtimeK8sToken, runtimeK8sConfigPath, runtimeK8sNamespace, runtimeK8sVolumeName string
 	runtimeDockerWorkspace                                                                                                            string
 	runtimeK8sInsecure                                                                                                                bool
+	runtimeGpuNum                                                                                                                     int
+
+	// [fschat]
+	fsChatControllerAddress, fsChatApiAddress string
 
 	channelId     int
 	corsHeaders   = make(map[string]string, 3)
@@ -363,7 +372,10 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().BoolVar(&serviceOpenAiEnable, "service.openai.enable", false, "是否启用OpenAI服务")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiHost, "service.openai.host", DefaultServiceOpenAiHost, "OpenAI服务地址")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiModel, "service.openai.model", DefaultServiceOpenAiModel, "OpenAI模型名称")
+	rootCmd.PersistentFlags().StringVar(&serviceOpenAiToken, "service.openai.token", "", "OpenAI Token")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiOrgId, "service.openai.org.id", DefaultServiceOpenAiOrgId, "OpenAI OrgId")
+	rootCmd.PersistentFlags().StringVar(&fsChatControllerAddress, "service.fschat.controller.host", "http://fschat-controller:21001", "fastchat controller address")
+	rootCmd.PersistentFlags().StringVar(&fsChatApiAddress, "service.fschat.api.host", "http://fschat-api:8000", "fastchat api address")
 
 	// [s3]
 	//rootCmd.PersistentFlags().StringVar(&serviceS3Host, "service.s3.host", DefaultServiceS3Host, "S3服务地址")
@@ -396,6 +408,7 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVar(&runtimeK8sVolumeName, "runtime.k8s.volume.name", DefaultRuntimeK8sVolumeName, "K8s挂载的存储名")
 	rootCmd.PersistentFlags().BoolVar(&runtimeK8sInsecure, "runtime.k8s.insecure", DefaultRuntimeK8sInsecure, "K8s是否不安全")
 	rootCmd.PersistentFlags().StringVar(&runtimeDockerWorkspace, "runtime.docker.workspace", defaultStoragePath, "Docker工作目录")
+	rootCmd.PersistentFlags().IntVar(&runtimeGpuNum, "runtime.gpu.num", 8, "GPU数量")
 
 	// [dataset]
 	startCmd.PersistentFlags().StringVar(&datasetsImage, "datasets.image", DefaultDatasetsImage, "datasets image")
@@ -406,6 +419,7 @@ Platform: ` + goOS + "/" + goArch + `
 	// [local]
 	startCmd.PersistentFlags().StringVar(&storageType, "storage.type", "local", "storage type")
 
+	startCmd.PersistentFlags().BoolVar(&cronJobAuto, "cronjob.auto", true, "是否自动执行定时任务")
 	cronJobStartCmd.PersistentFlags().BoolVar(&cronJobAuto, "cronjob.auto", true, "是否自动执行定时任务")
 
 	//jobClearCmd.AddCommand(jobClearAudioTaggedCmd)
@@ -567,6 +581,7 @@ func prepare(ctx context.Context) error {
 		runtime2.WithK8sVolumeName(runtimeK8sVolumeName),
 		runtime2.WithNamespace(runtimeK8sNamespace),
 		runtime2.WithWorkspace(runtimeDockerWorkspace),
+		runtime2.WithGpuNum(runtimeGpuNum),
 	)
 	apiSvc = services.NewApi(ctx, logger, traceId, serverDebug, tracer, &services.Config{
 		Namespace: namespace, ServiceName: serverName,
@@ -644,7 +659,7 @@ func Run() {
 	serverAdminUser = envString(EnvNameServerAdminPass, DefaultServerAdminPass)
 	serverStoragePath = envString(EnvNameServerStoragePath, defaultStoragePath)
 	serverDomain = envString(EnvNameServerDomain, fmt.Sprintf("http://localhost%s", httpAddr))
-	cronJobAuto, _ = strconv.ParseBool(envString(AigcEnvNameCronJobAuto, "true"))
+	cronJobAuto, _ = strconv.ParseBool(envString(EnvNameCronJobAuto, "true"))
 
 	// [service.gpt]
 	serviceOpenAiEnable, _ = strconv.ParseBool(envString(EnvNameServiceOpenAiEnable, "false"))
@@ -694,6 +709,11 @@ func Run() {
 	runtimeK8sVolumeName = envString(EnvNameRuntimeK8sVolumeName, DefaultRuntimeK8sVolumeName)
 	runtimeK8sInsecure, _ = strconv.ParseBool(envString(EnvNameRuntimeK8sInsecure, strconv.FormatBool(DefaultRuntimeK8sInsecure)))
 	runtimeDockerWorkspace = envString(EnvNameRuntimeDockerWorkspace, defaultStoragePath)
+	runtimeGpuNum, _ = strconv.Atoi(envString(EnvNameRuntimeGpuNum, "8"))
+
+	// [fschat]
+	fsChatControllerAddress = envString(EnvNameFsChatControllerAddress, "http://fschat-controller:21001")
+	fsChatApiAddress = envString(EnvNameFsChatControllerAddress, "http://fschat-api:8000")
 
 	if err = rootCmd.Execute(); err != nil {
 		fmt.Println("rootCmd.Execute", err.Error())

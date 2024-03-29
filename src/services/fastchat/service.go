@@ -290,16 +290,6 @@ func (s *service) CreateImage(ctx context.Context, prompt, size, format string) 
 		},
 	})
 
-	//translation, err := c.CreateTranslation(ctx, openai.AudioRequest{
-	//	Model:    openai.Whisper1,
-	//	FilePath: "~/Downloads/langchain.wav",
-	//})
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//fmt.Println(translation.Text)
-
 	image, err := c.CreateImage(ctx, openai.ImageRequest{
 		Prompt:         prompt,
 		N:              1,
@@ -315,7 +305,7 @@ func (s *service) CreateImage(ctx context.Context, prompt, size, format string) 
 }
 
 func (s *service) Models(ctx context.Context) (res []openai.Model, err error) {
-	client, _ := s.getClient(ctx, "")
+	client, _ := s.getClient(ctx, "localai")
 	models, err := client.ListModels(ctx)
 	if err != nil {
 		err = errors.Wrap(err, "ListModels")
@@ -341,8 +331,6 @@ func (s *service) getClient(ctx context.Context, model string) (*openai.Client, 
 		config.HTTPClient = httpClient
 		return openai.NewClientWithConfig(config), model
 	}
-
-	fmt.Println("apiKey", s.localAiToken)
 
 	apiKey := s.localAiToken
 	platform, ok := ctx.Value(ContextKeyPlatform).(Platform)

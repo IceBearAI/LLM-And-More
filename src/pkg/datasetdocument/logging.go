@@ -28,7 +28,7 @@ func (s *logging) CreateDocument(ctx context.Context, tenantId uint, data docume
 	defer func(begin time.Time) {
 		_ = s.logger.Log(
 			s.traceId, ctx.Value(s.traceId),
-			"method", "CreateDocument", "tenantId", tenantId, "data", data,
+			"method", "CreateDocument", "tenantId", tenantId, "splitType", data.SplitType,
 			"took", time.Since(begin),
 			"err", err,
 		)

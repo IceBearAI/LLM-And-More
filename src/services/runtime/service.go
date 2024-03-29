@@ -25,6 +25,7 @@ type CreationOptions struct {
 	httpClientOpts []kithttp.ClientOption
 	endpoint       string
 	workspace      string
+	gpuNum         int
 	shmSize        string
 	namespace      string
 	k8sConfigPath  string

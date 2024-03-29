@@ -62,12 +62,12 @@ aigc-server start -p :8080
 				_ = level.Error(logger).Log("cmd", "start.PreRunE", "err", err.Error())
 				return err
 			}
+			if err = generateTable(); err != nil {
+				_ = level.Error(logger).Log("cmd.start.PreRunE", "generateTable", "err", err.Error())
+				return err
+			}
 			// 判断是否需要初始化数据，如果没有则初始化数据
 			if !gormDB.Migrator().HasTable(types.Accounts{}) {
-				if err = generateTable(); err != nil {
-					_ = level.Error(logger).Log("cmd.start.PreRunE", "generateTable", "err", err.Error())
-					return err
-				}
 				if err = initData(); err != nil {
 					_ = level.Error(logger).Log("cmd.start.PreRunE", "initData", "err", err.Error())
 					return err
@@ -119,8 +119,14 @@ func start(ctx context.Context) (err error) {
 	channelSvc = channels.NewService(logger, traceId, store, apiSvc)
 	modelSvc = models.NewService(logger, traceId, store, apiSvc,
 		models.WithGPUTolerationValue(datasetsGpuToleration),
+		models.WithVolumeName(runtimeK8sVolumeName),
+		models.WithControllerAddress(fsChatControllerAddress),
 	)
-	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, finetuning.WithGpuTolerationValue(datasetsGpuToleration))
+	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc,
+		finetuning.WithGpuTolerationValue(datasetsGpuToleration),
+		finetuning.WithCallbackHost(serverDomain),
+		finetuning.WithVolumeName(runtimeK8sVolumeName),
+	)
 	sysSvc = sys.NewService(logger, traceId, store, apiSvc)
 	datasetSvc = datasets.New(logger, traceId, store)
 	toolsSvc = tools.New(logger, traceId, store)
@@ -145,11 +151,13 @@ func start(ctx context.Context) (err error) {
 		datasettask.WithDatasetModel(datasetsModelName),
 		datasettask.WithDatasetDrive(datasetsDevice),
 		datasettask.WithCallbackHost(serverDomain),
+		datasettask.WithVolumeName(runtimeK8sVolumeName),
 	)
 
 	modelEvaluateSvc = modelevaluate.New(logger, traceId, store, apiSvc, fileSvc,
 		modelevaluate.WithDatasetGpuTolerationValue(datasetsGpuToleration),
 		modelevaluate.WithCallbackHost(serverDomain),
+		modelevaluate.WithVolumeName(runtimeK8sVolumeName),
 	)
 
 	if logger != nil {
@@ -185,6 +193,10 @@ func start(ctx context.Context) (err error) {
 	initHttpHandler(ctx, g)
 	//initGRPCHandler(g)
 	initCancelInterrupt(ctx, g)
+
+	if cronJobAuto {
+		autoCronjobHandler(ctx, g)
+	}
 
 	_ = level.Error(logger).Log("server exit", g.Run())
 	return nil
@@ -336,7 +348,6 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 	}, func(e error) {
 		closeConnection(ctx)
 		_ = level.Error(httpLogger).Log("transport", "HTTP", "httpListener.Close", "http", "err", e)
-		_ = level.Debug(logger).Log("db", "close", "err", db.Close())
 		//if rdb != nil {
 		//	_ = level.Debug(logger).Log("rdb", "close", "err", rdb.Close())
 		//}
@@ -361,6 +372,15 @@ func initCancelInterrupt(ctx context.Context, g *group.Group) {
 		}
 	}, func(err error) {
 		close(cancelInterrupt)
+	})
+}
+
+func autoCronjobHandler(ctx context.Context, g *group.Group) {
+	g.Add(func() error {
+		return cronStart(ctx, cronJobNames)
+	}, func(err2 error) {
+		closeConnection(ctx)
+		_ = level.Warn(logger).Log("")
 	})
 }
 

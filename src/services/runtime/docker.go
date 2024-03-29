@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -20,6 +20,13 @@ func WithWorkspace(workspace string) CreationOption {
 	}
 }
 
+// WithGpuNum returns a CreationOption that sets the workspace.
+func WithGpuNum(gpuNum int) CreationOption {
+	return func(co *CreationOptions) {
+		co.gpuNum = gpuNum
+	}
+}
+
 type docker struct {
 	options       *CreationOptions
 	dockerCli     *client.Client
@@ -27,6 +34,8 @@ type docker struct {
 }
 
 func (s docker) CreateJob(ctx context.Context, config Config) (jobName string, err error) {
+	_ = s.RemoveJob(ctx, config.ServiceName)
+
 	exposedPorts := make(nat.PortSet)
 	hostPortBindings := make(nat.PortMap)
 	hostBinds := make([]string, 0)
@@ -54,9 +63,12 @@ func (s docker) CreateJob(ctx context.Context, config Config) (jobName string, e
 		if config.HasConfigData(v.Key) {
 			hostBinds = append(hostBinds, fmt.Sprintf("%s:%s", filepath.Join(s.options.workspace, config.ServiceName, v.Key), v.Value))
 		} else {
-			hostBinds = append(hostBinds, fmt.Sprintf("%s:%s", v.Key, v.Value))
+			hostBinds = append(hostBinds, fmt.Sprintf("%s:%s", filepath.Join(s.options.workspace, v.Key), v.Value))
 		}
 	}
+	//if s.options.k8sVolumeName != "" {
+	//	hostBinds = append(hostBinds, fmt.Sprintf("%s:%s", filepath.Join(s.options.workspace, s.options.k8sVolumeName), "/data"))
+	//}
 
 	for k, _ := range config.ConfigData {
 		hostBinds = append(hostBinds, fmt.Sprintf("%s:%s", filepath.Join(s.options.workspace, config.ServiceName, k), k))
@@ -75,16 +87,27 @@ func (s docker) CreateJob(ctx context.Context, config Config) (jobName string, e
 			CPUCount: config.CPU,
 			Memory:   config.Memory,
 		},
+		NetworkMode: "host",
 		//Mounts: hostMount,
 		Binds: hostBinds,
 	}
 	var dr []container.DeviceRequest
 	if config.GPU != 0 {
+		availableGPUs, err := s.getContainerGpuNum(ctx)
+		if err != nil {
+			return "", errors.Wrap(err, "getContainerGpuNum err")
+		}
+		if len(availableGPUs) < config.GPU {
+			err = errors.New("No enough GPU")
+			return "", err
+		}
 		dr = append(dr, container.DeviceRequest{
-			Driver:       "nvidia",
-			Count:        config.GPU,
+			Driver: "nvidia",
+			//Count:        -1,
 			Capabilities: [][]string{{"gpu"}},
+			DeviceIDs:    availableGPUs[:config.GPU],
 		})
+
 	}
 	hcf.Resources.DeviceRequests = dr
 
@@ -94,21 +117,70 @@ func (s docker) CreateJob(ctx context.Context, config Config) (jobName string, e
 		return
 	}
 
-	err = s.dockerCli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
+	err = s.dockerCli.ContainerStart(ctx, resp.ID, container.StartOptions{})
 	if err != nil {
 		err = fmt.Errorf("ContainerStart err: %s", err.Error())
 		return
 	}
 
-	return resp.ID, nil
+	return config.ServiceName, nil
+}
+
+func (s docker) getContainerGpuNum(ctx context.Context) (gpuNum []string, err error) {
+	containers, err := s.dockerCli.ContainerList(ctx, container.ListOptions{})
+	if err != nil {
+		err = errors.Wrap(err, "ContainerList err")
+		return
+	}
+	usedGPUs := make(map[string]bool)
+	for _, _container := range containers {
+		containerJSON, err := s.dockerCli.ContainerInspect(ctx, _container.ID)
+		if err != nil {
+			fmt.Printf("Error inspecting container %s: %s\n", _container.ID, err)
+			continue
+		}
+
+		for _, deviceRequest := range containerJSON.HostConfig.DeviceRequests {
+			if deviceRequest.Driver == "nvidia" {
+				for _, id := range deviceRequest.DeviceIDs {
+					usedGPUs[id] = true
+					fmt.Printf("Container %s is using GPU %s\n", _container.ID[:12], id)
+				}
+			}
+		}
+	}
+
+	// Assuming you have a maximum of 8 GPUs
+	totalGPUs := s.options.gpuNum
+	availableGPUs := []string{}
+	for i := 0; i < totalGPUs; i++ {
+		if !usedGPUs[fmt.Sprint(i)] {
+			availableGPUs = append(availableGPUs, fmt.Sprint(i))
+		}
+	}
+
+	fmt.Println("availableGPUs", availableGPUs)
+
+	return availableGPUs, nil
+}
+
+func replacerServiceName(name string) string {
+	replacer := strings.NewReplacer(
+		"_", "-",
+		".", "-",
+		"::", "-", // 这个可能不需要，因为前一个已经将单个冒号替换了
+		":", "-",
+	)
+	return replacer.Replace(name)
 }
 
 func (s docker) CreateDeployment(ctx context.Context, config Config) (deploymentName string, err error) {
+	config.ServiceName = replacerServiceName(config.ServiceName)
 	return s.CreateJob(ctx, config)
 }
 
 func (s docker) GetDeploymentLogs(ctx context.Context, id string) (log string, err error) {
-	out, err := s.dockerCli.ContainerLogs(ctx, id, types.ContainerLogsOptions{
+	out, err := s.dockerCli.ContainerLogs(ctx, id, container.LogsOptions{
 		ShowStderr: true,
 		ShowStdout: true,
 	})
@@ -136,7 +208,19 @@ func (s docker) GetJobStatus(ctx context.Context, jobName string) (status string
 		return
 	}
 
-	return cJson.State.Status, nil
+	switch cJson.State.Status {
+	case "created", "restarting":
+		status = "Pending"
+	case "running", "paused":
+		status = "Running"
+	case "exited":
+		status = "Failed"
+	case "dead":
+		status = "Failed"
+	default:
+		status = "Unknown"
+	}
+	return status, nil
 }
 
 func (s docker) GetDeploymentStatus(ctx context.Context, deploymentName string) (status string, err error) {
@@ -144,22 +228,28 @@ func (s docker) GetDeploymentStatus(ctx context.Context, deploymentName string) 
 }
 
 func (s docker) RemoveJob(ctx context.Context, jobName string) (err error) {
-	err = s.dockerCli.ContainerStop(ctx, jobName, container.StopOptions{})
+	timeout := 60
+	err = s.dockerCli.ContainerStop(ctx, jobName, container.StopOptions{
+		Timeout: &timeout,
+		Signal:  "SIGKILL",
+	})
 	if err != nil {
 		err = errors.Wrap(err, "ContainerStop err")
 	}
 
-	err = s.dockerCli.ContainerRemove(ctx, jobName, types.ContainerRemoveOptions{})
+	err = s.dockerCli.ContainerRemove(ctx, jobName, container.RemoveOptions{})
 	return errors.Wrap(err, "ContainerRemove err")
 }
 
 func (s docker) RemoveDeployment(ctx context.Context, deploymentName string) (err error) {
+	deploymentName = replacerServiceName(deploymentName)
 	return s.RemoveJob(ctx, deploymentName)
 }
 
 func NewDocker(opts ...CreationOption) Service {
 	options := &CreationOptions{
 		workspace: "/tmp",
+		gpuNum:    8,
 	}
 	for _, opt := range opts {
 		opt(options)

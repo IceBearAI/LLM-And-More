@@ -50,13 +50,14 @@ chat的一些配置，假设使用的FastChat作为服务的推理框架，则�
 
 如果还有使用OpenAI的相关模型，则设置OpenAI的相关信息。
 
-| 变量名                           | 描述            | 值                           |
-|-------------------------------|---------------|-----------------------------|
-| `AIGC_SERVICE_CHAT_API_HOST`  | 聊天API服务地址     | `http://fschat-api:8000/v1` |
-| `AIGC_SERVICE_CHAT_API_TOKEN` | 聊天API服务访问令牌   |                             |
-| `AIGC_SERVICE_OPENAI_ORG_ID`  | OpenAI 组织ID   |                             |
-| `AIGC_SERVICE_OPENAI_HOST`    | OpenAI 服务地址   | `https://api.openai.com/v1` |
-| `AIGC_SERVICE_OPENAI_TOKEN`   | OpenAI 服务访问令牌 |                             |
+| 变量名                              | 描述                     | 值                                |
+|----------------------------------|------------------------|----------------------------------|
+| `AIGC_SERVICE_CHAT_API_HOST`     | 聊天API服务地址              | `http://fschat-api:8000`         |
+| `AIGC_SERVICE_CHAT_API_TOKEN`    | 聊天API服务访问令牌            |                                  |
+| `AIGC_SERVICE_OPENAI_ORG_ID`     | OpenAI 组织ID            |                                  |
+| `AIGC_SERVICE_OPENAI_HOST`       | OpenAI 服务地址            | `https://api.openai.com/v1`      |
+| `AIGC_SERVICE_OPENAI_TOKEN`      | OpenAI 服务访问令牌          |                                  |
+| `AIGC_FSCHAT_CONTROLLER_ADDRESS` | FastChat Controller的地址 | `http://fschat-controller:21001` |
 
 ##### S3 存储配置
 
@@ -118,6 +119,7 @@ chat的一些配置，假设使用的FastChat作为服务的推理框架，则�
 当`AIGC_RUNTIME_PLATFORM`设置为`docker`时可设置Docker本身支持的变量，如：`DOCKER_`开头的相关环境变量
 
 - `AIGC_RUNTIME_DOCKER_WORKSPACE` 是指本机的模型目录，会映射到运行模型容器里的`/data/`目录。
+- `AIGC_RUNTIME_GPU_NUM` 当前主机的GPU总数量，如果不设置默认是`8`，默认会从第`0`块卡启动
 
 ###### k8s 平台
 
@@ -145,6 +147,7 @@ kubernetes支持两种方式连接
 | `AIGC_RUNTIME_K8S_VOLUME_NAME`  | Kubernetes 卷名称    | `aigc-data`        |
 | `AIGC_RUNTIME_SHM_SIZE`         | 共享内存大小            | `16G`              |
 | `AIGC_RUNTIME_DOCKER_WORKSPACE` | Docker 工作空间       | `/tmp`             |
+| `AIGC_RUNTIME_GPU_NUM`          | 当前主机的GPU总数量       | `8`                |
 
 ##### Datasets
 
@@ -164,7 +167,7 @@ kubernetes支持两种方式连接
 | 变量名           | 描述                  | 值                       |
 |---------------|---------------------|-------------------------|
 | `HF_ENDPOINT` | Hugging Face 终端地址   | `https://hf-mirror.com` |
-| `HF_HOME`     | Hugging Face 内容缓存目录 | `~/.cache/huggingface`  |
+| `HF_HOME`     | Hugging Face 内容缓存目录 | `/data/hf`              |
 | `HTTP_PROXY`  | HTTP代理              |                         |
 | `HTTPS_PROXY` | HTTPS代理             |                         |
 | `NO_PROXY`    | 不使用代理的地址            |                         |

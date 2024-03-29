@@ -2,7 +2,6 @@ package types
 
 import (
 	"gorm.io/gorm"
-	"time"
 )
 
 // ChatChannels 渠道表
@@ -17,7 +16,7 @@ type ChatChannels struct {
 	ApiKey        string   `gorm:"column:api_key;index;unique;size:128;" json:"api_key"`          // comment:ApiKey
 	Email         string   `gorm:"column:email;size:128;null;" json:"email"`                      // comment:邮箱
 	LastOperator  string   `gorm:"column:last_operator;size:100;null;" json:"last_operator"`      // comment:最后操作人
-	TenantId      uint     `gorm:"column:tenant_id;type:bigint(20) unsigned;NOT NULL"`            // 租户ID
+	TenantId      uint     `gorm:"column:tenant_id;type:bigint(20);NOT NULL"`                     // 租户ID
 	ChannelModels []Models `gorm:"many2many:channel_model_associations;foreignKey:id;joinForeignKey:channel_id;References:id;joinReferences:model_id"`
 	ModelId       []uint   `gorm:"-" json:"modelId"`
 	Tenant        Tenants  `gorm:"foreignKey:TenantId;references:ID"`
@@ -29,11 +28,9 @@ func (*ChatChannels) TableName() string {
 
 // ChannelModelAssociations 渠道和模型中间表
 type ChannelModelAssociations struct {
-	ID        uint `gorm:"primarykey"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	ChannelID uint `gorm:"column:channel_id;type:bigint(20) unsigned;NOT NULL"` // 渠道表主键ID channels.id
-	ModelID   uint `gorm:"column:model_id;type:bigint(20) unsigned"`            // 模型表主键ID models.id
+	//gorm.Model
+	ChannelID uint `gorm:"column:channel_id;type:bigint(20);NOT NULL"` // 渠道表主键ID channels.id
+	ModelID   uint `gorm:"column:model_id;type:bigint(20)"`            // 模型表主键ID models.id
 }
 
 func (m *ChannelModelAssociations) TableName() string {

@@ -95,7 +95,8 @@ func (s *service) CreateDocument(ctx context.Context, tenantId uint, data docume
 	fileContent := string(fileBytes)
 
 	// 按 "\n\n" 分隔符切割文件内容
-	parts := strings.Split(fileContent, "\n\n")
+	splitType := strings.ReplaceAll(data.SplitType, "\\n", "\n")
+	parts := strings.Split(fileContent, splitType)
 
 	var documentSegments []types.DatasetDocumentSegment
 	// 处理切割后的每部分

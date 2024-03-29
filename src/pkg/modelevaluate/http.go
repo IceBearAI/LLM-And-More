@@ -13,12 +13,26 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 var validate = validator.New()
 
 func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.ServerOption) http.Handler {
 	var ems []endpoint.Middleware
+	var kitopts = []kithttp.ServerOption{
+		kithttp.ServerBefore(func(ctx context.Context, request *http.Request) context.Context {
+			vars := mux.Vars(request)
+			if name, ok := vars["modelName"]; ok && !strings.EqualFold(name, "") {
+				ctx = context.WithValue(ctx, contextKeyModelName, name)
+			}
+			if jobId, ok := vars["jobId"]; ok && !strings.EqualFold(jobId, "") {
+				ctx = context.WithValue(ctx, contextKeyModelEvaluateId, jobId)
+			}
+			return ctx
+		}),
+	}
+	kitopts = append(opts, kitopts...)
 
 	ems = append(ems, dmw...)
 
@@ -31,38 +45,44 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 		eps.ListEndpoint,
 		decodeListRequest,
 		encode.JsonResponse,
-		opts...,
+		kitopts...,
 	)).Methods(http.MethodGet)
 	r.Handle("/create", kithttp.NewServer(
 		eps.CreateEndpoint,
 		decodeCreateRequest,
 		encode.JsonResponse,
-		opts...,
+		kitopts...,
 	)).Methods(http.MethodPost)
 	r.Handle("/cancel/{uuid}", kithttp.NewServer(
 		eps.CancelEndpoint,
 		decodeCancelRequest,
 		encode.JsonResponse,
-		opts...,
+		kitopts...,
 	)).Methods(http.MethodPut)
 	r.Handle("/delete/{uuid}", kithttp.NewServer(
 		eps.DeleteEndpoint,
 		decodeDeleteRequest,
 		encode.JsonResponse,
-		opts...,
+		kitopts...,
 	)).Methods(http.MethodDelete)
 	r.Handle("/fivegraph", kithttp.NewServer(
 		eps.FiveGraphEndpoint,
 		decodeFiveGraphRequest,
 		encode.JsonResponse,
-		opts...,
+		kitopts...,
 	)).Methods(http.MethodPost)
 	r.Handle("/finish/{jobId}", kithttp.NewServer(
 		eps.FinishEndpoint,
 		decodeFinishRequest,
 		encode.JsonResponse,
-		opts...,
+		kitopts...,
 	)).Methods(http.MethodPut)
+	r.Handle("/{modelName}/eval-log/{jobId}", kithttp.NewServer(
+		eps.GetEvalLogEndpoint,
+		kithttp.NopRequestDecoder,
+		encode.JsonResponse,
+		kitopts...,
+	)).Methods(http.MethodGet)
 	return r
 }
 

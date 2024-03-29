@@ -95,6 +95,10 @@ func MakeHTTPHandler(s Service, mdw []endpoint.Middleware, opts []kithttp.Server
 		eps.AsyncCheckTaskDatasetSimilarEndpoint,
 		kithttp.NopRequestDecoder,
 		encode.JsonResponse, kitopts...)).Methods(http.MethodPost)
+	r.Handle("/{datasetTaskId}/detect/annotation/log", kithttp.NewServer(
+		eps.GetCheckTaskDatasetSimilarLogEndpoint,
+		kithttp.NopRequestDecoder,
+		encode.JsonResponse, kitopts...)).Methods(http.MethodGet)
 	return r
 }
 

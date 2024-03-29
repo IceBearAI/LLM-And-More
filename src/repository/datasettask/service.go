@@ -3,6 +3,7 @@ package datasettask
 import (
 	"context"
 	"github.com/IceBearAI/aigc/src/repository/types"
+	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
@@ -50,10 +51,35 @@ type Service interface {
 	AddDatasetDocumentSegments(ctx context.Context, data []types.DatasetDocumentSegment) (err error)
 	// UpdateDatasetDocumentSegmentCount 更新数据集文档样本数量
 	UpdateDatasetDocumentSegmentCount(ctx context.Context, datasetDocumentId uint, count int) (err error)
+	// GetTaskSegmentPrev 获取上一条已标注的内容
+	GetTaskSegmentPrev(ctx context.Context, taskId uint, status types.DatasetAnnotationStatus) (res types.DatasetAnnotationTaskSegment, err error)
+	// GetTaskByDetection 获取正在评估检测的任务
+	GetTaskByDetection(ctx context.Context, status types.DatasetAnnotationStatus, detectionStatus types.DatasetAnnotationDetectionStatus, preload ...string) (res []types.DatasetAnnotationTask, err error)
 }
 
 type service struct {
-	db *gorm.DB
+	db         *gorm.DB
+	randomFunc string
+}
+
+func (s *service) GetTaskByDetection(ctx context.Context, status types.DatasetAnnotationStatus, detectionStatus types.DatasetAnnotationDetectionStatus, preload ...string) (res []types.DatasetAnnotationTask, err error) {
+	query := s.db.WithContext(ctx).Model(types.DatasetAnnotationTask{}).Where("status = ? and detection_status = ?", status, detectionStatus)
+	for _, p := range preload {
+		query = query.Preload(p)
+	}
+	err = query.Find(&res).Error
+	return
+}
+
+func (s *service) GetTaskSegmentPrev(ctx context.Context, taskId uint, status types.DatasetAnnotationStatus) (res types.DatasetAnnotationTaskSegment, err error) {
+	err = s.db.WithContext(ctx).Model(types.DatasetAnnotationTaskSegment{}).
+		Where("data_annotation_id = ? and status = ?", taskId, status).
+		Order("updated_at desc").
+		First(&res).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return res, nil
+	}
+	return
 }
 
 func (s *service) GetTaskSegmentByRand(ctx context.Context, datasetId uint, percent float64, status types.DatasetAnnotationStatus, segmentType types.DatasetAnnotationSegmentType, preload ...string) (res []types.DatasetAnnotationTaskSegment, err error) {
@@ -68,7 +94,7 @@ func (s *service) GetTaskSegmentByRand(ctx context.Context, datasetId uint, perc
 	}
 	//limit := math.Round(percent * float64(total))
 
-	err = query.Order("random()").Limit(int(percent * float64(total))).Find(&res).Error
+	err = query.Order(s.randomFunc).Limit(int(percent * float64(total))).Find(&res).Error
 	return
 }
 
@@ -131,7 +157,7 @@ func (s *service) ListTasks(ctx context.Context, tenantId uint, name string, pag
 	if name != "" {
 		query = query.Where("name like ?", "%"+name+"%")
 	}
-	err = query.Count(&total).Order("created_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&res).Error
+	err = query.Count(&total).Order("created_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Omit("detection_log").Find(&res).Error
 	return
 }
 
@@ -157,7 +183,7 @@ func (s *service) AddTaskSegments(ctx context.Context, data []types.DatasetAnnot
 func (s *service) GetTaskOneSegment(ctx context.Context, taskId uint, status types.DatasetAnnotationStatus, preload ...string) (res *types.DatasetAnnotationTaskSegment, err error) {
 	err = s.db.WithContext(ctx).Model(types.DatasetAnnotationTaskSegment{}).
 		Where("data_annotation_id = ? and status = ?", taskId, status).
-		Order("random()").
+		Order(s.randomFunc).
 		First(&res).Error
 	return
 }
@@ -196,7 +222,12 @@ func (s *service) CreateTask(ctx context.Context, data *types.DatasetAnnotationT
 }
 
 func New(db *gorm.DB) Service {
+	var randomFunc = "rand()"
+	if db.Dialector.Name() == "sqlite" {
+		randomFunc = "random()"
+	}
 	return &service{
-		db: db,
+		db:         db,
+		randomFunc: randomFunc,
 	}
 }

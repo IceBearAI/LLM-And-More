@@ -11,6 +11,19 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (s *tracing) GetEvalLog(ctx context.Context, tenantId uint, modelUUID, evalJobId string) (res string, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "GetEvalLog", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "pkg.modelevaluate",
+	})
+	defer func() {
+		span.LogKV("tenantId", tenantId, "modelUUID", modelUUID, "evalJobId", evalJobId, "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return s.next.GetEvalLog(ctx, tenantId, modelUUID, evalJobId)
+}
+
 func (s *tracing) EvalFinish(ctx context.Context, req finishRequest) (err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "EvalFinish", opentracing.Tag{
 		Key:   string(ext.Component),

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/IceBearAI/aigc/src/encode"
 	"github.com/IceBearAI/aigc/src/middleware"
+	"github.com/IceBearAI/aigc/src/repository/types"
 	"github.com/go-kit/kit/endpoint"
 	"time"
 )
@@ -165,29 +166,36 @@ type (
 		// NEpochs is the number of training epochs.
 		NEpochs int `json:"n_epochs"`
 	}
+
+	updateTrainStatusRequest struct {
+		Status  string `json:"status" validate:"required"`
+		Message string `json:"message"`
+	}
 )
 
 type Endpoints struct {
-	CreateJobEndpoint endpoint.Endpoint
-	ListJobEndpoint   endpoint.Endpoint
-	CancelJobEndpoint endpoint.Endpoint
-	DashBoardEndpoint endpoint.Endpoint
-	BaseModelEndpoint endpoint.Endpoint
-	DeleteJobEndpoint endpoint.Endpoint
-	GetJobEndpoint    endpoint.Endpoint
-	EstimateEndpoint  endpoint.Endpoint
+	CreateJobEndpoint               endpoint.Endpoint
+	ListJobEndpoint                 endpoint.Endpoint
+	CancelJobEndpoint               endpoint.Endpoint
+	DashBoardEndpoint               endpoint.Endpoint
+	BaseModelEndpoint               endpoint.Endpoint
+	DeleteJobEndpoint               endpoint.Endpoint
+	GetJobEndpoint                  endpoint.Endpoint
+	EstimateEndpoint                endpoint.Endpoint
+	UpdateJobFinishedStatusEndpoint endpoint.Endpoint
 }
 
 func NewEndpoint(s Service, dwm map[string][]endpoint.Middleware) Endpoints {
 	eps := Endpoints{
-		CreateJobEndpoint: makeCreateJobEndpoint(s),
-		ListJobEndpoint:   makeListJobEndpoint(s),
-		CancelJobEndpoint: makeCancelJobEndpoint(s),
-		DashBoardEndpoint: makeDashBoardEndpoint(s),
-		BaseModelEndpoint: makeBaseModelEndpoint(s),
-		DeleteJobEndpoint: makeDeleteJobEndpoint(s),
-		GetJobEndpoint:    makeGetJobEndpoint(s),
-		EstimateEndpoint:  makeEstimateEndpoint(s),
+		CreateJobEndpoint:               makeCreateJobEndpoint(s),
+		ListJobEndpoint:                 makeListJobEndpoint(s),
+		CancelJobEndpoint:               makeCancelJobEndpoint(s),
+		DashBoardEndpoint:               makeDashBoardEndpoint(s),
+		BaseModelEndpoint:               makeBaseModelEndpoint(s),
+		DeleteJobEndpoint:               makeDeleteJobEndpoint(s),
+		GetJobEndpoint:                  makeGetJobEndpoint(s),
+		EstimateEndpoint:                makeEstimateEndpoint(s),
+		UpdateJobFinishedStatusEndpoint: makeUpdateJobFinishedStatusEndpoint(s),
 	}
 	for _, m := range dwm["FineTuning"] {
 		eps.CreateJobEndpoint = m(eps.CreateJobEndpoint)
@@ -198,6 +206,7 @@ func NewEndpoint(s Service, dwm map[string][]endpoint.Middleware) Endpoints {
 		eps.DeleteJobEndpoint = m(eps.DeleteJobEndpoint)
 		eps.GetJobEndpoint = m(eps.GetJobEndpoint)
 		eps.EstimateEndpoint = m(eps.EstimateEndpoint)
+		//eps.UpdateJobFinishedStatusEndpoint = m(eps.UpdateJobFinishedStatusEndpoint)
 	}
 	return eps
 }
@@ -308,6 +317,17 @@ func makeEstimateEndpoint(s Service) endpoint.Endpoint {
 		resp, err := s.Estimate(ctx, tenantId, req)
 		return encode.Response{
 			Data:  resp,
+			Error: err,
+		}, err
+	}
+}
+
+func makeUpdateJobFinishedStatusEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		fineTuningJobId, _ := ctx.Value(contextKeyFineTuningJobId).(string)
+		req, _ := request.(updateTrainStatusRequest)
+		err = s.UpdateJobFinishedStatus(ctx, fineTuningJobId, types.TrainStatus(req.Status), req.Message)
+		return encode.Response{
 			Error: err,
 		}, err
 	}

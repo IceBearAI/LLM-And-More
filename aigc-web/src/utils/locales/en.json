@@ -1,0 +1,107 @@
+{
+  "welcome": "Welcome to use",
+  "appName": "aigc-admin-web",
+  "homePage": "Home Page",
+  "aiAssistant": "AI Assistant",
+  "toolsList": "Tools List",
+  "assistantList": "Assistant List",
+  "sampleLibrary": "Sample Library",
+  "soundSample": "Sound Samples",
+  "textSample": "Text Sample",
+  "fine-tuneSampleList": "Fine-tune Sample List",
+  "dataSampleList": "Data Sample List",
+  "textAnnotationList": "Text annotation list",
+  "intelligentVoiceprint": "Intelligent Voiceprint",
+  "voiceprintLibrary": "Voiceprint Library List",
+  "voiceprintCompareList": "Voiceprint Comparison List",
+  "audioAnnotation": "Audio Annotation",
+  "voiceServices": "Voice Services",
+  "voiceToText": "Voice To Text",
+  "voiceSynthesis": "Voice Synthesis",
+  "speakerManagement": "Speaker Management",
+  "voiceList": "Voice List",
+  "syntheticSound": "Synthetic Sound",
+  "voiceDenoiseList": "Denoise List",
+  "videoService": "Video Service",
+  "digitalHuman": "Digital Human",
+  "characterList": "profile List",
+  "videoList": "Video List",
+  "textModel": "Text Model",
+  "modelManagement": "Model Management",
+  "modelList": "Model List",
+  "modelChatPlayground": "Model Chat Playground",
+  "modelFine-tuning": "Model Fine-tuning",
+  "fine-tuneTasks": "Fine-tune Tasks",
+  "sceneManagement": "Scene Management",
+  "sceneList": "Scene List",
+  "systemManagement": "System Management",
+  "menuManagement": "Menu Management",
+  "accountManagement": "Account Management",
+  "roleManagement": "Role Management",
+  "systemDictionary": "System Dictionary",
+  "templateManagement": "Template Management",
+  "fileName": "File Name",
+  "language": "Language",
+  "duration": "Duration",
+  "size": "Size",
+  "tryListening": "Try Listening",
+  "operation": "Operation",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "save": "Save",
+  "close": "Close",
+  "more": "More",
+  "noData": "No data available",
+  "api": {
+    "success": "Operation successful"
+  },
+  "pane": {
+    "closeTip": "Close Pane",
+    "errorMsg": "Please fix the error on the page and try submitting again"
+  },
+  "aiAudio": {
+    "loadingText": "Audio Processing...",
+    "noUrl": "No audio files detected"
+  },
+  "options": {
+    "boolean": {
+      "true": "Yes",
+      "false": "No"
+    },
+    "markLanguage": {
+      "zh": "Chinese",
+      "en": "English",
+      "es": "Spanish",
+      "de": "German",
+      "tl": "Filipino",
+      "fil": "Filipino"
+    }
+  },
+  "audioMark": {
+    "taggedStatus": "Marking Status",
+    "alertBlock": "Query content based on annotation status",
+    "audio": "Audio",
+    "confirm delete": "Are you sure to discard it",
+    "tableHeader": {
+      "taggedStatus": "Whether To Label",
+      "originalContent": "Original Content",
+      "taggedContent": "Post-bid Content",
+      "taggedLanguage": "Post-bid Language",
+      "updatedAt": "Mark Time",
+      "lastOperator": "Mark The User",
+      "mark": "Mark",
+      "confirm": "Confirm",
+      "discard": "Discard",
+      "audioNameTip": "Click to perform the annotation operation",
+      "exportBtn": "Export"
+    },
+    "pane": {
+      "originalContent": "Original Audio Content",
+      "originalLanguage": "Audio Original Language",
+      "taggedContent": "Revised Content",
+      "ruleTaggedContent": "Please enter the modified content",
+      "taggedLanguage": "Modified Language",
+      "ruleTaggedLanguage": "Please select the language after modification"
+    }
+  }
+}

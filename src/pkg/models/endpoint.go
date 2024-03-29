@@ -138,7 +138,7 @@ type (
 	ModelDeployRequest struct {
 		Id           uint   `json:"id"`
 		Replicas     int    `json:"replicas" validate:"gte=1"`
-		Label        string `json:"label" validate:"required"`
+		Label        string `json:"label"`
 		InferredType string `json:"inferredType"` //推理类型
 		Gpu          int    `json:"gpu"`          //gpu 数量
 		Cpu          int    `json:"cpu"`          //cpu 数量

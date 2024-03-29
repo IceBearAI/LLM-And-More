@@ -60,6 +60,7 @@ func CheckAuthMiddleware(logger log.Logger, tracer opentracing.Tracer) endpoint.
 			//	ctx = context.WithValue(ctx, ContextKeyUserEmail, token)
 			//	return next(ctx, request)
 			//}
+			token = strings.ReplaceAll(token, "Bearer ", "")
 
 			u, _ := url.Parse(ctx.Value(kithttp.ContextKeyRequestURI).(string))
 			if strings.EqualFold(token, "") && uriWhitelist(u.Path, uriArray) {
@@ -75,7 +76,7 @@ func CheckAuthMiddleware(logger log.Logger, tracer opentracing.Tracer) endpoint.
 			var clustom asdjwt.ArithmeticCustomClaims
 			tk, err := jwt.ParseWithClaims(token, &clustom, asdjwt.JwtKeyFunc)
 			if err != nil || tk == nil {
-				_ = level.Error(logger).Log("jwt", "ParseWithClaims", "err", err)
+				_ = level.Error(logger).Log("jwt", "ParseWithClaims", "err", err, "token", token)
 				err = encode.ErrAuthNotLogin.Wrap(err)
 				return
 			}
@@ -146,6 +147,11 @@ func uriWhitelist(uri string, uriArray []string) bool {
 		return true
 	}
 	if strings.EqualFold(uri, "/") {
+		return true
+	}
+	regex := regexp.MustCompile(`^/api/finetuning/([A-Za-z0-9_-]+)/finish$`)
+	matches := regex.FindStringSubmatch(uri)
+	if len(matches) > 1 {
 		return true
 	}
 	for _, v := range uriArray {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/IceBearAI/aigc/src/encode"
+	"github.com/IceBearAI/aigc/src/middleware"
 	"github.com/IceBearAI/aigc/src/pkg/files"
 	"github.com/IceBearAI/aigc/src/repository"
 	"github.com/IceBearAI/aigc/src/repository/finetuning"
@@ -65,6 +66,9 @@ type Service interface {
 type CreationOptions struct {
 	httpClientOpts     []kithttp.ClientOption
 	gpuTolerationValue string
+	callbackHost       string
+	volumeName         string
+	convertUrlFun      func(fileUrl string) string
 }
 
 // CreationOption is a creation option for the faceswap service.
@@ -74,6 +78,27 @@ type CreationOption func(*CreationOptions)
 func WithGpuTolerationValue(gpuTolerationValue string) CreationOption {
 	return func(co *CreationOptions) {
 		co.gpuTolerationValue = gpuTolerationValue
+	}
+}
+
+// WithCallbackHost returns a CreationOption that sets the callback host.
+func WithCallbackHost(host string) CreationOption {
+	return func(co *CreationOptions) {
+		co.callbackHost = host
+	}
+}
+
+// WithVolumeName returns a CreationOption that sets the callback host.
+func WithVolumeName(volumeName string) CreationOption {
+	return func(co *CreationOptions) {
+		co.volumeName = volumeName
+	}
+}
+
+// WithConvertUrl returns a CreationOption that sets the callback host.
+func WithConvertUrl(convertFunc func(fileUrl string) string) CreationOption {
+	return func(co *CreationOptions) {
+		co.convertUrlFun = convertFunc
 	}
 }
 
@@ -166,6 +191,8 @@ func (s *service) _createJob(ctx context.Context, tenantId, channelId uint, trai
 
 	fineTunedModel := fmt.Sprintf("ft::%s:%d-%s", baseModel, tenantId, suffix)
 
+	serviceName := util.ReplacerServiceName(fineTunedModel)
+
 	// 创建job
 	ftJob := &types.FineTuningTrainJob{
 		JobId:          uuid.New().String(),
@@ -175,7 +202,7 @@ func (s *service) _createJob(ctx context.Context, tenantId, channelId uint, trai
 		TrainEpoch:     epochs,
 		BaseModelPath:  ftJobTpl.BaseModelPath,
 		DataPath:       fmt.Sprintf("/data/train-data/%s", trainingFileId),
-		OutputDir:      fmt.Sprintf("%s/ft-%s-%d-%s", ftJobTpl.OutputDir, baseModel, tenantId, strings.ReplaceAll(strings.ReplaceAll(suffix, ".", "-"), ":", "-")),
+		OutputDir:      fmt.Sprintf("%s/ft-%s-%d-%s", ftJobTpl.OutputDir, baseModel, tenantId, serviceName),
 		ScriptFile:     ftJobTpl.ScriptFile,
 		MasterPort:     rand.IntnRange(20000, 30000),
 		FileUrl:        panUrl,
@@ -327,11 +354,11 @@ func (s *service) UpdateJobFinishedStatus(ctx context.Context, fineTuningJob str
 		_ = level.Error(logger).Log("repository.FineTuningJob", "UpdateFineTuningJob", "err", err.Error())
 		return errors.Wrap(err, "repository.FineTuningJob.UpdateFineTuningJob")
 	}
-	err = s.api.Runtime().RemoveJob(ctx, jobInfo.PaasJobName)
-	if err != nil {
-		_ = level.Error(logger).Log("api.DockerApi", "Remove", "err", err.Error())
-		return err
-	}
+	defer func() {
+		if err = s.api.Runtime().RemoveJob(ctx, jobInfo.PaasJobName); err != nil {
+			_ = level.Error(logger).Log("api.DockerApi", "Remove", "err", err.Error())
+		}
+	}()
 
 	if status == types.TrainStatusFailed {
 		_ = level.Warn(logger).Log("msg", "任务失败")
@@ -391,10 +418,10 @@ func (s *service) RunWaitingTrain(ctx context.Context) (err error) {
 	// 数据库获取等待中的微调任务
 	jobs, err := s.store.FineTuning().FindFineTuningJobLastByStatus(ctx, types.TrainStatusWaiting, "id asc")
 	if err != nil {
-		_ = level.Error(logger).Log("repository.FineTuningJob", "FindFineTuningJobLastByStatus", "err", err.Error())
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
 		}
+		_ = level.Warn(logger).Log("repository.FineTuningJob", "FindFineTuningJobLastByStatus", "err", err.Error())
 		return
 	}
 	if jobs.ID == 0 {
@@ -424,22 +451,56 @@ func (s *service) _createFineTuningJob(ctx context.Context, jobId string) (err e
 	}
 	jobInfo.TrainScript = tplContent
 
-	serviceName := strings.ReplaceAll(strings.ReplaceAll(jobInfo.FineTunedModel, "::", "-"), ":", "-")
-	serviceName = strings.ReplaceAll(serviceName, ".", "-")
+	serviceName := util.ReplacerServiceName(jobInfo.FineTunedModel)
 	gpuTolerationValue := s.options.gpuTolerationValue
+
+	tenantUUid, _ := ctx.Value(middleware.ContextKeyPublicTenantId).(string)
+	auth, _ := ctx.Value(kithttp.ContextKeyRequestAuthorization).(string)
+
+	var envs []runtime.Env
+	var envVars []string
+	envs = append(envs, runtime.Env{
+		Name:  "TENANT_ID",
+		Value: tenantUUid,
+	}, runtime.Env{
+		Name:  "JOB_ID",
+		Value: jobInfo.JobId,
+	}, runtime.Env{
+		Name:  "API_URL",
+		Value: fmt.Sprintf("%s/api/finetuning/%s/finish", s.options.callbackHost, jobInfo.JobId), // 回调
+	}, runtime.Env{
+		Name:  "AUTH",
+		Value: auth,
+	}, runtime.Env{
+		Name:  "HF_HOME",
+		Value: "/data/hf",
+	}, runtime.Env{
+		Name:  "HF_ENDPOINT",
+		Value: os.Getenv("HF_ENDPOINT"),
+	}, runtime.Env{
+		Name:  "HTTP_PROXY",
+		Value: os.Getenv("HTTP_PROXY"),
+	}, runtime.Env{
+		Name:  "HTTPS_PROXY",
+		Value: os.Getenv("HTTPS_PROXY"),
+	}, runtime.Env{
+		Name:  "NO_PROXY",
+		Value: os.Getenv("NO_PROXY"),
+	})
+	for _, v := range envs {
+		envVars = append(envVars, fmt.Sprintf("%s=%s", v.Name, v.Value))
+	}
 	var jobName string
 	jobName, err = s.api.Runtime().CreateJob(ctx, runtime.Config{
 		ServiceName: serviceName,
 		Image:       jobInfo.Template.TrainImage,
-		Cpu:         0,
-		Memory:      0,
 		GPU:         jobInfo.ProcPerNode,
 		Command: []string{
 			"/bin/bash",
 			"/app/train.sh",
 		},
-		EnvVars: nil,
-		Volumes: nil,
+		EnvVars: envVars,
+		Volumes: []runtime.Volume{{Key: s.options.volumeName, Value: "/data"}},
 		ConfigData: map[string]string{
 			"/app/train.sh": tplContent,
 		},
@@ -641,6 +702,20 @@ func (s *service) CreateJob(ctx context.Context, tenantId uint, request CreateJo
 		_ = level.Error(logger).Log("store.finetuning", "CreateFineTuningJob", "err", err.Error())
 		return response, err
 	}
+
+	// 如果没有waiting 状态的任务直接调用_createJob创建执行
+	hasRunning, err := s.store.FineTuning().HasRunningJob(ctx)
+	if err != nil {
+		_ = level.Warn(logger).Log("repository.FineTuningJob", "HasRunningJob", "err", err.Error())
+	}
+	if !hasRunning {
+		// 如果没有等待中的任务，直接创建
+		if err = s._createFineTuningJob(ctx, ftJob.JobId); err != nil {
+			_ = level.Error(logger).Log("service", "_createFineTuningJob", "err", err.Error())
+		}
+		_ = level.Info(logger).Log("msg", "没有正在运行的任务，直接创建", "jobId", ftJob.JobId)
+	}
+
 	return convertJob(ftJob), nil
 }
 
@@ -688,30 +763,52 @@ func (s *service) CancelJob(ctx context.Context, tenantId uint, jobId string) (e
 
 func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url string) (newS3Url string, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
-	// 需要把 fileInfo.S3Url 内容格式转换成alpaca的那种
-	alpacaDada, err := convertAlpaca(sourceS3Url, logger, modelName)
-	if err != nil {
-		_ = level.Error(logger).Log("convertAlpaca", "convertAlpaca", "err", err.Error())
-		return
+	suffix := "json"
+	var alpacaDada []byte
+	if strings.Contains(modelName, "qwen1.5") || strings.Contains(modelName, "qwen2") {
+		alpacaDada, err = getHttpFileBody(sourceS3Url)
+		if err != nil {
+			_ = level.Error(logger).Log("convertAlpaca", "convertAlpaca", "err", err.Error())
+			return "", errors.Wrap(err, "convertAlpaca")
+		}
+		suffix = "jsonl"
+	} else if strings.Contains(modelName, "qwen") {
+		alpacaDada, err = convertQwenTrainData(sourceS3Url)
+		if err != nil {
+			_ = level.Error(logger).Log("convertAlpaca", "convertAlpaca", "err", err.Error())
+			return "", errors.Wrap(err, "convertAlpaca")
+		}
+	} else {
+		alpacaDada, err = convertAlpaca(sourceS3Url, logger, modelName)
+		if err != nil {
+			_ = level.Error(logger).Log("convertAlpaca", "convertAlpaca", "err", err.Error())
+			return "", errors.Wrap(err, "convertAlpaca")
+		}
 	}
 	_ = level.Info(logger).Log("msg", "alpacaDada", "msg", "转换完成")
 
 	// 将 *bytes.Reader 类型强制转换为 multipart.File 类型
 	file := NewFile(alpacaDada) // 将 []byte 转换为 multipart.File
 
-	fileUrl, err := s.fileSvc.UploadLocal(ctx, file, "json")
+	fileUrl, err := s.fileSvc.UploadLocal(ctx, file, suffix)
 
 	if err != nil {
 		_ = level.Error(logger).Log("fileSvc", "UploadLocal", "err", err.Error())
 		return
 	}
 
-	return fileUrl, nil
+	return s.options.convertUrlFun(fileUrl), nil
 }
 
 func New(traceId string, logger log.Logger, store repository.Repository, fileSvc files.Service, apiSvc services.Service, opts ...CreationOption) Service {
 	logger = log.With(logger, "service", "finetuning")
-	options := &CreationOptions{}
+	options := &CreationOptions{
+		callbackHost: "http://aigc-server:8080",
+		//volumeName:   "aigc-data-cfs",
+		convertUrlFun: func(fileUrl string) string {
+			return fileUrl
+		},
+	}
 	for _, opt := range opts {
 		opt(options)
 	}
@@ -885,33 +982,66 @@ func NewFile(data []byte) *File {
 // GetTrainInfoFromLog 从训练日志获取训练信息
 func GetTrainInfoFromLog(jobLog string) (logEntryList []LogEntry, err error) {
 	lineArr := strings.Split(jobLog, "\n")
-	re := regexp.MustCompile(`(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (\{.*?\})`)
+	re := regexp.MustCompile(`\{[^}]*\}`)
 
 	for _, l := range lineArr {
-		matches := re.FindStringSubmatch(l)
-		if len(matches) == 3 {
-			timestampStr, jsonStr := matches[1], matches[2]
+		l = strings.TrimSpace(l)
+		matches := re.FindAllString(l, -1)
+		for _, match := range matches {
+			if len(match) > 0 {
+				// 将单引号替换为双引号以符合JSON格式
+				jsonStr := strings.Replace(match, "'", "\"", -1)         // 将单引号替换为双引号
+				jsonStr = strings.Replace(jsonStr, "False", "false", -1) // 将 False 替换为 false
+				jsonStr = strings.Replace(jsonStr, "True", "true", -1)   // 将 True 替换为 true
 
-			timestamp, err := time.Parse(time.RFC3339Nano, timestampStr)
-			if err != nil {
-				continue
+				var entry LogEntry
+				err := json.Unmarshal([]byte(jsonStr), &entry)
+				if err != nil {
+					fmt.Println("json.Unmarshal", "unmarshal json failed", "err", err.Error())
+					continue
+				}
+
+				logEntryList = append(logEntryList, entry)
 			}
-
-			jsonStr = strings.Replace(jsonStr, "'", "\"", -1)        // 将单引号替换为双引号
-			jsonStr = strings.Replace(jsonStr, "False", "false", -1) // 将 False 替换为 false
-			jsonStr = strings.Replace(jsonStr, "True", "true", -1)   // 将 True 替换为 true
-
-			var entry LogEntry
-			err = json.Unmarshal([]byte(jsonStr), &entry)
-			if err != nil {
-				continue
-			}
-			entry.Timestamp = timestamp
-			logEntryList = append(logEntryList, entry)
 		}
 	}
 	if len(logEntryList) < 1 {
 		return
 	}
 	return
+}
+
+func convertQwenTrainData(httpUrl string) (alpaca []byte, err error) {
+	body, err := getHttpFileBody(httpUrl)
+	if err != nil {
+		err = errors.Wrap(err, "getHttpFileBody")
+		return
+	}
+	var alpacaDataList []alpacaData
+	dataList := bytes.Split(body, []byte("\n"))
+	for i, line := range dataList {
+		var inputMsg messageLine
+		if err = json.Unmarshal(line, &inputMsg); err != nil {
+			continue
+		}
+		var conversations []alpacaConversations
+		for _, msg := range inputMsg.Messages {
+			if !util.StringInArray([]string{"user", "assistant"}, msg.Role) {
+				continue
+			}
+			var role = "user"
+			if msg.Role == "assistant" {
+				role = "assistant"
+			}
+			conversations = append(conversations, alpacaConversations{
+				From:  role,
+				Value: msg.Content,
+			})
+		}
+		alpacaDataList = append(alpacaDataList, alpacaData{
+			ID:            fmt.Sprintf("ft_alpaca_%d", i),
+			Conversations: conversations,
+		})
+	}
+	return json.Marshal(alpacaDataList)
 }

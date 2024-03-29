@@ -1,0 +1,107 @@
+{
+  "welcome": "Maligayang pagdating sa paggamit",
+  "appName": "aigc-admin-web",
+  "homePage": "home page",
+  "aiAssistant": "AI Assistant",
+  "toolsList": "Tools List",
+  "assistantList": "Assistant List",
+  "sampleLibrary": "Mga halimbawa ng library",
+  "soundSample": "Sound Samples",
+  "textSample": "Mga halimbawa ng teksto",
+  "fine-tuneSampleList": "Fine tune sample list",
+  "dataSampleList": "Data Sample List",
+  "textAnnotationList": "Text annotation list",
+  "intelligentVoiceprint": "Intelligent na boses",
+  "voiceprintLibrary": "Voiceprint library list",
+  "voiceprintCompareList": "Voiceprint comparison list",
+  "audioAnnotation": "Audio annotation",
+  "voiceServices": "Servisyo ng boses",
+  "voiceToText": "Sound to text conversion",
+  "voiceSynthesis": "Sound synthesis",
+  "speakerManagement": "Speaker Management",
+  "voiceList": "Stock label",
+  "syntheticSound": "Sintetikong tunog list",
+  "voiceDenoiseList": "pagpapababa ng ingay",
+  "videoService": "Video service",
+  "digitalHuman": "Mga Digital People",
+  "characterList": "Stock Label",
+  "videoList": "Video List",
+  "textModel": "Teksto modelo",
+  "modelManagement": "Model management",
+  "modelList": "Mga Model List",
+  "modelChatPlayground": "Ilagay ang chat playground",
+  "modelFine-tuning": "Modelo fine-tuning",
+  "fine-tuneTasks": "Mga Fine Tuning na gawain",
+  "sceneManagement": "Manahala ng tanawin",
+  "sceneList": "Tanawin",
+  "systemManagement": "system management",
+  "menuManagement": "Menu management",
+  "accountManagement": "account management",
+  "roleManagement": "paper size",
+  "systemDictionary": "System Dictionary",
+  "templateManagement": "Template Management",
+  "fileName": "file name",
+  "language": "wika",
+  "duration": "duration",
+  "size": "paper size",
+  "tryListening": "Subukan ang pakikinig",
+  "operation": "operasyon",
+  "cancel": "kanselahin",
+  "confirm": "confirm",
+  "save": "preserve",
+  "close": "isara",
+  "more": "higit pa",
+  "noData": "Wala pang datos",
+  "api": {
+    "success": "Ang operasyon ay matagumpay"
+  },
+  "pane": {
+    "closeTip": "Isara ang pop-up na window",
+    "errorMsg": "Mangyaring hawakan ang mga lugar na may markahan ng hindi tama sa pahina bago pagsubok upang ipadala muli"
+  },
+  "aiAudio": {
+    "loadingText": "Audio processing...",
+    "noUrl": "Walang mga audio file na nakita"
+  },
+  "options": {
+    "boolean": {
+      "true": "oo",
+      "false": "hindi"
+    },
+    "markLanguage": {
+      "zh": "Tsino",
+      "en": "Ingles",
+      "es": "Espanyol",
+      "de": "Aleman",
+      "tl": "Pilipino",
+      "fil": "Pilipino"
+    }
+  },
+  "audioMark": {
+    "taggedStatus": "Stock label",
+    "alertBlock": "query content based on annotation status",
+    "audio": "audio frequency",
+    "confirm delete": "Sigurado ka bang i-delete ito",
+    "tableHeader": {
+      "taggedStatus": "Markado ba ito",
+      "originalContent": "Orihinal na nilalaman",
+      "taggedContent": "Maglagay ng bidding nilalaman",
+      "taggedLanguage": "Wika ng post bid",
+      "updatedAt": "Oras ng markahan",
+      "lastOperator": "Annotate ang mga gumagamit",
+      "mark": "label",
+      "confirm": "confirm",
+      "discard": "Abandon",
+      "audioNameTip": "Mag-click para gumawa ng operasyon ng annotation",
+      "exportBtn": "Export"
+    },
+    "pane": {
+      "originalContent": "Audio orihinal na nilalaman",
+      "originalLanguage": "Audio orihinal na wika",
+      "taggedContent": "Bago ang nilalaman",
+      "ruleTaggedContent": "Pakiusap ipasok ang binago na nilalaman",
+      "taggedLanguage": "Bago ang wika",
+      "ruleTaggedLanguage": "Mangyaring piliin ang binago na wika"
+    }
+  }
+}

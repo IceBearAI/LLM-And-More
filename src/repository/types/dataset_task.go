@@ -49,6 +49,8 @@ const (
 	DatasetAnnotationDetectionStatusCompleted DatasetAnnotationDetectionStatus = "completed"
 	// DatasetAnnotationDetectionStatusCanceled 已取消
 	DatasetAnnotationDetectionStatusCanceled DatasetAnnotationDetectionStatus = "canceled"
+	// DatasetAnnotationDetectionStatusFailed 失败
+	DatasetAnnotationDetectionStatusFailed DatasetAnnotationDetectionStatus = "failed"
 )
 
 // DatasetAnnotationTaskSegment is a struct type
@@ -96,7 +98,9 @@ type DatasetAnnotationTask struct {
 	TestReport        string                           `gorm:"column:test_report;type:text;"`                    // comment:测试数据仓库
 	JobName           string                           `gorm:"column:job_name;size:64;null;"`                    // comment:任务名称
 	DetectionStatus   DatasetAnnotationDetectionStatus `gorm:"column:detection_status;size:12;default:pending;"` // comment:检测状态
-	Segments          []DatasetAnnotationTaskSegment   `gorm:"foreignKey:DataAnnotationID;references:ID"`
+	DetectionLog      string                           `gorm:"column:detection_log;type:longtext;"`              // comment:检测日志
+
+	Segments []DatasetAnnotationTaskSegment `gorm:"foreignKey:DataAnnotationID;references:ID"`
 
 	DatasetDocument DatasetDocument `gorm:"foreignKey:DatasetDocumentId;references:ID"`
 }

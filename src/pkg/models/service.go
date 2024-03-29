@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/utils"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -56,6 +57,7 @@ type CreationOptions struct {
 	volumeName         string
 	gpuTolerationValue string
 	controllerAddress  string
+	runtimePlatform    string
 }
 
 // CreationOption is a creation option for the faceswap service.
@@ -86,6 +88,13 @@ func WithGPUTolerationValue(gpuTolerationValue string) CreationOption {
 func WithControllerAddress(controllerAddress string) CreationOption {
 	return func(co *CreationOptions) {
 		co.controllerAddress = controllerAddress
+	}
+}
+
+// WithRuntimePlatform returns a CreationOption that sets the controller address.
+func WithRuntimePlatform(platform string) CreationOption {
+	return func(co *CreationOptions) {
+		co.runtimePlatform = platform
 	}
 }
 
@@ -226,22 +235,19 @@ func (s *service) Undeploy(ctx context.Context, id uint) (err error) {
 	//	_ = level.Warn(logger).Log("store.Model", "FindModelDeployByModeId", "err", err.Error())
 	//	return err
 	//}
-	serviceName := strings.ReplaceAll(m.ModelName, ":", "-")
-	serviceName = strings.ReplaceAll(m.ModelName, "::", "-")
-	serviceName = strings.ReplaceAll(m.ModelName, ".", "-")
-	// 调用API取消部署模型
-	err = s.apiSvc.Runtime().RemoveDeployment(ctx, serviceName)
-	if err != nil {
-		_ = level.Error(logger).Log("api.PaasChat", "UndeployModel", "err", err.Error(), "modelName", m.ModelName)
-		return
-	}
 	if err = s.store.Model().CancelModelDeploy(ctx, m.ID); err != nil {
 		_ = level.Warn(logger).Log("repository.ModelDeploy", "CancelModelDeploy", "err", err.Error())
 		return err
 	}
+	serviceName := util.ReplacerServiceName(m.ModelName)
+	// 调用API取消部署模型
+	err = s.apiSvc.Runtime().RemoveDeployment(ctx, fmt.Sprintf("%s-%d", serviceName, m.ID))
+	if err != nil {
+		_ = level.Error(logger).Log("api.PaasChat", "UndeployModel", "err", err.Error(), "modelName", m.ModelName)
+	}
 	_ = level.Info(logger).Log("msg", "undeploy model success")
 
-	return
+	return nil
 }
 
 func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err error) {
@@ -265,9 +271,8 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		return encode.Invalid.Wrap(errors.Errorf("BaseModelName model not need deploy, model:%s", m.ModelName))
 	}
 
-	serviceName := strings.ReplaceAll(m.ModelName, "::", "-")
-	serviceName = strings.ReplaceAll(m.ModelName, ":", "-")
-	serviceName = strings.ReplaceAll(m.ModelName, ".", "-")
+	serviceName := util.ReplacerServiceName(m.ModelName)
+	_ = level.Info(logger).Log("serviceName", serviceName)
 	var (
 		baseModel = m.ModelName
 		modelPath = fmt.Sprintf("/data/base-model/%s", serviceName)
@@ -287,11 +292,16 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		_ = level.Warn(logger).Log("repository.FineTuning", "FindFineTuningTemplateByModel", "err", err.Error())
 		return err
 	}
-	var port = 8080
+	if !m.IsFineTuning {
+		modelPath = baseModelTemplate.BaseModelPath
+	}
+	minPort := 1024
+	maxPort := 65535
+	randomPort := rand.Intn(maxPort-minPort+1) + minPort
 	template, err := util.EncodeTemplate("start.sh", baseModelTemplate.Content, map[string]interface{}{
 		"modelName":    m.ModelName,
 		"modelPath":    modelPath,
-		"port":         port,
+		"port":         randomPort,
 		"quantization": request.Quantization,
 		"numGpus":      request.Gpu,
 		"maxGpuMemory": request.MaxGpuMemory,
@@ -320,7 +330,7 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		Value: m.ModelName,
 	}, runtime.Env{
 		Name:  "HTTP_PORT",
-		Value: "8080",
+		Value: strconv.Itoa(randomPort),
 	}, runtime.Env{
 		Name:  "QUANTIZATION",
 		Value: request.Quantization,
@@ -355,8 +365,9 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 	for _, v := range envs {
 		envVars = append(envVars, fmt.Sprintf("%s=%s", v.Name, v.Value))
 	}
-	deploymentName, err := s.apiSvc.Runtime().CreateDeployment(ctx, runtime.Config{
-		ServiceName: serviceName,
+
+	runtimeConfig := runtime.Config{
+		ServiceName: fmt.Sprintf("%s-%d", serviceName, m.ID),
 		Image:       baseModelTemplate.TrainImage,
 		Command: []string{
 			"/bin/bash",
@@ -370,7 +381,12 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 			"/app/start.sh": template,
 		},
 		Replicas: int32(request.Replicas),
-	})
+		Ports: map[string]string{
+			strconv.Itoa(randomPort): strconv.Itoa(randomPort),
+		},
+	}
+
+	deploymentName, err := s.apiSvc.Runtime().CreateDeployment(ctx, runtimeConfig)
 	if err != nil {
 		_ = level.Error(logger).Log("api.PaasChat", "DeployModel", "err", err.Error(), "modelName", m.Model)
 		return err

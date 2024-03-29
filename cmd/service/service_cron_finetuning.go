@@ -18,10 +18,10 @@ type fineTuningRunWaitingTrainCronJob struct {
 
 func (s *fineTuningRunWaitingTrainCronJob) Run() {
 	if err := s.fineTuning.RunWaitingTrain(s.ctx); err != nil {
-		_ = level.Error(s.logger).Log("msg", "fine tuning run waiting train failed", "err", err.Error(), "name", s.Name)
+		_ = level.Warn(s.logger).Log("msg", "fine tuning run waiting train failed", "err", err.Error())
 		return
 	}
-	_ = level.Info(s.logger).Log("msg", "fine tuning run waiting train success", "name", s.Name)
+	_ = level.Debug(s.logger).Log("msg", "fine tuning run waiting train success")
 }
 
 type fineTuningRunningLogCronJob struct {
@@ -36,12 +36,12 @@ type fineTuningRunningLogCronJob struct {
 func (s *fineTuningRunningLogCronJob) Run() {
 	runningJobs, err := s.store.FineTuning().FindFineTuningJobRunning(s.ctx)
 	if err != nil {
-		_ = level.Error(logger).Log("msg", "find running job failed", "err", err.Error(), "name", s.Name)
+		_ = level.Warn(s.logger).Log("msg", "find running job failed", "err", err.Error())
 		return
 	}
 	if funErr := s.runFun(s.ctx, runningJobs); funErr != nil {
-		_ = level.Error(logger).Log("msg", "fine tuning running job log failed", "err", funErr.Error(), "name", s.Name)
+		_ = level.Warn(s.logger).Log("msg", "fine tuning running job log failed", "err", funErr.Error())
 		return
 	}
-	_ = level.Info(s.logger).Log("msg", "fine tuning running job log success", "name", s.Name)
+	_ = level.Info(s.logger).Log("msg", "fine tuning running job log success")
 }
