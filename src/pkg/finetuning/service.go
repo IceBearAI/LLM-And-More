@@ -355,11 +355,12 @@ func (s *service) UpdateJobFinishedStatus(ctx context.Context, fineTuningJob str
 		_ = level.Error(logger).Log("repository.FineTuningJob", "UpdateFineTuningJob", "err", err.Error())
 		return errors.Wrap(err, "repository.FineTuningJob.UpdateFineTuningJob")
 	}
-	defer func() {
-		if err = s.api.Runtime().RemoveJob(ctx, jobInfo.PaasJobName); err != nil {
+	runtimeCtx := util.CopyContext(ctx)
+	defer func(runtimeCtx context.Context) {
+		if err = s.api.Runtime().RemoveJob(runtimeCtx, jobInfo.PaasJobName); err != nil {
 			_ = level.Error(logger).Log("api.DockerApi", "Remove", "err", err.Error())
 		}
-	}()
+	}(runtimeCtx)
 
 	if status == types.TrainStatusFailed {
 		_ = level.Warn(logger).Log("msg", "任务失败")
