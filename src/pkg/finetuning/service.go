@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -474,6 +475,39 @@ func (s *service) _createFineTuningJob(ctx context.Context, jobId string) (err e
 	}, runtime.Env{
 		Name:  "HF_HOME",
 		Value: "/data/hf",
+	}, runtime.Env{
+		Name:  "BASE_MODEL_NAME",
+		Value: jobInfo.BaseModel,
+	}, runtime.Env{
+		Name:  "BASE_MODEL_PATH",
+		Value: jobInfo.BaseModelPath,
+	}, runtime.Env{
+		Name:  "GPUS_PER_NODE",
+		Value: strconv.Itoa(jobInfo.ProcPerNode),
+	}, runtime.Env{
+		Name:  "USE_LORA",
+		Value: strconv.FormatBool(jobInfo.Lora),
+	}, runtime.Env{
+		Name:  "OUTPUT_DIR",
+		Value: jobInfo.OutputDir,
+	}, runtime.Env{
+		Name:  "NUM_TRAIN_EPOCHS",
+		Value: strconv.Itoa(jobInfo.TrainEpoch),
+	}, runtime.Env{
+		Name:  "TRAIN_BATCH_SIZE",
+		Value: strconv.Itoa(jobInfo.TrainBatchSize),
+	}, runtime.Env{
+		Name:  "EVAL_BATCH_SIZE",
+		Value: strconv.Itoa(jobInfo.EvalBatchSize),
+	}, runtime.Env{
+		Name:  "ACCUMULATION_STEPS",
+		Value: strconv.Itoa(jobInfo.AccumulationSteps),
+	}, runtime.Env{
+		Name:  "LEARNING_RATE",
+		Value: strconv.FormatFloat(jobInfo.LearningRate, 'f', -1, 64),
+	}, runtime.Env{
+		Name:  "MODEL_MAX_LENGTH",
+		Value: strconv.Itoa(jobInfo.ModelMaxLength),
 	}, runtime.Env{
 		Name:  "HF_ENDPOINT",
 		Value: os.Getenv("HF_ENDPOINT"),
