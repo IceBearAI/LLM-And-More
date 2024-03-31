@@ -770,14 +770,24 @@ func (s *service) CreateTask(ctx context.Context, tenantId uint, req taskCreateR
 
 	var taskSegments []types.DatasetAnnotationTaskSegment
 	for _, segment := range documentSegments {
-		taskSegments = append(taskSegments, types.DatasetAnnotationTaskSegment{
+		var dataSegment DataAnnotationSegment
+		dats := types.DatasetAnnotationTaskSegment{
 			DataAnnotationID: datasetTask.ID,
 			UUID:             "das-" + uuid.New().String(),
 			AnnotationType:   types.DatasetAnnotationType(datasetTask.AnnotationType),
 			SegmentContent:   segment.SegmentContent,
 			Status:           types.DatasetAnnotationStatusPending,
 			SegmentID:        segment.ID,
-		})
+		}
+		if err = json.Unmarshal([]byte(segment.SegmentContent), &dataSegment); err == nil {
+			dats.Instruction = dataSegment.Instruction
+			dats.Input = dataSegment.Input
+			dats.Output = dataSegment.Output
+			dats.Intent = dataSegment.Intent
+			dats.Document = dataSegment.Document
+			dats.Question = dataSegment.Question
+		}
+		taskSegments = append(taskSegments, dats)
 	}
 
 	if err = s.repository.DatasetTask().AddTaskSegments(ctx, taskSegments); err != nil {
