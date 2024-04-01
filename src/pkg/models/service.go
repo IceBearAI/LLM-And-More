@@ -339,7 +339,7 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		Value: strconv.Itoa(request.Gpu),
 	}, runtime.Env{
 		Name:  "MAX_GPU_MEMORY",
-		Value: fmt.Sprintf("%dGiB", request.MaxGpuMemory),
+		Value: strconv.Itoa(request.MaxGpuMemory),
 	}, runtime.Env{
 		Name:  "USE_VLLM",
 		Value: strconv.FormatBool(request.Vllm),

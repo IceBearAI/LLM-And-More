@@ -13,6 +13,11 @@ type logging struct {
 	traceId string
 }
 
+func (s *logging) GenerationAnnotationContent(ctx context.Context, tenantId uint, modelName, taskId, taskSegmentId string) (res taskSegmentAnnotationRequest, err error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (s *logging) GetCheckTaskDatasetSimilarLog(ctx context.Context, tenantId uint, taskId string) (res string, err error) {
 	defer func(begin time.Time) {
 		_ = s.logger.Log(

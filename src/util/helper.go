@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 )
 
 // email verify
@@ -229,4 +230,30 @@ func ReplacerServiceName(name string) string {
 		":", "-",
 	)
 	return replacer.Replace(name)
+}
+
+// LastNChars 截取最后多少字符
+func LastNChars(s string, n int) string {
+	runes := []rune(s)
+	if len(runes) <= n {
+		return s
+	}
+	return string(runes[len(runes)-n:])
+}
+
+// CleanString 过滤掉字符串中的所有非 UTF-8 字符和控制字符，只保留可打印的 UTF-8 字符
+func CleanString(s string) string {
+	var result []rune
+	for _, r := range s {
+		if r == utf8.RuneError {
+			continue // 排除无效的 UTF-8 字符
+		}
+		if unicode.IsControl(r) {
+			continue // 排除控制字符
+		}
+		if unicode.IsPrint(r) {
+			result = append(result, r) // 保留可打印字符
+		}
+	}
+	return string(result)
 }

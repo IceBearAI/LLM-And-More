@@ -11,20 +11,21 @@ import (
 
 type (
 	CreateJobRequest struct {
-		FileId            string  `json:"fileId" validate:"required"`     // 文件ID
-		BaseModel         string  `json:"baseModel" validate:"required"`  // 基础模型
-		TrainEpoch        int     `json:"trainEpoch" validate:"required"` // 训练轮次
-		Suffix            string  `json:"suffix"`                         // 后缀
-		Remark            string  `json:"remark"`                         // 备注
-		TrainBatchSize    int     `json:"trainBatchSize"`                 // 训练批次大小
-		EvalBatchSize     int     `json:"evalBatchSize"`                  //
-		AccumulationSteps int     `json:"accumulationSteps"`              // 梯度累加步数
-		ProcPerNode       int     `json:"procPerNode" validate:"gt=0"`    // 使用GPU数量
-		LearningRate      float64 `json:"learningRate"`                   // 学习率
-		ModelMaxLength    int     `json:"modelMaxLength"`                 // 模型最大长度
-		TenantId          uint    `json:"tenantId"`                       // 租户ID
-		TrainPublisher    string  `json:"trainPublisher"`                 // 训练发布者
-		Lora              bool    `json:"lora"`                           // 是否微调lora
+		FileId            string  `json:"fileId" validate:"required"`                         // 文件ID
+		BaseModel         string  `json:"baseModel" validate:"required"`                      // 基础模型
+		TrainEpoch        int     `json:"trainEpoch" validate:"required"`                     // 训练轮次
+		Suffix            string  `json:"suffix" validate:"lt=12,gt=0"`                       // 后缀
+		Remark            string  `json:"remark"`                                             // 备注
+		TrainBatchSize    int     `json:"trainBatchSize" validate:"required,lt=128,gt=0"`     // 训练批次大小
+		EvalBatchSize     int     `json:"evalBatchSize" validate:"required,lt=128,gt=0"`      //
+		AccumulationSteps int     `json:"accumulationSteps" validate:"required,lt=128,gt=0"`  // 梯度累加步数
+		ProcPerNode       int     `json:"procPerNode" validate:"gt=0,lt=8"`                   // 使用GPU数量
+		LearningRate      float64 `json:"learningRate"`                                       // 学习率
+		ModelMaxLength    int     `json:"modelMaxLength"`                                     // 模型最大长度
+		TenantId          uint    `json:"tenantId"`                                           // 租户ID
+		TrainPublisher    string  `json:"trainPublisher"`                                     // 训练发布者
+		Lora              bool    `json:"lora"`                                               // 是否微调lora
+		Scenario          string  `json:"scenario" validate:"required,oneof=rag faq general"` // 应用场景类型
 	}
 
 	LogEntry struct {

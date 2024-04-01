@@ -17,6 +17,7 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/sashabaranov/go-openai"
 	"io"
 	"os"
 	"strconv"
@@ -58,6 +59,8 @@ type Service interface {
 	TaskDetectFinish(ctx context.Context, tenantId uint, taskId, testReport string) (err error)
 	// GetTaskInfo 获取任务详情
 	GetTaskInfo(ctx context.Context, tenantId uint, taskId string) (res taskDetail, err error)
+	// GenerationAnnotationContent 智能生成标注内容
+	GenerationAnnotationContent(ctx context.Context, tenantId uint, modelName, taskId, taskSegmentId string) (res taskSegmentAnnotationRequest, err error)
 }
 
 // CreationOptions is the options for the faceswap service.
@@ -139,6 +142,46 @@ type service struct {
 	apiSvc     services.Service
 	options    *CreationOptions
 	fileSvc    files.Service
+}
+
+func (s *service) GenerationAnnotationContent(ctx context.Context, tenantId uint, modelName, taskId, taskSegmentId string) (res taskSegmentAnnotationRequest, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	taskInfo, err := s.repository.DatasetTask().GetTask(ctx, tenantId, taskId)
+	if err != nil {
+		_ = level.Warn(logger).Log("msg", "get task error", "err", err.Error())
+		return
+	}
+	taskSegment, err := s.repository.DatasetTask().GetTaskSegmentByUUID(ctx, taskInfo.ID, taskSegmentId)
+	if err != nil {
+		_ = level.Warn(logger).Log("repository.DatasetTask", "GetTaskSegmentByUUID", "err", err.Error())
+		return
+	}
+	fmt.Println(taskSegment)
+	chatStream, err := s.apiSvc.FastChat().CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
+		Model:            "",
+		Messages:         nil,
+		MaxTokens:        0,
+		Temperature:      0,
+		TopP:             0,
+		N:                0,
+		Stream:           false,
+		Stop:             nil,
+		PresencePenalty:  0,
+		ResponseFormat:   nil,
+		Seed:             nil,
+		FrequencyPenalty: 0,
+		LogitBias:        nil,
+		LogProbs:         false,
+		TopLogProbs:      0,
+		User:             "",
+		Functions:        nil,
+		FunctionCall:     nil,
+		Tools:            nil,
+		ToolChoice:       nil,
+	})
+
+	fmt.Println(chatStream)
+	return
 }
 
 func (s *service) GetCheckTaskDatasetSimilarLog(ctx context.Context, tenantId uint, taskId string) (res string, err error) {

@@ -100,7 +100,7 @@ python3 -m $MODEL_WORKER --host 0.0.0.0 --port $HTTP_PORT \
 # - NO_PROXY: 不代理的地址
 # - GPUS_PER_NODE: 每个节点的GPU数量
 # - MASTER_PORT: 主节点端口
-# - LORA: 是否使用LORA
+# - USE_LORA: 是否使用LORA
 # - OUTPUT_DIR: 输出路径
 # - NUM_TRAIN_EPOCHS: 训练轮数
 # - TRAIN_BATCH_SIZE: 训练批次大小
@@ -110,6 +110,9 @@ python3 -m $MODEL_WORKER --host 0.0.0.0 --port $HTTP_PORT \
 # - MODEL_MAX_LENGTH: 模型最大长度
 # - BASE_MODEL_PATH: 基础模型路径
 # - BASE_MODEL_NAME: 基础模型名称
+# - SCENARIO: 应用场景
+# - TRAIN_FILE: 训练文件URL或路径
+# - EVAL_FILE: 验证文件URL或路径
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
@@ -117,18 +120,11 @@ NNODES=1
 NODE_RANK=0
 MASTER_ADDR=localhost
 MASTER_PORT=19090
-#USE_LORA={{.Lora}}
 Q_LORA=False
 
-# MODEL="{{.BaseModelPath}}" # Set the path if you do not want to load from huggingface directly
-# ATTENTION: specify the path to your training data, which should be a json file consisting of a list of conversations.
-# See the section for finetuning in README for more information.
-DATA="{{.DataPath}}"
-# 验证集
-EVAL_DATA="{{.ValidationFile}}"
 DS_CONFIG_PATH="ds_config_zero3.json"
 
-if [ ! -n $BASE_MODEL_PATH ]; then
+if [ -n "$BASE_MODEL_PATH" ]; then
 	BASE_MODEL=$BASE_MODEL_PATH
 else
 	BASE_MODEL=$BASE_MODEL_NAME
@@ -150,11 +146,30 @@ else
 fi
 
 mkdir -p /data/train-data/
-wget -O {{.DataPath}} {{.FileUrl}}
+
+TRAIN_LOCAL_FILE=/data/train-data/train-${JOB_ID}
+EVAL_LOCAL_FILE=/data/train-data/eval-${JOB_ID}
+
+# 判断如果 DATASET_PATH 是url，则下载文件
+URL_REGEX="^(http|https)://"
+
+if [ $TRAIN_FILE =~ $URL_REGEX ]; then
+    echo "The path is a URL. Starting download..."
+    wget -O $TRAIN_LOCAL_FILE "$TRAIN_FILE"
+else
+    TRAIN_LOCAL_FILE=$TRAIN_FILE
+fi
+
+if [ $EVAL_FILE =~ $URL_REGEX ]; then
+    echo "The path is a URL. Starting download..."
+    wget -O $EVAL_LOCAL_FILE "$EVAL_FILE"
+else
+    EVAL_LOCAL_FILE=$EVAL_FILE
+fi
 
 output=$(torchrun $DISTRIBUTED_ARGS {{.ScriptFile}} \
     --model_name_or_path $BASE_MODEL \
-    --data_path $DATA \
+    --data_path $TRAIN_LOCAL_FILE \
     --bf16 True \
     --output_dir $OUTPUT_DIR \
     --num_train_epochs $NUM_TRAIN_EPOCHS \
@@ -187,12 +202,12 @@ if [ $status -eq 0 ]; then
     echo "执行成功!"
     echo "${output}"
     # 调用API并传递输出内容
-    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{"status": "success"}"
+    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"success\"}"
 else
     # 发生异常
     echo "执行失败!"
     # 调用API并传递错误信息
-    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": "failed", \"message\": \"${output}\"}"
+    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"failed\", \"message\": \"${output}\"}"
 fi
 `
 

@@ -11,6 +11,11 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (s *tracing) GenerationAnnotationContent(ctx context.Context, tenantId uint, modelName, taskId, taskSegmentId string) (res taskSegmentAnnotationRequest, err error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (s *tracing) GetCheckTaskDatasetSimilarLog(ctx context.Context, tenantId uint, taskId string) (res string, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "GetCheckTaskDatasetSimilarLog", opentracing.Tag{
 		Key:   string(ext.Component),

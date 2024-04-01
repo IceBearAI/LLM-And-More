@@ -402,35 +402,5 @@ def train():
         #     os.system("rm -rf " + output_dir)
 
 
-def job_finished(status: str = "success", message: str = ""):
-    job_id = os.getenv("JOB_ID")
-    authorization = os.getenv("AUTH")
-    api_url = os.getenv("API_URL")
-    tenant_id = os.getenv("TENANT_ID")
-    if not api_url:
-        api_url = 'http://aigc-server:8080/v1/fine_tuning/jobs/' + job_id + '/finish'
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + authorization,
-        'X-Tenant-Id': tenant_id
-    }
-    data = {"status": status, "message": message}
-
-    response = requests.put(api_url, headers=headers, json=data)
-
-    print(response.status_code)
-    print(response.json())
-
-
 if __name__ == "__main__":
-    status = "success"
-    message = ""
-    try:
-        train()
-    except Exception as e:
-        status = "failed"
-        message = str(e)
-        print("发生了一个异常:", str(e))
-
-    if local_rank == 0:
-        job_finished(status, message)
+    train()

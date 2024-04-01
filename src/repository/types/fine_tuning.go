@@ -7,6 +7,7 @@ import (
 
 type TemplateType string
 type TrainStatus string
+type ScenarioType string
 
 const (
 	TemplateTypeTrain     TemplateType = "train"     // 训练模版
@@ -17,6 +18,13 @@ const (
 	TrainStatusFailed  TrainStatus = "failed"  // 失败
 	TrainStatusWaiting TrainStatus = "waiting" // 等待
 	TrainStatusCancel  TrainStatus = "cancel"  // 取消
+
+	// ScenarioTypeGeneral 通用应用场景
+	ScenarioTypeGeneral ScenarioType = "general"
+	// ScenarioTypeFAQ 知识问答应用场景
+	ScenarioTypeFAQ ScenarioType = "faq"
+	// ScenarioTypeRAG RAG应用场景
+	ScenarioTypeRAG ScenarioType = "rag"
 )
 
 func (t TrainStatus) String() string {
@@ -127,7 +135,7 @@ type FineTuningTrainJob struct {
 	// FinishedAt 完成时间
 	FinishedAt *time.Time `gorm:"column:finished_at;null;"`
 	// ErrorMessage 错误信息
-	ErrorMessage string `gorm:"column:error_message;null;"`
+	ErrorMessage string `gorm:"column:error_message;type:text;null;"`
 	// Remark 备注
 	Remark string `gorm:"column:remark;size:128;null;"`
 	// TrainLog 训练日志
@@ -136,6 +144,8 @@ type FineTuningTrainJob struct {
 	TenantID uint `gorm:"column:tenant_id;type:bigint(20);NOT NULL"`
 	// StartTrainTime 开始训练时间
 	StartTrainTime *time.Time `gorm:"column:start_train_time;null;"`
+	// Scenario 应用场景
+	Scenario ScenarioType `gorm:"column:scenario;null;default:'general'"`
 
 	// Template 微调模版
 	Template FineTuningTemplate `gorm:"foreignKey:TemplateId;references:ID"`
