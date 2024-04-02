@@ -107,12 +107,12 @@ type (
 
 	// taskSegmentAnnotationRequest 标注任务样本请求结构
 	taskSegmentAnnotationRequest struct {
-		Document    string `json:"document"`
-		Instruction string `json:"instruction"`
-		Input       string `json:"input"`
-		Question    string `json:"question"`
-		Intent      string `json:"intent"`
-		Output      string `json:"output" validate:"lt=5000,gt=1"`
+		Document    string `json:"document,omitempty"`
+		Instruction string `json:"instruction,omitempty"`
+		Input       string `json:"input,omitempty"`
+		Question    string `json:"question,omitempty"`
+		Intent      string `json:"intent,omitempty"`
+		Output      string `json:"output,omitempty" validate:"lt=5000,gt=1"`
 	}
 
 	// taskExportAnnotationDataRequest 导出标注任务数据请求结构
@@ -132,6 +132,11 @@ type (
 		Data       interface{} `json:"data"`
 		TestReport string      `json:"-"`
 	}
+
+	// generationAnnotationContentRequest 智能生成标注内容
+	generationAnnotationContentRequest struct {
+		ModelName string `json:"modelName" validate:"required"`
+	}
 )
 
 type Endpoints struct {
@@ -149,6 +154,7 @@ type Endpoints struct {
 	CancelCheckTaskDatasetSimilarEndpoint endpoint.Endpoint
 	AsyncCheckTaskDatasetSimilarEndpoint  endpoint.Endpoint
 	GetCheckTaskDatasetSimilarLogEndpoint endpoint.Endpoint
+	GenerationAnnotationContentEndpoint   endpoint.Endpoint
 }
 
 func NewEndpoints(s Service, mdw map[string][]endpoint.Middleware) Endpoints {
@@ -167,6 +173,7 @@ func NewEndpoints(s Service, mdw map[string][]endpoint.Middleware) Endpoints {
 		CancelCheckTaskDatasetSimilarEndpoint: makeCancelCheckTaskDatasetSimilarEndpoint(s),
 		AsyncCheckTaskDatasetSimilarEndpoint:  makeAsyncCheckTaskDatasetSimilarEndpoint(s),
 		GetCheckTaskDatasetSimilarLogEndpoint: makeGetCheckTaskDatasetSimilarLogEndpoint(s),
+		GenerationAnnotationContentEndpoint:   makeGenerationAnnotationContentEndpoint(s),
 	}
 
 	for _, m := range mdw["DatasetTask"] {
@@ -184,8 +191,31 @@ func NewEndpoints(s Service, mdw map[string][]endpoint.Middleware) Endpoints {
 		eps.CancelCheckTaskDatasetSimilarEndpoint = m(eps.CancelCheckTaskDatasetSimilarEndpoint)
 		eps.AsyncCheckTaskDatasetSimilarEndpoint = m(eps.AsyncCheckTaskDatasetSimilarEndpoint)
 		eps.GetCheckTaskDatasetSimilarLogEndpoint = m(eps.GetCheckTaskDatasetSimilarLogEndpoint)
+		eps.GenerationAnnotationContentEndpoint = m(eps.GenerationAnnotationContentEndpoint)
 	}
 	return eps
+}
+
+func makeGenerationAnnotationContentEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		tenantId, _ := ctx.Value(middleware.ContextKeyTenantId).(uint)
+		taskId, ok := ctx.Value(contextKeyDatasetTaskId).(string)
+		if !ok {
+			err := errors.New("invalid task id")
+			return nil, err
+		}
+		segmentId, ok := ctx.Value(contextKeyDatasetTaskSegmentId).(string)
+		if !ok {
+			err := errors.New("invalid segment id")
+			return nil, err
+		}
+		req := request.(generationAnnotationContentRequest)
+		res, err := s.GenerationAnnotationContent(ctx, tenantId, req.ModelName, taskId, segmentId)
+		return encode.Response{
+			Data:  res,
+			Error: err,
+		}, err
+	}
 }
 
 func makeCreateTaskEndpoint(s Service) endpoint.Endpoint {

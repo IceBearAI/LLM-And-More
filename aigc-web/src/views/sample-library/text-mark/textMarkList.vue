@@ -99,7 +99,7 @@
               </el-table-column>
               <el-table-column label="检测状态" width="135px">
                 <template #default="{ row }">
-                  <template v-if="row.annotationType == 'faq'">
+                  <template v-if="row.annotationType == 'faq' && row.status !== 'processing'">
                     <div class="d-flex align-center justify-center">
                       <span :class="getStatusClassName(row.detectionStatus)">{{
                         getLabels([["local_mark_detect_status", row.detectionStatus]])

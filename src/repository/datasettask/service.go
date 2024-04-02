@@ -22,7 +22,7 @@ type Service interface {
 	// UpdateTask updates a task.
 	UpdateTask(ctx context.Context, data *types.DatasetAnnotationTask) (err error)
 	// GetTask returns a task.
-	GetTask(ctx context.Context, tenantId uint, uuid string) (res *types.DatasetAnnotationTask, err error)
+	GetTask(ctx context.Context, tenantId uint, uuid string, preloads ...string) (res *types.DatasetAnnotationTask, err error)
 	// AddTaskSegments adds task segments.
 	AddTaskSegments(ctx context.Context, data []types.DatasetAnnotationTaskSegment) (err error)
 	// GetTaskOneSegment 获取一条待标注任务样本
@@ -55,11 +55,20 @@ type Service interface {
 	GetTaskSegmentPrev(ctx context.Context, taskId uint, status types.DatasetAnnotationStatus) (res types.DatasetAnnotationTaskSegment, err error)
 	// GetTaskByDetection 获取正在评估检测的任务
 	GetTaskByDetection(ctx context.Context, status types.DatasetAnnotationStatus, detectionStatus types.DatasetAnnotationDetectionStatus, preload ...string) (res []types.DatasetAnnotationTask, err error)
+	// GetSegmentFaqIntentInSegmentId 获取相应用segment的faq的意图数据
+	GetSegmentFaqIntentInSegmentId(ctx context.Context, segmentIds []uint, annotationStatus types.DatasetAnnotationStatus, annotationType types.DatasetAnnotationType) (res []types.DatasetAnnotationTaskSegment, err error)
 }
 
 type service struct {
 	db         *gorm.DB
 	randomFunc string
+}
+
+func (s *service) GetSegmentFaqIntentInSegmentId(ctx context.Context, segmentIds []uint, annotationStatus types.DatasetAnnotationStatus, annotationType types.DatasetAnnotationType) (res []types.DatasetAnnotationTaskSegment, err error) {
+	err = s.db.WithContext(ctx).Model(types.DatasetAnnotationTaskSegment{}).
+		Where("segment_id in (?) and status = ? AND annotation_type = ?", segmentIds, annotationStatus, annotationType).
+		Group("intent").Find(&res).Error
+	return
 }
 
 func (s *service) GetTaskByDetection(ctx context.Context, status types.DatasetAnnotationStatus, detectionStatus types.DatasetAnnotationDetectionStatus, preload ...string) (res []types.DatasetAnnotationTask, err error) {
@@ -170,9 +179,12 @@ func (s *service) UpdateTask(ctx context.Context, data *types.DatasetAnnotationT
 	return s.db.WithContext(ctx).Model(data).Updates(data).Error
 }
 
-func (s *service) GetTask(ctx context.Context, tenantId uint, uuid string) (res *types.DatasetAnnotationTask, err error) {
-	err = s.db.WithContext(ctx).Model(types.DatasetAnnotationTask{}).
-		Where("tenant_id = ? and uuid = ?", tenantId, uuid).First(&res).Error
+func (s *service) GetTask(ctx context.Context, tenantId uint, uuid string, preloads ...string) (res *types.DatasetAnnotationTask, err error) {
+	query := s.db.WithContext(ctx).Model(types.DatasetAnnotationTask{}).Where("tenant_id = ? and uuid = ?", tenantId, uuid)
+	for _, p := range preloads {
+		query = query.Preload(p)
+	}
+	err = query.First(&res).Error
 	return
 }
 

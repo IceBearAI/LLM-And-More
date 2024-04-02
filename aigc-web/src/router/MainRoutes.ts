@@ -100,16 +100,30 @@ const MainRoutes: RouteRecordRaw = {
       component: () => import("@/views/image-services/image-matting/imageMatting.vue")
     },
     {
+      path: "/image-services/face-recognition/list",
+      component: () => import("@/views/image-services/face-recognition/faceRecognition.vue")
+    },
+    {
       path: "/voice-print/synthesis/speaker",
       component: () => import("@/views/voice-print/synthesis/speaker-manage/speakerManage.vue")
     },
     {
-      path: "/voice-print/synthesis/voice-list",
-      component: () => import("@/views/voice-print/synthesis/voice-list/voiceList.vue")
-    },
-    {
-      path: "/voice-print/synthesis/synthesis-voice",
-      component: () => import("@/views/voice-print/synthesis/synthesis-voice/synthesisVoice.vue")
+      path: "/voice-print/synthesis",
+      component: () => import("@/components/business/AspectPage.vue"),
+      meta: {
+        aspectPageInclude: ["voiceList"]
+      },
+      redirect: "/voice-print/synthesis/voice-list",
+      children: [
+        {
+          path: "voice-list",
+          component: () => import("@/views/voice-print/synthesis/voice-list/voiceList.vue")
+        },
+        {
+          path: "synthesis-voice",
+          component: () => import("@/views/voice-print/synthesis/synthesis-voice/synthesisVoice.vue")
+        }
+      ]
     },
 
     // {

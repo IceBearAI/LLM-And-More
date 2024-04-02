@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -318,8 +319,8 @@ func (s *service) _cancelJob(ctx context.Context, channelId uint, fineTuningJob 
 
 func (s *service) UpdateJobFinishedStatus(ctx context.Context, fineTuningJob string, status types.TrainStatus, message string) (err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	//s.mu.Lock()
+	//defer s.mu.Unlock()
 
 	// 查看相关数据
 	jobInfo, err := s.store.FineTuning().FindFineTuningJobByJobId(ctx, fineTuningJob, "Template", "BaseModelInfo")
@@ -347,17 +348,20 @@ func (s *service) UpdateJobFinishedStatus(ctx context.Context, fineTuningJob str
 	}
 	// message 截取后3000个字符
 	if len(message) > 3000 {
-		message = message[:3000]
+		message = util.CleanString(util.LastNChars(message, 3000))
 	}
 	jobInfo.ErrorMessage = message
 	if err = s.store.FineTuning().UpdateFineTuningJob(ctx, &jobInfo); err != nil {
 		_ = level.Error(logger).Log("repository.FineTuningJob", "UpdateFineTuningJob", "err", err.Error())
 		return errors.Wrap(err, "repository.FineTuningJob.UpdateFineTuningJob")
 	}
+	runtimeCtx := context.Background()
 	defer func() {
-		if err = s.api.Runtime().RemoveJob(ctx, jobInfo.PaasJobName); err != nil {
-			_ = level.Error(logger).Log("api.DockerApi", "Remove", "err", err.Error())
-		}
+		go func() {
+			if err = s.api.Runtime().RemoveJob(runtimeCtx, jobInfo.PaasJobName); err != nil {
+				_ = level.Error(logger).Log("api.DockerApi", "Remove", "err", err.Error())
+			}
+		}()
 	}()
 
 	if status == types.TrainStatusFailed {
@@ -472,8 +476,50 @@ func (s *service) _createFineTuningJob(ctx context.Context, jobId string) (err e
 		Name:  "AUTH",
 		Value: auth,
 	}, runtime.Env{
+		Name:  "SCENARIO",
+		Value: string(jobInfo.Scenario),
+	}, runtime.Env{
 		Name:  "HF_HOME",
 		Value: "/data/hf",
+	}, runtime.Env{
+		Name:  "BASE_MODEL_NAME",
+		Value: jobInfo.BaseModel,
+	}, runtime.Env{
+		Name:  "BASE_MODEL_PATH",
+		Value: jobInfo.BaseModelPath,
+	}, runtime.Env{
+		Name:  "GPUS_PER_NODE",
+		Value: strconv.Itoa(jobInfo.ProcPerNode),
+	}, runtime.Env{
+		Name:  "USE_LORA",
+		Value: strconv.FormatBool(jobInfo.Lora),
+	}, runtime.Env{
+		Name:  "OUTPUT_DIR",
+		Value: jobInfo.OutputDir,
+	}, runtime.Env{
+		Name:  "TRAIN_FILE",
+		Value: jobInfo.FileUrl,
+	}, runtime.Env{
+		Name:  "EVAL_FILE",
+		Value: jobInfo.ValidationFile,
+	}, runtime.Env{
+		Name:  "NUM_TRAIN_EPOCHS",
+		Value: strconv.Itoa(jobInfo.TrainEpoch),
+	}, runtime.Env{
+		Name:  "PER_DEVICE_TRAIN_BATCH_SIZE",
+		Value: strconv.Itoa(jobInfo.TrainBatchSize),
+	}, runtime.Env{
+		Name:  "PER_DEVICE_EVAL_BATCH_SIZE",
+		Value: strconv.Itoa(jobInfo.EvalBatchSize),
+	}, runtime.Env{
+		Name:  "GRADIENT_ACCUMULATION_STEPS",
+		Value: strconv.Itoa(jobInfo.AccumulationSteps),
+	}, runtime.Env{
+		Name:  "LEARNING_RATE",
+		Value: strconv.FormatFloat(jobInfo.LearningRate, 'f', -1, 64),
+	}, runtime.Env{
+		Name:  "MODEL_MAX_LENGTH",
+		Value: strconv.Itoa(jobInfo.ModelMaxLength),
 	}, runtime.Env{
 		Name:  "HF_ENDPOINT",
 		Value: os.Getenv("HF_ENDPOINT"),
@@ -672,6 +718,7 @@ func (s *service) CreateJob(ctx context.Context, tenantId uint, request CreateJo
 	suffix = string(util.Krand(4, util.KC_RAND_KIND_LOWER)) + suffix
 
 	fineTunedModel := fmt.Sprintf("ft::%s:%d-%s", request.BaseModel, request.TenantId, suffix)
+	suffix = util.ReplacerServiceName(suffix)
 	ftJob := &types.FineTuningTrainJob{
 		JobId:             uuid.New().String(),
 		FileId:            request.FileId,
@@ -681,7 +728,7 @@ func (s *service) CreateJob(ctx context.Context, tenantId uint, request CreateJo
 		TrainEpoch:        request.TrainEpoch,
 		BaseModelPath:     ftJobTpl.BaseModelPath,
 		DataPath:          fmt.Sprintf("/data/train-data/%s", request.FileId),
-		OutputDir:         fmt.Sprintf("%s/ft-%s-%d-%s", ftJobTpl.OutputDir, request.BaseModel, request.TenantId, strings.ReplaceAll(suffix, ":", "-")),
+		OutputDir:         fmt.Sprintf("%s/ft-%s-%d-%s", ftJobTpl.OutputDir, request.BaseModel, request.TenantId, suffix),
 		ScriptFile:        ftJobTpl.ScriptFile,
 		MasterPort:        rand.IntnRange(20000, 30000),
 		FileUrl:           panUrl,
@@ -696,6 +743,7 @@ func (s *service) CreateJob(ctx context.Context, tenantId uint, request CreateJo
 		Remark:            request.Remark,
 		TrainPublisher:    request.TrainPublisher,
 		Lora:              request.Lora,
+		Scenario:          types.ScenarioType(request.Scenario),
 	}
 	err = s.store.FineTuning().CreateFineTuningJob(ctx, ftJob)
 	if err != nil {

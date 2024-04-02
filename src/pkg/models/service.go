@@ -323,7 +323,7 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 	var envs []runtime.Env
 	var envVars []string
 	envs = append(envs, runtime.Env{
-		Name:  "MODEL_NAME_PATH",
+		Name:  "MODEL_PATH",
 		Value: modelPath,
 	}, runtime.Env{
 		Name:  "MODEL_NAME",
@@ -339,13 +339,16 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		Value: strconv.Itoa(request.Gpu),
 	}, runtime.Env{
 		Name:  "MAX_GPU_MEMORY",
-		Value: fmt.Sprintf("%dGiB", request.MaxGpuMemory),
+		Value: strconv.Itoa(request.MaxGpuMemory),
 	}, runtime.Env{
 		Name:  "USE_VLLM",
 		Value: strconv.FormatBool(request.Vllm),
 	}, runtime.Env{
 		Name:  "INFERRED_TYPE",
 		Value: request.InferredType,
+	}, runtime.Env{
+		Name:  "HF_HOME",
+		Value: "/data/hf",
 	}, runtime.Env{
 		Name:  "CONTROLLER_ADDRESS",
 		Value: s.options.controllerAddress,

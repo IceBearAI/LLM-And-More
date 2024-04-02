@@ -7,14 +7,20 @@
             <v-chip closable color="info" @click:close="fileChipClose">{{ formData.file.name }}</v-chip>
           </template>
           <template v-else>
-            <custom-upload :file-type="['.txt']" isSuffixValid @before-upload="handleBeforeUpload" :auto-upload="false">
+            <custom-upload
+              :file-type="['.txt', '.jsonl']"
+              isSuffixValid
+              @before-upload="handleBeforeUpload"
+              :auto-upload="false"
+              :file-size="10"
+            >
               <template #trigger>
                 <v-btn color="info" variant="outlined">选择文件</v-btn>
               </template>
             </custom-upload>
           </template>
           <template #prepend>
-            <label class="required">样本文件 <Explain>支持扩展名：.txt</Explain></label></template
+            <label class="required">样本文件 <Explain>支持扩展名：.txt、.jsonl</Explain></label></template
           >
         </v-input>
         <v-text-field
