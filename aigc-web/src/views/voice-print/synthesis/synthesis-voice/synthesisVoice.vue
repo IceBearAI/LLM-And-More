@@ -1,6 +1,6 @@
 <template>
-  <BaseBreadcrumb :title="page.title" :breadcrumbs="breadcrumbs"></BaseBreadcrumb>
-  <v-row>
+  <NavBack backUrl="/voice-print/synthesis/voice-list">创建TTS</NavBack>
+  <v-row class="mt-1">
     <v-col cols="12" md="6">
       <UiParentCard>
         <Left ref="refFormLeft" />
@@ -33,15 +33,13 @@
 </template>
 <script setup>
 import { reactive, toRefs, ref, onMounted, provide } from "vue";
-import BaseBreadcrumb from "@/components/shared/BaseBreadcrumb.vue";
 import UiParentCard from "@/components/shared/UiParentCard.vue";
 import UiChildCard from "@/components/shared/UiChildCard.vue";
 
-import Explain from "@/components/ui/Explain.vue";
 import { useMapRemoteStore } from "@/stores";
 import { http } from "@/utils";
 import { toast } from "vue3-toastify";
-import IconChecked from "@/components/ui/IconChecked.vue";
+import NavBack from "@/components/business/NavBack.vue";
 
 import Left from "./components/Left.vue";
 import Right from "./components/Right.vue";
@@ -99,20 +97,6 @@ const state = reactive({
 });
 const { style, formData, selectedSpeaker } = toRefs(state);
 provide("provideSynthesisVoice", state);
-
-const page = ref({ title: "声文模块" });
-const breadcrumbs = ref([
-  {
-    text: "声音列表",
-    disabled: false,
-    href: "#"
-  },
-  {
-    text: "声音合成",
-    disabled: true,
-    href: "#"
-  }
-]);
 
 const onSelectSpeaker = item => {
   state.selectedSpeaker = item;

@@ -32,7 +32,7 @@
       </v-col>
       <v-col cols="12" lg="3" md="4" sm="6">
         <ButtonsInForm>
-          <v-btn color="primary" @click="onSynthesisVoice">合成声音</v-btn>
+          <v-btn color="primary" @click="onSynthesisVoice">创建TTS</v-btn>
         </ButtonsInForm>
       </v-col>
       <v-col cols="12">
@@ -129,7 +129,7 @@ const { loadDictTree, getLabels } = useMapRemoteStore();
 const router = useRouter();
 loadDictTree(["speak_age_group", "speak_gender", "speak_provider", "speak_lang"]);
 
-const page = ref({ title: "声音列表" });
+const page = ref({ title: "TTS合成列表" });
 const breadcrumbs = ref([
   {
     text: "声音合成",
@@ -137,7 +137,7 @@ const breadcrumbs = ref([
     href: "#"
   },
   {
-    text: "声音列表",
+    text: "TTS合成列表",
     disabled: true,
     href: "#"
   }

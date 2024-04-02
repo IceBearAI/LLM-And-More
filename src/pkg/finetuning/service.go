@@ -506,13 +506,13 @@ func (s *service) _createFineTuningJob(ctx context.Context, jobId string) (err e
 		Name:  "NUM_TRAIN_EPOCHS",
 		Value: strconv.Itoa(jobInfo.TrainEpoch),
 	}, runtime.Env{
-		Name:  "TRAIN_BATCH_SIZE",
+		Name:  "PER_DEVICE_TRAIN_BATCH_SIZE",
 		Value: strconv.Itoa(jobInfo.TrainBatchSize),
 	}, runtime.Env{
-		Name:  "EVAL_BATCH_SIZE",
+		Name:  "PER_DEVICE_EVAL_BATCH_SIZE",
 		Value: strconv.Itoa(jobInfo.EvalBatchSize),
 	}, runtime.Env{
-		Name:  "ACCUMULATION_STEPS",
+		Name:  "GRADIENT_ACCUMULATION_STEPS",
 		Value: strconv.Itoa(jobInfo.AccumulationSteps),
 	}, runtime.Env{
 		Name:  "LEARNING_RATE",

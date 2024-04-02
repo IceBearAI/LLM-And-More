@@ -103,9 +103,9 @@ python3 -m $MODEL_WORKER --host 0.0.0.0 --port $HTTP_PORT \
 # - USE_LORA: 是否使用LORA
 # - OUTPUT_DIR: 输出路径
 # - NUM_TRAIN_EPOCHS: 训练轮数
-# - TRAIN_BATCH_SIZE: 训练批次大小
-# - EVAL_BATCH_SIZE: 评估批次大小
-# - ACCUMULATION_STEPS: 累积步数
+# - PER_DEVICE_TRAIN_BATCH_SIZE: 训练批次大小
+# - PER_DEVICE_EVAL_BATCH_SIZE: 评估批次大小
+# - GRADIENT_ACCUMULATION_STEPS: 累积步数
 # - LEARNING_RATE: 学习率
 # - MODEL_MAX_LENGTH: 模型最大长度
 # - BASE_MODEL_PATH: 基础模型路径
@@ -167,15 +167,15 @@ else
     EVAL_LOCAL_FILE=$EVAL_FILE
 fi
 
-output=$(torchrun $DISTRIBUTED_ARGS {{.ScriptFile}} \
+output=$(torchrun $DISTRIBUTED_ARGS /app/finetune.py \
     --model_name_or_path $BASE_MODEL \
     --data_path $TRAIN_LOCAL_FILE \
     --bf16 True \
     --output_dir $OUTPUT_DIR \
     --num_train_epochs $NUM_TRAIN_EPOCHS \
-    --per_device_train_batch_size $TRAIN_BATCH_SIZE \
-    --per_device_eval_batch_size $EVAL_BATCH_SIZE \
-    --gradient_accumulation_steps $ACCUMULATION_STEPS \
+    --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
+    --per_device_eval_batch_size $PER_DEVICE_EVAL_BATCH_SIZE \
+    --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
     --evaluation_strategy "no" \
     --save_strategy "steps" \
     --save_steps 1000 \

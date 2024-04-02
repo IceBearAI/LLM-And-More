@@ -99,7 +99,22 @@ func MakeHTTPHandler(s Service, mdw []endpoint.Middleware, opts []kithttp.Server
 		eps.GetCheckTaskDatasetSimilarLogEndpoint,
 		kithttp.NopRequestDecoder,
 		encode.JsonResponse, kitopts...)).Methods(http.MethodGet)
+	r.Handle("/{datasetTaskId}/segment/{datasetTaskSegmentId}/generation/annotation", kithttp.NewServer(
+		eps.GenerationAnnotationContentEndpoint,
+		decodeGenerationAnnotationRequest,
+		encode.JsonResponse, kitopts...)).Methods(http.MethodPost)
 	return r
+}
+
+func decodeGenerationAnnotationRequest(ctx context.Context, r *http.Request) (interface{}, error) {
+	var req generationAnnotationContentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return nil, encode.InvalidParams.Wrap(err)
+	}
+	if err := validate.Struct(req); err != nil {
+		return nil, encode.InvalidParams.Wrap(err)
+	}
+	return req, nil
 }
 
 func decodeListRequest(ctx context.Context, r *http.Request) (interface{}, error) {

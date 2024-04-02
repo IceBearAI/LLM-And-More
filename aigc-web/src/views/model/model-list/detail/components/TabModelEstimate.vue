@@ -44,7 +44,7 @@
           </template>
         </el-tooltip>
         <ButtonsInForm>
-          <v-btn color="primary" @click="onAdd">创建评估</v-btn>
+          <v-btn v-if="providerName === 'LocalAI'" color="primary" @click="onAdd">创建评估</v-btn>
         </ButtonsInForm>
       </v-col>
       <v-col cols="12">
@@ -128,10 +128,12 @@ interface Props {
   /** 音频地址 */
   showArrange: string;
   modelTitle: string;
+  providerName: string;
 }
 const props = defineProps({
   showArrange: String,
-  modelTitle: String
+  modelTitle: String,
+  providerName: String
 });
 const route = useRoute();
 const { modelName, jobId } = route.query;
@@ -285,7 +287,6 @@ const getLog = async () => {
     url: `/api/evaluate/${modelName}/eval-log/${state.currentJobId}`
   });
   if (res) {
-    console.log(res);
     const content = Object.keys(res).length === 0 ? "" : res;
     refDialogLog.value.setContent(content);
   }

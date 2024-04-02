@@ -28,7 +28,10 @@
     <v-window v-model="state.tabIndex">
       <!-- <v-window-item :value="1"> <TabFineTuningDetail /> </v-window-item> -->
       <v-window-item :value="2">
-        <TabModelEstimate :showArrange="rawData.deployStatus" :modelTitle="rawData.modelName"
+        <TabModelEstimate
+          :showArrange="rawData.deployStatus"
+          :modelTitle="rawData.modelName"
+          :providerName="rawData.providerName"
       /></v-window-item>
     </v-window>
   </UiParentCard>
@@ -54,7 +57,8 @@ const state = reactive({
   formData: {},
   rawData: {
     modelName: "",
-    deployStatus: ""
+    deployStatus: "",
+    providerName: ""
   },
   confirmByClickInfo: {
     html: "",

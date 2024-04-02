@@ -4,17 +4,25 @@
     <div>
       <v-row class="my-form waterfall">
         <v-col cols="12" md="6">
-          <v-col>
+          <!-- <v-col>
             <v-input hide-details>
               <template #prepend> <label>任务ID</label></template>
               <span v-copy="state.annotationId" class="link">{{ state.annotationId }}</span>
             </v-input>
-          </v-col>
+          </v-col> -->
           <v-col>
             <v-input hide-details>
               <template #prepend> <label>任务名称</label></template>
               {{ displayData.name }}
             </v-input>
+          </v-col>
+          <v-col class="d-flex align-center">
+            <Model-Select defaultFirstValue v-model="modelName" hide-details="auto">
+              <template #prepend>
+                <label>模型</label>
+              </template>
+            </Model-Select>
+            <v-btn :loading="aiMarkLoading" class="ml-3" color="info" @click="handleAIMark">AI标注</v-btn>
           </v-col>
           <!-- <v-col>
             <v-input hide-details>
@@ -161,6 +169,7 @@ import { toast } from "vue3-toastify";
 import { useI18n } from "vue-i18n";
 import $ from "jquery";
 import { ItfAspectPageState } from "@/types/AspectPageTypes.ts";
+import ModelSelect from "@/components/business/ModelSelect.vue";
 
 const { t } = useI18n(); // 解构出t方法
 const provideAspectPage = inject("provideAspectPage") as ItfAspectPageState;
@@ -207,6 +216,9 @@ const rules = reactive({
   document: [v => !!v || "请输入信息"],
   input: [v => !!v || "请输入信息"]
 });
+
+const modelName = ref("");
+const aiMarkLoading = ref(false);
 
 const getDetail = async () => {
   const [err, res] = await http.get({
@@ -294,6 +306,27 @@ const onNext = async () => {
     let errorMsg = t("pane.errorMsg");
     toast.warning(errorMsg);
   }
+};
+
+const handleAIMark = async () => {
+  aiMarkLoading.value = true;
+  const [err, res] = await http.post({
+    timeout: 30 * 1000, // 30s
+    showLoading: false,
+    showSuccess: false,
+    url: `/api/mgr/annotation/task/${state.annotationId}/segment/${state.formData.uuid}/generation/annotation`,
+    data: {
+      modelName: modelName.value
+    }
+  });
+  if (res) {
+    ["instruction", "document", "question", "intent", "input", "output"].forEach(key => {
+      if (res[key]) {
+        state.formData[key] = res[key];
+      }
+    });
+  }
+  aiMarkLoading.value = false;
 };
 
 onMounted(() => {

@@ -61,6 +61,8 @@ type Service interface {
 	GetTaskInfo(ctx context.Context, tenantId uint, taskId string) (res taskDetail, err error)
 	// GenerationAnnotationContent 智能生成标注内容
 	GenerationAnnotationContent(ctx context.Context, tenantId uint, modelName, taskId, taskSegmentId string) (res taskSegmentAnnotationRequest, err error)
+	// GetTaskFAQIntents 获取所有意图标签
+	GetTaskFAQIntents(ctx context.Context, tenantId uint, taskId string) (res []string, err error)
 }
 
 // CreationOptions is the options for the faceswap service.
@@ -144,43 +146,173 @@ type service struct {
 	fileSvc    files.Service
 }
 
-func (s *service) GenerationAnnotationContent(ctx context.Context, tenantId uint, modelName, taskId, taskSegmentId string) (res taskSegmentAnnotationRequest, err error) {
+func (s *service) GetTaskFAQIntents(ctx context.Context, tenantId uint, taskId string) (res []string, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
-	taskInfo, err := s.repository.DatasetTask().GetTask(ctx, tenantId, taskId)
+	taskInfo, err := s.repository.DatasetTask().GetTask(ctx, tenantId, taskId, "DatasetDocument.DatasetDocumentSegments")
 	if err != nil {
 		_ = level.Warn(logger).Log("msg", "get task error", "err", err.Error())
 		return
 	}
+	var documentSegmentIds []uint
+	for _, v := range taskInfo.DatasetDocument.DatasetDocumentSegments {
+		documentSegmentIds = append(documentSegmentIds, v.ID)
+	}
+
+	segments, err := s.repository.DatasetTask().GetSegmentFaqIntentInSegmentId(ctx, documentSegmentIds, types.DatasetAnnotationStatusCompleted, types.DatasetAnnotationTypeFAQ)
+	if err != nil {
+		_ = level.Warn(logger).Log("repository.DatasetTask", "GetSegmentFaqIntentInSegmentId", "err", err.Error())
+		return res, nil
+	}
+	for _, v := range segments {
+		res = append(res, v.Intent)
+	}
+	return
+}
+
+func (s *service) GenerationAnnotationContent(ctx context.Context, tenantId uint, modelName, taskId, taskSegmentId string) (res taskSegmentAnnotationRequest, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+
+	taskInfo, err := s.repository.DatasetTask().GetTask(ctx, tenantId, taskId, "Segments")
+	if err != nil {
+		_ = level.Warn(logger).Log("msg", "get task error", "err", err.Error())
+		return res, nil
+	}
 	taskSegment, err := s.repository.DatasetTask().GetTaskSegmentByUUID(ctx, taskInfo.ID, taskSegmentId)
 	if err != nil {
 		_ = level.Warn(logger).Log("repository.DatasetTask", "GetTaskSegmentByUUID", "err", err.Error())
-		return
+		return res, nil
 	}
-	fmt.Println(taskSegment)
-	chatStream, err := s.apiSvc.FastChat().CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
-		Model:            "",
-		Messages:         nil,
-		MaxTokens:        0,
-		Temperature:      0,
-		TopP:             0,
-		N:                0,
-		Stream:           false,
-		Stop:             nil,
-		PresencePenalty:  0,
-		ResponseFormat:   nil,
-		Seed:             nil,
-		FrequencyPenalty: 0,
-		LogitBias:        nil,
-		LogProbs:         false,
-		TopLogProbs:      0,
-		User:             "",
-		Functions:        nil,
-		FunctionCall:     nil,
-		Tools:            nil,
-		ToolChoice:       nil,
-	})
+	if strings.TrimSpace(taskSegment.Instruction) == "" {
+		if prevSegment, err := s.repository.DatasetTask().GetTaskSegmentPrev(ctx, taskSegment.ID, types.DatasetAnnotationStatusCompleted); err == nil {
+			taskSegment.Instruction = prevSegment.Instruction
+		}
+	}
+	// 获取之前所有意图标签
+	var intents []string
+	var systemPrompt, userPrompt string
+	if taskSegment.Instruction != "" {
+		userPrompt = fmt.Sprintf("instruction: %s", taskSegment.Instruction)
+	}
+	switch types.DatasetAnnotationType(taskInfo.AnnotationType) {
+	case types.DatasetAnnotationTypeGeneral:
+		systemPrompt = fmt.Sprintf(`请仔细阅读下面的对话，并根据对话内容填充相应的字段。首先，识别客户提出的问题，并将其填充到"input"字段。然后，根据问题的内容，将回答填充到"output"字段。最后，将您的角色填充到"instruction"字段。请确保您的输出格式严格遵循以下JSON格式：
 
-	fmt.Println(chatStream)
+{
+    "input": "<填写客户的问题>",
+    "output": "<填写客服的回答>",
+    "instruction": "<您的角色>"
+}
+
+示例：
+
+输入：
+
+instruction: %s  
+document: 雇主责任险的医疗费用是不可重复报销的。如果您已经通过社保或其他商业保险公司报销了部分医疗费用，您可以提供分割单及理赔单据的复印件，以申请雇主责任险对剩余未报销部分进行索赔。这有助于确保您获得合理的赔付。
+关于“企业无忧”雇主责任险的医疗费用，以下是您需要了解的信息：
+1. 自费药费用包含：医疗费用中包含自费药费用。在保险单明细表所载明的每人每次医疗费用赔偿限额内，自费药费用将零免赔，百分百报销，无比例限制。
+2. 医院级别要求：针对医院级别，并无特定等级限制要求。该保险涵盖不同级别的医院，包括一级医院（如社区医院）和二级医院（如县人民医院）等。保险将支付合理且必要的门诊和住院费用。
+
+输出：
+
+{
+    "input": "雇主责任险的医疗费怎么报销？",
+    "output": "雇主责任险的医疗费用是不可重复报销的，如果您已经通过社保或其他商业保险公司报销了部分医疗费用，您可以提供分割单及理赔单据的复印件，以申请雇主责任险对剩余未报销部分进行索赔。这有助于确保您获得合理的赔付。",
+    "instruction": "%s"
+}`, taskSegment.Instruction, taskSegment.Instruction)
+	case types.DatasetAnnotationTypeFAQ:
+		for _, segment := range taskInfo.Segments {
+			if segment.Status != types.DatasetAnnotationStatusCompleted {
+				continue
+			}
+			if util.StringInArray(intents, segment.Intent) {
+				continue
+			}
+			if segment.Intent != "" {
+				intents = append(intents, segment.Intent)
+			}
+		}
+		systemPrompt = fmt.Sprintf(`请仔细阅读下面的对话，并根据对话内容填充相应的字段。首先，识别客户提出的问题，并将其填充到"question"字段。然后，根据问题的内容，从以下候选意图类别中选择一个最合适的意图，并填充到"intent"字段。如果提出的问题不符合任何候选类别，请基于您的理解提供一个合适的类别。
+候选类别有：%s
+
+接下来，将客服的回答填充到"output"字段。最后，将您的角色填充到"instruction"字段。请确保您的输出格式严格遵循以下JSON格式：
+
+{
+    "question": "<填写客户的问题>",
+    "intent": "<填写问题的意图类别>",
+    "output": "<填写客服的回答>",
+    "instruction": "<您的角色>"
+}
+
+示例：
+
+输入：
+
+instruction: %s  
+document: 客户: 怎么申请贷款？  
+客服: 您好！我们这是基金，没有贷款业务  
+
+输出：
+
+{
+    "question": "怎么申请贷款？",
+    "intent": "咨询贷款申请",
+    "output": "您好！我们这是基金，没有贷款业务",
+    "instruction": "%s"
+}`, strings.Join(intents, "、"), taskSegment.Instruction, taskSegment.Instruction)
+	case types.DatasetAnnotationTypeRAG:
+		systemPrompt = fmt.Sprintf(`请仔细阅读下面的对话，并根据对话内容填充相应的字段。首先，识别客户提出的问题，并将其填充到"input"字段。然后，根据问题的内容，将回答填充到"output"字段。最后，将您的角色填充到"instruction"字段。请确保您的输出格式严格遵循以下JSON格式：
+
+{
+    "question": "<填写客户的问题>",
+    "document": "<检索出来的内容>",
+    "output": "<填写客服的回答>",
+    "instruction": "<您的角色>"
+}
+
+示例：
+
+输入：
+
+instruction: %s  
+document: 雇主责任险的医疗费用是否可以重复报销？\n雇主责任险的医疗费用是不可重复报销的。如果您已经通过社保或其他商业保险公司报销了部分医疗费用，您可以提供分割单及理赔单据的复印件，以申请雇主责任险对剩余未报销部分进行索赔。这有助于确保您获得合理的赔付。
+
+输出：
+
+{
+    "question": "雇主责任险的医疗费怎么报销？",
+    "document": "雇主责任险的医疗费用是否可以重复报销？\n雇主责任险的医疗费用是不可重复报销的。如果您已经通过社保或其他商业保险公司报销了部分医疗费用，您可以提供分割单及理赔单据的复印件，以申请雇主责任险对剩余未报销部分进行索赔。这有助于确保您获得合理的赔付。",
+    "output": "雇主责任险的医疗费用是不可重复报销的。如果您已经通过社保或其他商业保险公司报销了部分医疗费用，您可以提供分割单及理赔单据的复印件，以申请雇主责任险对剩余未报销部分进行索赔。这有助于确保您获得合理的赔付。",
+    "instruction": "%s"
+}`, taskSegment.Instruction, taskSegment.Instruction)
+	}
+	userPrompt += fmt.Sprintf("document: %s", taskSegment.SegmentContent)
+
+	chatStream, _, err := s.apiSvc.FastChat().ChatCompletion(ctx, modelName, []openai.ChatCompletionMessage{
+		{
+			Role:    "system",
+			Content: systemPrompt,
+		},
+		{
+			Role:    "user",
+			Content: userPrompt,
+		},
+	}, 0.7, 0.9, 0.5, 0.5, 1024, 1, nil, "", nil, nil)
+	if err != nil {
+		_ = level.Warn(logger).Log("msg", "chat completion failed", "err", err)
+		return res, nil
+	}
+	if chatStream.Choices == nil || len(chatStream.Choices) == 0 {
+		//err = errors.New("chat completion failed")
+		_ = level.Warn(logger).Log("msg", "chat completion failed", "err", err)
+		return res, nil
+	}
+	content := chatStream.Choices[0].Message.Content
+	if err = json.Unmarshal([]byte(content), &res); err != nil {
+		_ = level.Warn(logger).Log("msg", "json.Unmarshal", "content", content, "err", err.Error())
+		return res, nil
+	}
+	res.Instruction = taskSegment.Instruction
 	return
 }
 

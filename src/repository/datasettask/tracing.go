@@ -2,6 +2,7 @@ package datasettask
 
 import (
 	"context"
+	"fmt"
 	"github.com/IceBearAI/aigc/src/repository/types"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
@@ -10,6 +11,11 @@ import (
 type tracing struct {
 	next   Service
 	tracer opentracing.Tracer
+}
+
+func (s *tracing) GetSegmentFaqIntentInSegmentId(ctx context.Context, segmentIds []uint, annotationStatus types.DatasetAnnotationStatus, annotationType types.DatasetAnnotationType) (res []types.DatasetAnnotationTaskSegment, err error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (s *tracing) GetTaskByDetection(ctx context.Context, status types.DatasetAnnotationStatus, detectionStatus types.DatasetAnnotationDetectionStatus, preload ...string) (res []types.DatasetAnnotationTask, err error) {
@@ -103,17 +109,17 @@ func (s *tracing) UpdateTask(ctx context.Context, data *types.DatasetAnnotationT
 	return s.next.UpdateTask(ctx, data)
 }
 
-func (s *tracing) GetTask(ctx context.Context, tenantId uint, uuid string) (res *types.DatasetAnnotationTask, err error) {
+func (s *tracing) GetTask(ctx context.Context, tenantId uint, uuid string, preloads ...string) (res *types.DatasetAnnotationTask, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "GetTask", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.datasettask",
 	})
 	defer func() {
-		span.LogKV("tenantId", tenantId, "uuid", uuid, "err", err)
+		span.LogKV("tenantId", tenantId, "uuid", uuid, "preloads", fmt.Sprintf("%v", preloads), "err", err)
 		span.SetTag(string(ext.Error), err != nil)
 		span.Finish()
 	}()
-	return s.next.GetTask(ctx, tenantId, uuid)
+	return s.next.GetTask(ctx, tenantId, uuid, preloads...)
 }
 
 func (s *tracing) AddTaskSegments(ctx context.Context, data []types.DatasetAnnotationTaskSegment) (err error) {

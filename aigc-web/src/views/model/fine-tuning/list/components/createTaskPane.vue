@@ -8,6 +8,16 @@
     <div class="mx-auto mt-3" style="width: 540px">
       <AlertBlock class="mb-6">微调模型的时间可能会很长，微调完成之后会邮件通知您！</AlertBlock>
       <v-form ref="refForm" class="my-form">
+        <Select
+          placeholder="请选择应用场景"
+          :rules="rules.scenario"
+          :mapDictionary="{ code: 'textannotation_type' }"
+          v-model="formData.scenario"
+        >
+          <template #prepend>
+            <label class="required">应用场景</label>
+          </template>
+        </Select>
         <v-input :rules="rules.fileId" v-model="formData.fileId" hide-details="auto">
           <template v-if="echoFileSelect">
             <v-chip closable color="info" @click:close="fileChipClose">{{ echoFileSelect.filename }}</v-chip>
@@ -154,6 +164,7 @@ const paneConfig = reactive({
   operateType: "add"
 });
 const formData = reactive({
+  scenario: "general",
   fileId: "",
   baseModel: null,
   trainEpoch: 1,
@@ -180,6 +191,7 @@ const refForm = ref();
 const refDialogUpload = ref();
 const refSettingExpansion = ref();
 const rules = reactive({
+  scenario: [v => !!v || "请选择应用场景"],
   fileId: [v => !!v || "请选择微调文件"],
   baseModel: [v => !!v || "请选择基础模型"],
   trainEpoch: [v => validNumberInput(v, 1, 512, "请输入训练轮次", true)],
@@ -318,6 +330,7 @@ defineExpose({
     });
     paneConfig.operateType = operateType;
     if (operateType == "add") {
+      formData.scenario = "general";
       echoFileSelect.value = null;
       formData.baseModel = null;
       formData.fileId = "";

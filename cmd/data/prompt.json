@@ -1,0 +1,16 @@
+{
+  "datasetAnnotationContentPrompt": {
+    "faq": {
+      "system": "",
+      "user": ""
+    },
+    "rag": {
+      "system": "",
+      "user": ""
+    },
+    "general": {
+      "system": "",
+      "user": ""
+    }
+  }
+}

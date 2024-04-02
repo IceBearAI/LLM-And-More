@@ -3,6 +3,7 @@ package util
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
@@ -256,4 +257,25 @@ func CleanString(s string) string {
 		}
 	}
 	return string(result)
+}
+
+func ExtractJSONFromMarkdown(markdownText string) ([]map[string]interface{}, error) {
+	// 正则表达式匹配 Markdown 代码块
+	codeBlockRegex := regexp.MustCompile("```json\n(.*?)\n```")
+	matches := codeBlockRegex.FindAllStringSubmatch(markdownText, -1)
+
+	var jsonObjects []map[string]interface{}
+	for _, match := range matches {
+		if len(match) > 1 {
+			jsonStr := match[1]
+			var jsonObj map[string]interface{}
+			if err := json.Unmarshal([]byte(jsonStr), &jsonObj); err != nil {
+				// 如果解析失败，跳过这个代码块
+				continue
+			}
+			jsonObjects = append(jsonObjects, jsonObj)
+		}
+	}
+
+	return jsonObjects, nil
 }
