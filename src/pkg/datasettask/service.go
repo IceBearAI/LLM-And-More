@@ -300,7 +300,7 @@ document: 雇主责任险的医疗费用是否可以重复报销？\n雇主责�
 	}, 0.7, 0.9, 0.5, 0.5, 1024, 1, nil, "", nil, nil)
 	if err != nil {
 		_ = level.Warn(logger).Log("msg", "chat completion failed", "err", err)
-		return res, nil
+		return
 	}
 	if chatStream.Choices == nil || len(chatStream.Choices) == 0 {
 		//err = errors.New("chat completion failed")
