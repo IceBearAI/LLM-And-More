@@ -5,7 +5,7 @@ LABEL maintainer="solacowa@gmail.com"
 #RUN sed -i 's#http://deb.debian.org#https://mirrors.163.com#g' /etc/apt/sources.list.d/debian.sources
 COPY sources.list /etc/apt/sources.list
 
-RUN apt-get update -y && apt-get install -y curl wget git vim jq
+RUN apt-get update -y && apt-get install -y curl wget git vim
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get install -y cuda-toolkit --fix-missing
@@ -30,30 +30,13 @@ RUN python3 get-pip.py
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
-#RUN pip3 install -r requirements.txt
-RUN pip3 install packaging ninja torch==2.1.2
-RUN pip3 install numpy
-RUN pip3 install flash-attn==2.0.9 --no-build-isolation
-RUN pip3 install fschat[model_worker,train] pydantic==1.10.13
-RUN pip3 install requests accelerate>=0.21 peft sentencepiece protobuf einops wandb anthropic>=0.3 ray
-## 以下插件是支持lora微调
-RUN pip3 install deepspeed bitsandbytes scipy accelerator torchvision torch-optimizer torch.optim jsonlines
-RUN pip3 install transformers_stream_generator==0.0.4 aiohttp
-RUN pip3 install torchaudio
-RUN pip3 install vllm==0.3.1
-RUN pip3 install transformers==4.37.2
-RUN pip3 install optimum auto-gptq exllamav2 autoawq
-#RUN pip3 uninstall -y flash-attn
-
-# https://github.com/Dao-AILab/flash-attention/tree/main/csrc/layer_norm
-# RUN git clone https://github.com/Dao-AILab/flash-attention && \
-#     cd flash-attention/csrc/layer_norm && \
-#     pip3 install .
-COPY pip.conf /root/.config/pip/
 
 WORKDIR /app/
 
+COPY pip.conf /root/.config/pip/
+
 COPY ./requirements.txt /app/requirements.txt
+
 RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 COPY . /app/
