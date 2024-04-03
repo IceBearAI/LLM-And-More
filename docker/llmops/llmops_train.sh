@@ -39,34 +39,49 @@ DISTRIBUTED_ARGS="
 # - SCENARIO: 应用场景
 # - TRAIN_FILE: 训练文件URL或路径
 # - EVAL_FILE: 验证文件URL或路径
+
+LORA_NAME=''
+MODENAME=$(echo "$BASE_MODEL_NAME" | tr '[:upper:]' '[:lower:]')
+case $MODENAME in
+    'llama2')
+        LORA_MODULE_NAME='gate_proj,down_proj,up_proj'
+        MODENAME='llama2'
+        ;;
+    'baichuan2')
+        LORA_MODULE_NAME='W_pack'
+        MODENAME='baichuan2_13b'
+        ;;
+    'glm3')
+        LORA_MODULE_NAME='query_key_value,dense_h_to_4h,dense_4h_to_h,dense'
+        MODENAME='glm3'
+        ;;
+    'glm2')
+        LORA_MODULE_NAME='gate_proj,down_proj,up_proj'
+        MODENAME='glm2'
+        ;;
+    'glm')
+        LORA_MODULE_NAME='gate_proj,down_proj,up_proj'
+        MODENAME='glm'
+        ;;
+    'qwen1.5')
+        LORA_MODULE_NAME='q_proj,k_proj,v_proj,o_proj,up_proj,gate_proj,down_proj'
+        MODENAME='qwen1.5'
+        ;;
+    *)
+        LORA_MODULE_NAME='auto'
+        echo "未知模型名称"
+        ;;
+esac
+
+
 if [ "$USE_LORA" = true ]; then
-    TR_TYPE="lora"
-    LORA_NAME=' '
-    MODENAME=$(echo "$BASE_MODEL" | tr '[:upper:]' '[:lower:]')
-    case $MODENAME in
-        'llama2')
-            LORA_NAME='gate_proj,down_proj,up_proj'
-            ;;
-        'baichuan2')
-            LORA_NAME='W_pack'
-            ;;
-        'chatglm3')
-            LORA_NAME='query_key_value,dense_h_to_4h,dense_4h_to_h,dense'
-            ;;
-        'glm')
-            LORA_NAME='gate_proj,down_proj,up_proj'
-            ;;
-        'qwen1.5')
-            LORA_NAME='q_proj,k_proj,v_proj,o_proj,up_proj,gate_proj,down_proj'
-            ;;
-        *)
-            echo "未知模型名称"
-            ;;
-    esac
+    TRAIN_TYPE="lora"
     ZERO_STAGE=2
+    DS_FILE=faq/ds_zero2_no_offload.json
 else
-    TR_TYPE="all"
+    TRAIN_TYPE="all"
     ZERO_STAGE=3
+    DS_FILE=faq/ds_zero3_offload.json
 fi
 
 if [ $GPUS_PER_NODE -eq 1 ]; then
@@ -120,16 +135,16 @@ if [ "$SCENARIO" == "general" ]; then
       --data_path "/data/train-data/formatted_datasets" \
       --data_output_path {$OUTPUT_DIR}/data_output \
       --data_split 9,1,0 \
-      --model_name_or_path "$BASE_MODEL_PATH" \
+      --model_name_or_path $BASE_MODEL_PATH \
       --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
       --per_device_eval_batch_size $PER_DEVICE_EVAL_BATCH_SIZE \
-      --max_seq_len {{.ModelMaxLength}} \
+      --max_seq_len $MODEL_MAX_LENGTH \
       --learning_rate $LEARNING_RATE \
       --weight_decay 0. \
       --num_train_epochs $NUM_TRAIN_EPOCHS  \
-      --train_type TR_TYPE \
+      --train_type TRAIN_TYPE \
       --lora_dim 2 \
-      --lora_module_name LORA_NAME \
+      --lora_module_name LORA_MODULE_NAME \
       --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
       --lr_scheduler_type cosine \
       --num_warmup_steps 0 \
@@ -146,8 +161,28 @@ if [ "$SCENARIO" == "general" ]; then
       --enable_tensorboard)
 elif [ "$SCENARIO" == "faq" ]; then
 
-
-  pass
+    deepspeed ./faq/faq_train.py \
+        --train_path $TRAIN_LOCAL_FILE \
+        --model_name_or_path $BASE_MODEL_PATH \
+        --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
+        --max_len $MODEL_MAX_LENGTH \
+        --max_src_len 128 \
+        --learning_rate $LEARNING_RATE \
+        --weight_decay 0.1 \
+        --num_train_epochs 2 \
+        --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
+        --warmup_ratio 0.1 \
+        --mode MODENAME \
+        --train_type "$TRAIN_TYPE" \
+        --lora_module_name LORA_MODULE_NAME \
+        --lora_dim 4 \
+        --lora_alpha 64 \
+        --lora_dropout 0.1 \
+        --seed 1234 \
+        --ds_file DS_FILE \
+        --gradient_checkpointing \
+        --show_loss_step 10 \
+        --output_dir $OUTPUT_DIR
 
 elif [ "$SCENARIO" == "rag" ]; then
 
