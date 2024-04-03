@@ -68,7 +68,7 @@ case $MODENAME in
         MODENAME='qwen1.5'
         ;;
     *)
-        LORA_MODULE_NAME='auto'
+        MODENAME='auto'
         echo "未知模型名称"
         ;;
 esac

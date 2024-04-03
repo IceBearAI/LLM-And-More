@@ -52,11 +52,8 @@ class MovingAverage:
 
 
 def get_tokenizer(model_name_or_path, fast_tokenizer=True):
-    if "llama" in model_name_or_path:
-        print("----- in utils.py, get_tokenizer, model_name_or_path:",
-              model_name_or_path)
+    if "llama" in model_name_or_path.lower():
         from transformers.models.llama import LlamaTokenizer
-        print("end of import LlamaTokenizer")
         tokenizer = LlamaTokenizer.from_pretrained(
             model_name_or_path, fast_tokenizer=fast_tokenizer, trust_remote_code=True)
         if tokenizer.pad_token is None:
@@ -64,6 +61,11 @@ def get_tokenizer(model_name_or_path, fast_tokenizer=True):
             # tokenizer.add_special_tokens({'pad_token': tokenizer.eos_token})
             tokenizer.add_special_tokens({'pad_token': '[PAD]'})
             tokenizer.padding_side = 'right'
+    if "glm3" in model_name_or_path.lower():
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_name_or_path, fast_tokenizer=fast_tokenizer, trust_remote_code=True)
+        # make sure tokenizer is right pad in our logic
+        # tokenizer.padding_side = 'right'
     else:
         tokenizer = AutoTokenizer.from_pretrained(
             model_name_or_path, fast_tokenizer=fast_tokenizer, trust_remote_code=True)
