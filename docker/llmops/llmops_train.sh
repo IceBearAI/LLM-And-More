@@ -43,32 +43,32 @@ DISTRIBUTED_ARGS="
 LORA_NAME=''
 MODENAME=$(echo "$BASE_MODEL_NAME" | tr '[:upper:]' '[:lower:]')
 case $MODENAME in
-    'llama2')
+    *'llama2'*)
         LORA_MODULE_NAME='gate_proj,down_proj,up_proj'
         MODENAME='llama2'
         ;;
-    'baichuan2')
+    *'baichuan2'*)
         LORA_MODULE_NAME='W_pack'
         MODENAME='baichuan2_13b'
         ;;
-    'glm3')
+    *'glm3'*)
         LORA_MODULE_NAME='query_key_value,dense_h_to_4h,dense_4h_to_h,dense'
         MODENAME='glm3'
         ;;
-    'glm2')
+    *'glm2'*)
         LORA_MODULE_NAME='gate_proj,down_proj,up_proj'
         MODENAME='glm2'
         ;;
-    'glm')
+    *'glm'*)
         LORA_MODULE_NAME='gate_proj,down_proj,up_proj'
         MODENAME='glm'
         ;;
-    'qwen1.5')
+    *'qwen1.5'*)
         LORA_MODULE_NAME='q_proj,k_proj,v_proj,o_proj,up_proj,gate_proj,down_proj'
         MODENAME='qwen1.5'
         ;;
     *)
-        LORA_MODULE_NAME='auto'
+        MODENAME='auto'
         echo "未知模型名称"
         ;;
 esac

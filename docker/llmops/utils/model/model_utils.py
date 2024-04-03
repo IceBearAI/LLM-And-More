@@ -54,9 +54,11 @@ def create_hf_model(model_class,
 
     model.config.end_token_id = tokenizer.eos_token_id
     model.config.pad_token_id = model.config.eos_token_id
-    model.resize_token_embeddings(int(
-        8 *
-        math.ceil(len(tokenizer) / 8.0)))  # make the vocab size multiple of 8
+    # ChatGLMModel缺少set_input_embeddings接口
+    if "glm" not in model_name_or_path:
+        model.resize_token_embeddings(int(
+            8 *
+            math.ceil(len(tokenizer) / 8.0)))  # make the vocab size multiple of 8
 
     return model
 
