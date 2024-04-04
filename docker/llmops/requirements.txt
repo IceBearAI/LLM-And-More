@@ -130,8 +130,8 @@ pyparsing==2.4.7
 python-apt==2.4.0+ubuntu3
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
-pytorch-ignite==0.4.13
-pytorch-ranger==0.1.1
+pytorch-ignite
+pytorch-ranger
 pytz==2024.1
 PyYAML==6.0.1
 quantile-python==1.1
@@ -168,11 +168,11 @@ threadpoolctl==3.3.0
 tiktoken==0.6.0
 tokenizers==0.15.2
 torch==2.1.2
-torch-optim==0.0.4
-torch-optimizer==0.3.0
-torch-pruning==1.3.7
-torchaudio==2.2.1
-torchvision==0.17.1
+torch-optim
+torch-optimizer
+torch-pruning
+torchaudio
+torchvision
 tqdm==4.66.1
 transformers==4.39.3
 transformers-stream-generator==0.0.4

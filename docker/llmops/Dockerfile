@@ -27,6 +27,8 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
 RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
 RUN python3 get-pip.py
 
+RUN apt-get install pkg-config libcairo2-dev
+
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
