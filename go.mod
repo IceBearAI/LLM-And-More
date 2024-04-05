@@ -1,6 +1,6 @@
 module github.com/IceBearAI/aigc
 
-go 1.21
+go 1.22.2
 
 require (
 	github.com/aws/aws-sdk-go v1.44.297
@@ -24,7 +24,7 @@ require (
 	github.com/sashabaranov/go-openai v1.19.2
 	github.com/spf13/cobra v1.8.0
 	github.com/teris-io/shortid v0.0.0-20220617161101-71ec9f2aa569
-	github.com/tmc/langchaingo v0.1.7
+	github.com/tmc/langchaingo v0.1.8
 	github.com/u2takey/ffmpeg-go v0.5.0
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
 	github.com/uber/jaeger-lib v2.4.1+incompatible

@@ -182,7 +182,7 @@ func (s *service) Playground(ctx context.Context, tenantId uint, assistantId str
 
 	streamResp := make(chan playgroundResult)
 
-	creationOptions := []agents.CreationOption{
+	creationOptions := []agents.Option{
 		agents.WithMemory(
 			memory.NewConversationBuffer(
 				memory.WithChatHistory(
@@ -206,17 +206,7 @@ func (s *service) Playground(ctx context.Context, tenantId uint, assistantId str
 	if req.Stream {
 		creationOptions = append(creationOptions, agents.WithCallbacksHandler(newStreamLogHandler(streamResp)))
 	}
-	executor, err := agents.Initialize(
-		llm,
-		tools,
-		agents.ConversationalReactDescription,
-		creationOptions...,
-	)
-	if err != nil {
-		err = errors.Wrap(err, "创建Executor失败")
-		_ = level.Warn(logger).Log("msg", "创建Executor失败", "err", err)
-		return
-	}
+	executor := agents.NewExecutor(agents.NewConversationalAgent(llm, tools, creationOptions...), tools, creationOptions...)
 	var chainsCalls []chains.ChainCallOption
 	chainsCalls = append(chainsCalls,
 		chains.WithTemperature(0),
