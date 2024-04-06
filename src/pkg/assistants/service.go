@@ -181,8 +181,21 @@ func (s *service) Playground(ctx context.Context, tenantId uint, assistantId str
 	}
 
 	streamResp := make(chan playgroundResult)
-
 	creationOptions := []agents.Option{
+		agents.WithParserErrorHandler(agents.NewParserErrorHandler(func(s string) string {
+			// 这里可以发告警出来
+			_ = level.Warn(logger).Log("agents.WithParserErrorHandler", "agents.NewParserErrorHandler", "msg", "解析错误", "err", s)
+			return s
+		})),
+		//agents.WithPromptFormatInstructions(assistant.Instructions),
+		//agents.ZeroShotReactDescription,
+	}
+	if req.Stream {
+		creationOptions = append(creationOptions, agents.WithCallbacksHandler(newStreamLogHandler(streamResp)))
+	}
+	executor := agents.NewExecutor(agents.NewConversationalAgent(llm, tools, creationOptions...), tools, []agents.Option{
+		agents.WithMaxIterations(3),
+		agents.WithReturnIntermediateSteps(),
 		agents.WithMemory(
 			memory.NewConversationBuffer(
 				memory.WithChatHistory(
@@ -192,21 +205,7 @@ func (s *service) Playground(ctx context.Context, tenantId uint, assistantId str
 				),
 			),
 		),
-		//agents.WithMemory(memory.NewConversationTokenBuffer(llm, 2000)),
-		agents.WithMaxIterations(3),
-		agents.WithParserErrorHandler(agents.NewParserErrorHandler(func(s string) string {
-			// 这里可以发告警出来
-			_ = level.Warn(logger).Log("agents.WithParserErrorHandler", "agents.NewParserErrorHandler", "msg", "解析错误", "err", s)
-			return s
-		})),
-		agents.WithReturnIntermediateSteps(),
-		//agents.WithPromptFormatInstructions(assistant.Instructions),
-		//agents.ZeroShotReactDescription,
-	}
-	if req.Stream {
-		creationOptions = append(creationOptions, agents.WithCallbacksHandler(newStreamLogHandler(streamResp)))
-	}
-	executor := agents.NewExecutor(agents.NewConversationalAgent(llm, tools, creationOptions...), tools)
+	}...)
 	var chainsCalls []chains.ChainCallOption
 	chainsCalls = append(chainsCalls,
 		chains.WithTemperature(0),
