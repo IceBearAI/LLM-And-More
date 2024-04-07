@@ -154,7 +154,7 @@ if [ "$SCENARIO" == "general" ]; then
 elif [ "$SCENARIO" == "faq" ]; then
 #  output=$(deepspeed {{.ScriptFile}}  \
   output=$(deepspeed ./faq/faq_train.py \
-      --train_path $TRAIN_FILE\
+      --train_path $TRAIN_LOCAL_FILE \
       --model_name_or_path $BASE_MODEL_PATH \
       --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
       --max_len $MODEL_MAX_LENGTH \
