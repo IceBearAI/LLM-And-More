@@ -1,19 +1,4 @@
 #!/bin/bash
-export CUDA_DEVICE_MAX_CONNECTIONS=1
-
-NNODES=1
-NODE_RANK=0
-MASTER_ADDR=localhost
-MASTER_PORT={{.MasterPort}}
-Q_LORA=False
-
-DISTRIBUTED_ARGS="
-    --nproc_per_node $GPUS_PER_NODE \
-    --nnodes $NNODES \
-    --node_rank $NODE_RANK \
-    --master_addr $MASTER_ADDR \
-    --master_port $MASTER_PORT
-"
 # 自动注入以下环境变量，可以直接使用
 # - TENANT_ID: 租户ID
 # - JOB_ID: 任务ID
@@ -39,8 +24,34 @@ DISTRIBUTED_ARGS="
 # - SCENARIO: 应用场景
 # - TRAIN_FILE: 训练文件URL或路径
 # - EVAL_FILE: 验证文件URL或路径
+export CUDA_DEVICE_MAX_CONNECTIONS=1
 
-LORA_NAME=''
+NNODES=1
+NODE_RANK=0
+MASTER_ADDR=localhost
+MASTER_PORT={{.MasterPort}}
+Q_LORA=False
+
+DISTRIBUTED_ARGS="
+    --nproc_per_node $GPUS_PER_NODE \
+    --nnodes $NNODES \
+    --node_rank $NODE_RANK \
+    --master_addr $MASTER_ADDR \
+    --master_port $MASTER_PORT
+"
+function set_cuda_devices {
+    case $1 in
+        1) export CUDA_VISIBLE_DEVICES=0 ;;
+        2) export CUDA_VISIBLE_DEVICES=0,1 ;;
+        4) export CUDA_VISIBLE_DEVICES=0,1,2,3 ;;
+        8) export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 ;;
+        *) echo "Invalid GPUS_PER_NODE!" ; exit 1 ;;
+    esac
+}
+set_cuda_devices $GPUS_PER_NODE
+
+
+LORA_MODULE_NAME=''
 MODENAME=$(echo "$BASE_MODEL_NAME" | tr '[:upper:]' '[:lower:]')
 case $MODENAME in
     *'llama2'*)
@@ -73,7 +84,6 @@ case $MODENAME in
         ;;
 esac
 
-
 if [ "$USE_LORA" = true ]; then
     TRAIN_TYPE="lora"
     ZERO_STAGE=2
@@ -84,55 +94,37 @@ else
     DS_FILE=faq/ds_zero3_offload.json
 fi
 
-if [ $GPUS_PER_NODE -eq 1 ]; then
-    # 单卡
-    export CUDA_VISIBLE_DEVICES=0
-elif [ $GPUS_PER_NODE -eq 2 ]; then
-    # 双卡
-    export CUDA_VISIBLE_DEVICES=0,1
-elif [ $GPUS_PER_NODE -eq 4 ]; then
-    # 四卡
-    export CUDA_VISIBLE_DEVICES=0,1,2,3
-elif [ $GPUS_PER_NODE -eq 8 ]; then
-    # 八卡
-    export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
-else
-    echo "Invalid GPUS_PER_NODE!"
-fi
-
 URL_REGEX="^(http|https)://"
-
 mkdir -p /data/train-data/
 TRAIN_LOCAL_FILE=/data/train-data/train-${JOB_ID}.jsonl
 EVAL_LOCAL_FILE=/data/train-data/eval-${JOB_ID}.jsonl
 
-if [[ "$TRAIN_FILE" =~ $URL_REGEX ]]; then
-    echo "The path is a URL. Starting download..."
-    wget -O $TRAIN_LOCAL_FILE "$TRAIN_FILE"
-else
-    TRAIN_LOCAL_FILE="$TRAIN_FILE"
-fi
+function download_file {
+    if [[ "$1" =~ $URL_REGEX ]]; then
+        echo "The path is a URL. Starting download..."
+        wget -O $2 "$1"
+    else
+        echo "File path is local. No download needed."
+        cp "$1" "$2"
+    fi
+}
 
-if [[ "$EVAL_FILE" =~ $URL_REGEX ]]; then
-    echo "The path is a URL. Starting download..."
-    wget -O $EVAL_LOCAL_FILE "$EVAL_FILE"
-else
-    EVAL_LOCAL_FILE="$EVAL_FILE"
-fi
-
+download_file "$TRAIN_FILE" "$TRAIN_LOCAL_FILE"
+download_file "$EVAL_FILE" "$EVAL_LOCAL_FILE"
 
 if [ "$SCENARIO" == "general" ]; then
-  mkdir -p /data/train-data/formatted_datasets
+  GENERAL_DATA_PATH=/data/train-data/formatted_datasets
+  mkdir -p $GENERAL_DATA_PATH
 
   python3 jsonl_to_arrow_format.py \
     --train_path "$TRAIN_LOCAL_FILE" \
     --test_path "$EVAL_LOCAL_FILE" \
-    --output_path "/data/train-data/formatted_datasets"
+    --output_path "$GENERAL_DATA_PATH"
 
 #  output=$(torchrun $DISTRIBUTED_ARGS {{.ScriptFile}} \
 #  output=$(deepspeed --include localhost:$CUDA_VISIBLE_DEVICES {{.ScriptFile}} \
   output=$(deepspeed {{.ScriptFile}} \
-      --data_path "/data/train-data/formatted_datasets" \
+      --data_path $GENERAL_DATA_PATH \
       --data_output_path {$OUTPUT_DIR}/data_output \
       --data_split 9,1,0 \
       --model_name_or_path $BASE_MODEL_PATH \
@@ -142,9 +134,9 @@ if [ "$SCENARIO" == "general" ]; then
       --learning_rate $LEARNING_RATE \
       --weight_decay 0. \
       --num_train_epochs $NUM_TRAIN_EPOCHS  \
-      --train_type TRAIN_TYPE \
+      --train_type $TRAIN_TYPE \
       --lora_dim 2 \
-      --lora_module_name LORA_MODULE_NAME \
+      --lora_module_name $LORA_MODULE_NAME \
       --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
       --lr_scheduler_type cosine \
       --num_warmup_steps 0 \
@@ -160,29 +152,29 @@ if [ "$SCENARIO" == "general" ]; then
       --tensorboard_port 6007 \
       --enable_tensorboard)
 elif [ "$SCENARIO" == "faq" ]; then
-
-    deepspeed ./faq/faq_train.py \
-        --train_path $TRAIN_LOCAL_FILE \
-        --model_name_or_path $BASE_MODEL_PATH \
-        --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
-        --max_len $MODEL_MAX_LENGTH \
-        --max_src_len 128 \
-        --learning_rate $LEARNING_RATE \
-        --weight_decay 0.1 \
-        --num_train_epochs 2 \
-        --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
-        --warmup_ratio 0.1 \
-        --mode MODENAME \
-        --train_type "$TRAIN_TYPE" \
-        --lora_module_name LORA_MODULE_NAME \
-        --lora_dim 4 \
-        --lora_alpha 64 \
-        --lora_dropout 0.1 \
-        --seed 1234 \
-        --ds_file DS_FILE \
-        --gradient_checkpointing \
-        --show_loss_step 10 \
-        --output_dir $OUTPUT_DIR
+#  output=$(deepspeed {{.ScriptFile}}  \
+  output=$(deepspeed ./faq/faq_train.py \
+      --train_path $TRAIN_FILE\
+      --model_name_or_path $BASE_MODEL_PATH \
+      --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
+      --max_len $MODEL_MAX_LENGTH \
+      --max_src_len 128 \
+      --learning_rate $LEARNING_RATE \
+      --weight_decay 0.1 \
+      --num_train_epochs 2 \
+      --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
+      --warmup_ratio 0.1 \
+      --mode $MODENAME \
+      --train_type $TRAIN_TYPE \
+      --lora_module_name $LORA_MODULE_NAME \
+      --lora_dim 4 \
+      --lora_alpha 64 \
+      --lora_dropout 0.1 \
+      --seed 1234 \
+      --ds_file $DS_FILE \
+      --gradient_checkpointing \
+      --show_loss_step 10 \
+      --output_dir $OUTPUT_DIR)
 
 elif [ "$SCENARIO" == "rag" ]; then
 
