@@ -24,7 +24,7 @@ def jsonl_to_dataframe(file_path):
             'output': [d['messages'][1]['content'] for d in data]
         })
     else:
-        return pd.DataFrame({'input': [], 'output': []})  # Return an empty dataframe for empty or non-existent paths
+        return pd.DataFrame({'input': [''], 'output': ['']})  # Return an empty dataframe for empty or non-existent paths
 
 
 def dataframe_to_arrow(df, file_path):
