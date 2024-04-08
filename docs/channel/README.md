@@ -2,9 +2,6 @@
 
 当前租户下可创建多个应用场景，就相当于每个应用可以创建一个apiKey，并赋予该应用场景可使用的模型及调用的配额。
 
-我们在[Chat-Api](https://github.com/IceBear-CreditEase-LLM/chat-api)
-服务上提供了兼容OpenAI标准API的能力，客户端可以调用Chat-API提供的API来调用相应的模型。
-
 ### 添加/编辑应用场景
 
 点击“**添加场景**”按钮，弹出抽屉可在对话框中配置相应参数。
