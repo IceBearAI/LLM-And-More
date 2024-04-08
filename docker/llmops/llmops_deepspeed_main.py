@@ -15,7 +15,7 @@ import argparse
 import os
 import math
 import sys
-import pdb
+import time
 
 import torch
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
@@ -341,7 +341,6 @@ def main():
                                  collate_fn=default_data_collator,
                                  sampler=eval_sampler,
                                  batch_size=args.per_device_eval_batch_size)
-    print('finished preparing dataloader.')
 
     def evaluation_loss_perplexity(model, eval_dataloader, device):
         model.eval()
@@ -428,6 +427,15 @@ def main():
     # perplexity = evaluation(model, eval_dataloader)
     # print_rank_0(f"ppl: {perplexity}", args.global_rank)
 
+    # print_rank_0("-=" * 30)
+    # print_rank_0("-=" * 30)
+    # print_rank_0(f"device: {device}")
+    # for param in model.parameters():
+    #     print_rank_0(f"Model device:{param.device}")
+    # print_rank_0("-=" * 30)
+    # print_rank_0("-=" * 30)
+
+
     for epoch in range(args.num_train_epochs):
         print_rank_0(
             f"Beginning of Epoch {epoch+1}/{args.num_train_epochs}, Total Micro Batches {len(train_dataloader)}",
@@ -436,7 +444,6 @@ def main():
         if epoch == 0 and args.global_rank == 0:
             start_tensorboard(args)
         model.train()
-        import time
         rounds = len(train_dataloader)
         for step, batch in enumerate(train_dataloader):
             if step < args.start_from_step:
@@ -448,16 +455,16 @@ def main():
             outputs = model(**batch, use_cache=False)
             loss = outputs.loss
             if args.print_loss:
-                print(
+                print_rank_0(
                     f"Epoch: {epoch}, Step: {step}, Rank: {torch.distributed.get_rank()}, loss = {loss}"
                 )
             model.backward(loss)
             model.step()
             end = time.time()
             print_rank_0(f'finished step {step}, used {end-start} seconds.')
-            if torch.distributed.get_rank() == 0:
-                print_throughput(model.model, args, end - start,
-                                 args.global_rank)
+            # if torch.distributed.get_rank() == 0:
+            #     print_throughput(model.module, args, end - start,
+            #                      args.global_rank)
 
             if step % args.save_per_steps == 0:
                 print_rank_0(f'saving at step {step}...')
