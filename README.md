@@ -146,3 +146,7 @@ $ docker-compose up
 ```
 
 如果不需要执行build流程，可以进入到`docker`目录下执行`docker-compose up`即可。或把`docker-compose.yaml`的`build`注释掉。
+
+<p align="center" width="100%">
+<img src="https://starchart.cc/IceBearAI/LLM-And-More.svg" alt="Star History" style="width: 100%; display: block; margin: auto;">
+</p>
