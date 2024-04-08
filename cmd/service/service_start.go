@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -107,6 +108,19 @@ aigc-server start -p :8080
 )
 
 func start(ctx context.Context) (err error) {
+	var clientOptions []kithttp.ClientOption
+	if serverDebug {
+		clientOptions = append(clientOptions, kithttp.ClientBefore(func(ctx context.Context, request *http.Request) context.Context {
+			dump, _ := httputil.DumpRequest(request, true)
+			fmt.Println(string(dump))
+			return ctx
+		}),
+			kithttp.ClientAfter(func(ctx context.Context, response *http.Response) context.Context {
+				dump, _ := httputil.DumpResponse(response, true)
+				fmt.Println(string(dump))
+				return ctx
+			}))
+	}
 
 	tiktoken.SetBpeLoader(tiktoken2.NewBpeLoader(DataFs))
 
@@ -130,20 +144,13 @@ func start(ctx context.Context) (err error) {
 	sysSvc = sys.NewService(logger, traceId, store, apiSvc)
 	datasetSvc = datasets.New(logger, traceId, store)
 	toolsSvc = tools.New(logger, traceId, store)
-	assistantsSvc = assistants.New(logger, traceId, store, []kithttp.ClientOption{
-		//kithttp.ClientBefore(func(ctx context.Context, request *http.Request) context.Context {
-		//	dump, _ := httputil.DumpRequest(request, true)
-		//	fmt.Println(string(dump))
-		//	return ctx
-		//}),
-		//kithttp.ClientAfter(func(ctx context.Context, response *http.Response) context.Context {
-		//	dump, _ := httputil.DumpResponse(response, true)
-		//	fmt.Println(string(dump))
-		//	return ctx
-		//}),
-	}, []openai.Option{
+	localAiHost := serviceLocalAiHost
+	if !strings.HasSuffix(localAiHost, "/v1") {
+		localAiHost = localAiHost + "/v1"
+	}
+	assistantsSvc = assistants.New(logger, traceId, store, clientOptions, []openai.Option{
 		openai.WithToken(serviceLocalAiToken),
-		openai.WithBaseURL(serviceLocalAiHost),
+		openai.WithBaseURL(localAiHost),
 	})
 	datasetDocumentSvc = datasetdocument.New(traceId, logger, store)
 	datasetTaskSvc = datasettask.New(traceId, logger, store, apiSvc, fileSvc,

@@ -143,7 +143,7 @@ func (s *service) Playground(ctx context.Context, tenantId uint, assistantId str
 			previousMessages = append(previousMessages, schema.HumanChatMessage{Content: msg.Content})
 		} else if strings.EqualFold(msg.Role, "assistant") {
 			previousMessages = append(previousMessages, schema.AIChatMessage{Content: msg.Content})
-		} else if strings.EqualFold(msg.Role, "sys") {
+		} else if strings.EqualFold(msg.Role, "system") {
 			if strings.TrimSpace(msg.Content) != "" {
 				previousMessages = append(previousMessages, schema.SystemChatMessage{Content: msg.Content})
 			}
@@ -181,8 +181,21 @@ func (s *service) Playground(ctx context.Context, tenantId uint, assistantId str
 	}
 
 	streamResp := make(chan playgroundResult)
-
-	creationOptions := []agents.CreationOption{
+	creationOptions := []agents.Option{
+		agents.WithParserErrorHandler(agents.NewParserErrorHandler(func(s string) string {
+			// 这里可以发告警出来
+			_ = level.Warn(logger).Log("agents.WithParserErrorHandler", "agents.NewParserErrorHandler", "msg", "解析错误", "err", s)
+			return s
+		})),
+		//agents.WithPromptFormatInstructions(assistant.Instructions),
+		//agents.ZeroShotReactDescription,
+	}
+	if req.Stream {
+		creationOptions = append(creationOptions, agents.WithCallbacksHandler(newStreamLogHandler(streamResp)))
+	}
+	executor := agents.NewExecutor(agents.NewConversationalAgent(llm, tools, creationOptions...), tools, []agents.Option{
+		agents.WithMaxIterations(3),
+		agents.WithReturnIntermediateSteps(),
 		agents.WithMemory(
 			memory.NewConversationBuffer(
 				memory.WithChatHistory(
@@ -192,36 +205,12 @@ func (s *service) Playground(ctx context.Context, tenantId uint, assistantId str
 				),
 			),
 		),
-		//agents.WithMemory(memory.NewConversationTokenBuffer(llm, 2000)),
-		agents.WithMaxIterations(3),
-		agents.WithParserErrorHandler(agents.NewParserErrorHandler(func(s string) string {
-			// 这里可以发告警出来
-			_ = level.Warn(logger).Log("agents.WithParserErrorHandler", "agents.NewParserErrorHandler", "msg", "解析错误", "err", s)
-			return s
-		})),
-		//agents.WithReturnIntermediateSteps(),
-		//agents.WithPromptFormatInstructions(assistant.Instructions),
-		//agents.ZeroShotReactDescription,
-	}
-	if req.Stream {
-		creationOptions = append(creationOptions, agents.WithCallbacksHandler(newStreamLogHandler(streamResp)))
-	}
-	executor, err := agents.Initialize(
-		llm,
-		tools,
-		agents.ConversationalReactDescription,
-		creationOptions...,
-	)
-	if err != nil {
-		err = errors.Wrap(err, "创建Executor失败")
-		_ = level.Warn(logger).Log("msg", "创建Executor失败", "err", err)
-		return
-	}
+	}...)
 	var chainsCalls []chains.ChainCallOption
 	chainsCalls = append(chainsCalls,
 		chains.WithTemperature(0),
 		chains.WithTopP(0),
-		chains.WithMaxTokens(1024),
+		chains.WithMaxTokens(2048),
 		//chains.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
 		//	_ = level.Info(logger).Log("msg", "chains.WithStreamingFunc", "chunk", string(chunk))
 		//	return nil
@@ -234,6 +223,13 @@ func (s *service) Playground(ctx context.Context, tenantId uint, assistantId str
 		if err != nil {
 			err = errors.Wrap(err, "运行Executor失败")
 			_ = level.Warn(logger).Log("msg", "运行Executor失败", "err", err)
+			streamResp <- playgroundResult{
+				FullContent:  err.Error(),
+				FinishReason: "stop",
+				Content:      err.Error(),
+				CreatedAt:    t,
+			}
+			close(streamResp)
 			return
 		}
 		_ = level.Info(logger).Log("msg", "运行Executor成功", "result", result)

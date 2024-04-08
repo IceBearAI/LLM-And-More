@@ -30,30 +30,25 @@ RUN python3 get-pip.py
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
-#RUN pip3 install -r requirements.txt
-RUN pip3 install packaging ninja torch==2.1.2
-RUN pip3 install numpy
-RUN pip3 install flash-attn==2.0.9 --no-build-isolation
-RUN pip3 install fschat[model_worker,train] pydantic==1.10.13
-RUN pip3 install requests accelerate>=0.21 peft sentencepiece protobuf einops wandb anthropic>=0.3 ray
-## 以下插件是支持lora微调
-RUN pip3 install deepspeed bitsandbytes scipy accelerator torchvision torch-optimizer torch.optim jsonlines
-RUN pip3 install transformers_stream_generator==0.0.4 aiohttp
-RUN pip3 install torchaudio
-RUN pip3 install vllm==0.3.1
-RUN pip3 install transformers==4.37.2
-RUN pip3 install optimum auto-gptq exllamav2
-#RUN pip3 uninstall -y flash-attn
 
-# https://github.com/Dao-AILab/flash-attention/tree/main/csrc/layer_norm
-# RUN git clone https://github.com/Dao-AILab/flash-attention && \
-#     cd flash-attention/csrc/layer_norm && \
-#     pip3 install .
 COPY pip.conf /root/.config/pip/
+
+#RUN pip3 install -r requirements.txt
+RUN pip3 install packaging ninja torch numpy \
+    deepspeed transformers datasets fsspec pyarrow \
+    rouge tqdm jieba nltk scikit-learn peft sentencepiece \
+    sentence-transformers fire xformers protobuf \
+    einops wandb anthropic>=0.3 ray accelerate requests \
+    bitsandbytes scipy accelerator torchvision torch-optimizer torch.optim jsonlines \
+    transformers_stream_generator torchaudio aiohttp
+
+RUN pip3 install flash-attn --no-build-isolation
+RUN pip3 install fschat[model_worker,train] pydantic==1.10.13
+RUN pip3 install vllm
 
 WORKDIR /app/
 
-COPY ./requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+#COPY ./requirements.txt /app/requirements.txt
+#RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 COPY . /app/

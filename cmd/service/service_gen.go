@@ -324,10 +324,8 @@ func initData() (err error) {
 
 	var templateModels []string
 	templateModels = append(templateModels, "qwen1.5-0.5b", "qwen1.5-1.8b", "qwen1.5-1.8b-chat", "qwen1.5-4b", "qwen1.5-4b-chat",
-		"qwen1.5-7b", "qwen1.5-7b-chat", "qwen1.5-14b", "qwen1.5-14b-chat", "qwen1.5-72b", "qwen1.5-72b-chat")
+		"qwen1.5-7b", "qwen1.5-7b-chat", "qwen1.5-14b", "qwen1.5-14b-chat", "qwen1.5-32b", "qwen1.5-32b-chat", "qwen1.5-72b", "qwen1.5-72b-chat")
 	replacer := strings.NewReplacer(
-		"_", "-",
-		".", "-",
 		":", "-",
 		"::", "-", // 这个可能不需要，因为前一个已经将单个冒号替换了
 	)
