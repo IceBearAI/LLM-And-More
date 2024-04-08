@@ -1,11 +1,8 @@
 # 服务架构
 
-- [ ] aigc-server 管理平台
-- [ ] aigc-cronjob 定时任务
-- [ ] aigc-web 管理前平台页面
-- [ ] chat-api 智语后端及对外暴露的API能力
-- [ ] chat-web 智语页面
-- [ ] fastchat 模型推理框架
+- [ ] `aigc-server` 管理平台
+- [ ] `fschat-controller` 模型注册中心
+- [ ] `fschat-api` 模型标准API
 
 ### 推理框架
 

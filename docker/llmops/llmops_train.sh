@@ -29,7 +29,6 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 NNODES=1
 NODE_RANK=0
 MASTER_ADDR=localhost
-MASTER_PORT={{.MasterPort}}
 Q_LORA=False
 
 DISTRIBUTED_ARGS="
@@ -123,9 +122,9 @@ if [ "$SCENARIO" == "general" ]; then
 
 #  output=$(torchrun $DISTRIBUTED_ARGS {{.ScriptFile}} \
 #  output=$(deepspeed --include localhost:$CUDA_VISIBLE_DEVICES {{.ScriptFile}} \
-  output=$(deepspeed {{.ScriptFile}} \
+  output=$(deepspeed llmops_deepspeed_main.py \
       --data_path $GENERAL_DATA_PATH \
-      --data_output_path {$OUTPUT_DIR}/data_output \
+      --data_output_path $OUTPUT_DIR/data_output \
       --data_split 9,1,0 \
       --model_name_or_path $BASE_MODEL_PATH \
       --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
@@ -148,7 +147,7 @@ if [ "$SCENARIO" == "general" ]; then
       --output_dir $OUTPUT_DIR \
       --start_from_step -1 \
       --save_per_steps 100 \
-      --tensorboard_path "{$OUTPUT_DIR}/tensorboard" \
+      --tensorboard_path "$OUTPUT_DIR/tensorboard" \
       --tensorboard_port 6007 \
       --enable_tensorboard)
 elif [ "$SCENARIO" == "faq" ]; then
