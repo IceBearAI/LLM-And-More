@@ -235,22 +235,19 @@ func (s *service) Undeploy(ctx context.Context, id uint) (err error) {
 	//	_ = level.Warn(logger).Log("store.Model", "FindModelDeployByModeId", "err", err.Error())
 	//	return err
 	//}
-	serviceName := strings.ReplaceAll(m.ModelName, ":", "-")
-	serviceName = strings.ReplaceAll(m.ModelName, "::", "-")
-	serviceName = strings.ReplaceAll(m.ModelName, ".", "-")
-	// 调用API取消部署模型
-	err = s.apiSvc.Runtime().RemoveDeployment(ctx, serviceName)
-	if err != nil {
-		_ = level.Error(logger).Log("api.PaasChat", "UndeployModel", "err", err.Error(), "modelName", m.ModelName)
-		return
-	}
 	if err = s.store.Model().CancelModelDeploy(ctx, m.ID); err != nil {
 		_ = level.Warn(logger).Log("repository.ModelDeploy", "CancelModelDeploy", "err", err.Error())
 		return err
 	}
+	serviceName := util.ReplacerServiceName(m.ModelName)
+	// 调用API取消部署模型
+	err = s.apiSvc.Runtime().RemoveDeployment(ctx, fmt.Sprintf("%s-%d", serviceName, m.ID))
+	if err != nil {
+		_ = level.Error(logger).Log("api.PaasChat", "UndeployModel", "err", err.Error(), "modelName", m.ModelName)
+	}
 	_ = level.Info(logger).Log("msg", "undeploy model success")
 
-	return
+	return nil
 }
 
 func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err error) {
@@ -274,9 +271,8 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		return encode.Invalid.Wrap(errors.Errorf("BaseModelName model not need deploy, model:%s", m.ModelName))
 	}
 
-	serviceName := strings.ReplaceAll(m.ModelName, "::", "-")
-	serviceName = strings.ReplaceAll(m.ModelName, ":", "-")
-	serviceName = strings.ReplaceAll(m.ModelName, ".", "-")
+	serviceName := util.ReplacerServiceName(m.ModelName)
+	_ = level.Info(logger).Log("serviceName", serviceName)
 	var (
 		baseModel = m.ModelName
 		modelPath = fmt.Sprintf("/data/base-model/%s", serviceName)
@@ -295,6 +291,9 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 	if err != nil {
 		_ = level.Warn(logger).Log("repository.FineTuning", "FindFineTuningTemplateByModel", "err", err.Error())
 		return err
+	}
+	if !m.IsFineTuning {
+		modelPath = baseModelTemplate.BaseModelPath
 	}
 	minPort := 1024
 	maxPort := 65535
@@ -317,12 +316,6 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		return err
 	}
 
-	modelWorker := "fastchat.serve.model_worker"
-
-	if request.Vllm {
-		modelWorker = "fastchat.serve.vllm_worker"
-	}
-
 	if request.Quantization == "8bit" {
 		request.Quantization = "--load-8bit"
 	}
@@ -330,7 +323,7 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 	var envs []runtime.Env
 	var envVars []string
 	envs = append(envs, runtime.Env{
-		Name:  "MODEL_NAME_PATH",
+		Name:  "MODEL_PATH",
 		Value: modelPath,
 	}, runtime.Env{
 		Name:  "MODEL_NAME",
@@ -346,7 +339,7 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		Value: strconv.Itoa(request.Gpu),
 	}, runtime.Env{
 		Name:  "MAX_GPU_MEMORY",
-		Value: fmt.Sprintf("%dGiB", request.MaxGpuMemory),
+		Value: strconv.Itoa(request.MaxGpuMemory),
 	}, runtime.Env{
 		Name:  "USE_VLLM",
 		Value: strconv.FormatBool(request.Vllm),
@@ -354,8 +347,8 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		Name:  "INFERRED_TYPE",
 		Value: request.InferredType,
 	}, runtime.Env{
-		Name:  "MODEL_WORKER",
-		Value: modelWorker,
+		Name:  "HF_HOME",
+		Value: "/data/hf",
 	}, runtime.Env{
 		Name:  "CONTROLLER_ADDRESS",
 		Value: s.options.controllerAddress,
@@ -377,7 +370,7 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 	}
 
 	runtimeConfig := runtime.Config{
-		ServiceName: serviceName,
+		ServiceName: fmt.Sprintf("%s-%d", serviceName, m.ID),
 		Image:       baseModelTemplate.TrainImage,
 		Command: []string{
 			"/bin/bash",

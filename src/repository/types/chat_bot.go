@@ -44,8 +44,8 @@ func (m *ChatBot) TableName() string {
 
 type ChatBotAssistantAssociations struct {
 	gorm.Model
-	ChatBotId   uint `gorm:"column:chat_bot_id;type:bigint(20) unsigned;NOT NULL"`  // 渠道表主键ID channels.id
-	AssistantId uint `gorm:"column:assistant_id;type:bigint(20) unsigned;NOT NULL"` // 模型表主键ID models.id
+	ChatBotId   uint `gorm:"column:chat_bot_id;type:bigint(20);NOT NULL"`  // 渠道表主键ID channels.id
+	AssistantId uint `gorm:"column:assistant_id;type:bigint(20);NOT NULL"` // 模型表主键ID models.id
 }
 
 func (m *ChatBotAssistantAssociations) TableName() string {

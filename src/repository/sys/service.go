@@ -91,7 +91,7 @@ func (s *service) SaveFineTuningTemplate(ctx context.Context, data *types.FineTu
 }
 
 func (s *service) DeleteFineTuningTemplate(ctx context.Context, name string) (err error) {
-	return s.db.WithContext(ctx).Model(&types.FineTuningTemplate{}).Where("name = ?", name).Delete(&types.FineTuningTemplate{}).Error
+	return s.db.WithContext(ctx).Model(&types.FineTuningTemplate{}).Where("name = ?", name).Unscoped().Delete(&types.FineTuningTemplate{}).Error
 }
 
 func (s *service) IsExistTuningTemplate(ctx context.Context, name string) (isExist bool, err error) {

@@ -73,7 +73,7 @@ type ListChannelRequest struct {
 func (s *service) ListChannels(ctx context.Context, request ListChannelRequest) (res []types.ChatChannels, total int64, err error) {
 	query := s.db.WithContext(ctx).Model(&types.ChatChannels{}).Where("tenant_id = ?", request.TenantId)
 	if request.Name != nil {
-		query = query.Where("name LIKE ?", "%"+*request.Name+"%")
+		query = query.Where("name LIKE ?", "%"+*request.Name+"%").Or("alias  LIKE ?", "%"+*request.Name+"%").Or("api_key = ?", *request.Name)
 	}
 	if request.Email != nil {
 		query = query.Where("email LIKE ?", "%"+*request.Email+"%")

@@ -151,7 +151,7 @@ const (
 	DefaultRuntimeK8sVolumeName = ""
 
 	// [cronjob]
-	AigcEnvNameCronJobAuto = "AIGC_CRONJOB_AUTO"
+	EnvNameCronJobAuto = "AIGC_CRONJOB_AUTO"
 
 	DefaultDbDrive       = "sqlite"
 	DefaultMysqlHost     = "mysql"
@@ -372,6 +372,7 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().BoolVar(&serviceOpenAiEnable, "service.openai.enable", false, "是否启用OpenAI服务")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiHost, "service.openai.host", DefaultServiceOpenAiHost, "OpenAI服务地址")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiModel, "service.openai.model", DefaultServiceOpenAiModel, "OpenAI模型名称")
+	rootCmd.PersistentFlags().StringVar(&serviceOpenAiToken, "service.openai.token", "", "OpenAI Token")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiOrgId, "service.openai.org.id", DefaultServiceOpenAiOrgId, "OpenAI OrgId")
 	rootCmd.PersistentFlags().StringVar(&fsChatControllerAddress, "service.fschat.controller.host", "http://fschat-controller:21001", "fastchat controller address")
 	rootCmd.PersistentFlags().StringVar(&fsChatApiAddress, "service.fschat.api.host", "http://fschat-api:8000", "fastchat api address")
@@ -418,6 +419,7 @@ Platform: ` + goOS + "/" + goArch + `
 	// [local]
 	startCmd.PersistentFlags().StringVar(&storageType, "storage.type", "local", "storage type")
 
+	startCmd.PersistentFlags().BoolVar(&cronJobAuto, "cronjob.auto", true, "是否自动执行定时任务")
 	cronJobStartCmd.PersistentFlags().BoolVar(&cronJobAuto, "cronjob.auto", true, "是否自动执行定时任务")
 
 	//jobClearCmd.AddCommand(jobClearAudioTaggedCmd)
@@ -657,7 +659,7 @@ func Run() {
 	serverAdminUser = envString(EnvNameServerAdminPass, DefaultServerAdminPass)
 	serverStoragePath = envString(EnvNameServerStoragePath, defaultStoragePath)
 	serverDomain = envString(EnvNameServerDomain, fmt.Sprintf("http://localhost%s", httpAddr))
-	cronJobAuto, _ = strconv.ParseBool(envString(AigcEnvNameCronJobAuto, "true"))
+	cronJobAuto, _ = strconv.ParseBool(envString(EnvNameCronJobAuto, "true"))
 
 	// [service.gpt]
 	serviceOpenAiEnable, _ = strconv.ParseBool(envString(EnvNameServiceOpenAiEnable, "false"))

@@ -10,6 +10,7 @@ import (
 	"github.com/IceBearAI/aigc/src/repository/types"
 	"github.com/IceBearAI/aigc/src/services"
 	"github.com/IceBearAI/aigc/src/services/runtime"
+	"github.com/IceBearAI/aigc/src/util"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -69,6 +70,8 @@ type Service interface {
 	FiveGraph(ctx context.Context, req fiveGraphRequest) (res1, res2, res3 fiveGraphResult, err error)
 	// EvalFinish 评测结果完成
 	EvalFinish(ctx context.Context, req finishRequest) (err error)
+	// GetEvalLog 获取评估日志
+	GetEvalLog(ctx context.Context, tenantId uint, modelUUID, evalJobId string) (res string, err error)
 }
 
 type service struct {
@@ -78,6 +81,24 @@ type service struct {
 	repository repository.Repository
 	apiSvc     services.Service
 	filesSvc   files.Service
+}
+
+func (s *service) GetEvalLog(ctx context.Context, tenantId uint, modelUUID, evalJobId string) (res string, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	//model, err := s.repository.Model().FindByModelId(ctx, modelUUID)
+	//if err != nil {
+	//	_ = level.Warn(logger).Log("repository.Model", "FindByModelId", err.Error())
+	//	return
+	//}
+
+	evalJob, err := s.repository.ModelEvaluate().GetByUuid(ctx, evalJobId)
+	if evalJob.Status == string(types.EvalStatusRunning) && evalJob.EvaluateLog == "" {
+		evalJob.EvaluateLog, err = s.apiSvc.Runtime().GetJobLogs(ctx, evalJob.JobName)
+		if err != nil {
+			_ = level.Warn(logger).Log("msg", "GetJobLogs failed", "err", err.Error())
+		}
+	}
+	return evalJob.EvaluateLog, nil
 }
 
 func (s *service) List(ctx context.Context, req listRequest) (res []listResult, total int64, err error) {
@@ -94,6 +115,7 @@ func (s *service) List(ctx context.Context, req listRequest) (res []listResult, 
 			Uuid:           v.Uuid,
 			ModelID:        v.ModelId,
 			Status:         v.Status,
+			StatusMsg:      v.StatusMsg,
 			EvalTargetType: v.EvalTargetType,
 			Score:          v.Score,
 			DataType:       v.DataType,
@@ -114,7 +136,7 @@ func (s *service) Create(ctx context.Context, req createRequest) (err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "Create")
 
 	//如果有同类型的评测，不能重复提交
-	count, err := s.repository.ModelEvaluate().CountEvaluate(ctx, req.EvalTargetType, []string{string(types.EvaluateStatusWaiting), string(types.EvaluateStatusRunning)})
+	count, err := s.repository.ModelEvaluate().CountEvaluate(ctx, req.ModelId, req.EvalTargetType, []string{string(types.EvaluateStatusWaiting), string(types.EvaluateStatusRunning)})
 	if err != nil {
 		_ = level.Error(logger).Log("s.repository.ModelEvaluate", "CountEvaluate", "err", err.Error())
 		return
@@ -145,9 +167,7 @@ func (s *service) Create(ctx context.Context, req createRequest) (err error) {
 		return
 	}
 
-	serviceName := strings.ReplaceAll(modelInfo.ModelName, ":", "-")
-	serviceName = strings.ReplaceAll(modelInfo.ModelName, "::", "-")
-	serviceName = strings.ReplaceAll(modelInfo.ModelName, ".", "-")
+	serviceName := util.ReplacerServiceName(modelInfo.ModelName)
 
 	var (
 		baseModel = modelInfo.ModelName
@@ -163,10 +183,14 @@ func (s *service) Create(ctx context.Context, req createRequest) (err error) {
 		baseModel = finetunedModel.BaseModel
 		modelPath = finetunedModel.OutputDir
 	}
+
 	baseModelTemplate, err := s.repository.FineTuning().FindFineTuningTemplateByModel(ctx, baseModel)
 	if err != nil {
 		_ = level.Warn(logger).Log("repository.FineTuning", "FindFineTuningTemplateByModel", "err", err.Error())
 		return err
+	}
+	if !modelInfo.IsFineTuning {
+		modelPath = baseModelTemplate.BaseModelPath
 	}
 
 	operatorEmail, _ := middleware.GetEmail(ctx)
@@ -313,8 +337,8 @@ func (s *service) Cancel(ctx context.Context, req cancelRequest) (err error) {
 
 	//取消job
 	if err = s.apiSvc.Runtime().RemoveJob(ctx, info.JobName); err != nil {
-		_ = level.Error(logger).Log("s.apiSvc.Runtime", "RemoveJob", "err", err.Error())
-		return
+		_ = level.Warn(logger).Log("s.apiSvc.Runtime", "RemoveJob", "err", err.Error())
+		//return
 	}
 
 	// 更新db
@@ -387,40 +411,32 @@ func (s *service) getFiveGraphData(ctx context.Context, modelId, evaluateId int)
 
 		if err == nil && fineTuningJob.TrainLog != "" {
 			lineArr := strings.Split(fineTuningJob.TrainLog, "\n")
-			re := regexp.MustCompile(`(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (\{.*?\})`)
+			re := regexp.MustCompile(`\{[^}]*\}`)
 
 			var logEntryList []logEntry
+			for _, _log := range lineArr {
+				_log = strings.TrimSpace(_log)
+				matches := re.FindAllString(_log, -1)
+				for _, match := range matches {
+					if len(match) > 0 {
+						// 将单引号替换为双引号以符合JSON格式
+						jsonStr := strings.Replace(match, "'", "\"", -1)         // 将单引号替换为双引号
+						jsonStr = strings.Replace(jsonStr, "False", "false", -1) // 将 False 替换为 false
+						jsonStr = strings.Replace(jsonStr, "True", "true", -1)   // 将 True 替换为 true
 
-			for _, log := range lineArr {
-				matches := re.FindStringSubmatch(log)
-				if len(matches) == 3 {
-					timestampStr, jsonStr := matches[1], matches[2]
-
-					timestamp, err := time.Parse(time.RFC3339Nano, timestampStr)
-					if err != nil {
-						_ = level.Warn(logger).Log("msg", "parse timestamp failed", "err", err.Error())
-						continue
+						var entry logEntry
+						err := json.Unmarshal([]byte(jsonStr), &entry)
+						if err != nil {
+							_ = level.Info(logger).Log("json.Unmarshal", "unmarshal json failed", "err", err.Error())
+							continue
+						}
+						logEntryList = append(logEntryList, entry)
 					}
-
-					jsonStr = strings.Replace(jsonStr, "'", "\"", -1)        // 将单引号替换为双引号
-					jsonStr = strings.Replace(jsonStr, "False", "false", -1) // 将 False 替换为 false
-					jsonStr = strings.Replace(jsonStr, "True", "true", -1)   // 将 True 替换为 true
-
-					var entry logEntry
-					err = json.Unmarshal([]byte(jsonStr), &entry)
-					if err != nil {
-						_ = level.Warn(logger).Log("msg", "unmarshal json failed", "err", err.Error())
-						continue
-					}
-
-					entry.Timestamp = timestamp
-					logEntryList = append(logEntryList, entry)
 				}
 			}
 			lastLine := logEntryList[len(logEntryList)-1]
 			lastLoss = lastLine.Loss
 		}
-
 	}
 
 	var riskOver, riskUnder, riskDisaster bool
@@ -473,6 +489,15 @@ func (s *service) EvalFinish(ctx context.Context, req finishRequest) (err error)
 
 	_ = level.Info(logger).Log("modelEvaluate", "EvalFinish", "uuid", req.JobId, "result", req.Result)
 
+	evalLog, err := s.apiSvc.Runtime().GetJobLogs(ctx, info.JobName)
+	if err != nil {
+		_ = level.Warn(logger).Log("msg", "GetJobLogs failed", "err", err.Error())
+	}
+
+	if evalLog != "" {
+		info.EvaluateLog = evalLog
+	}
+
 	// 五维图
 	if info.EvalTargetType == string(types.EvaluateTargetTypeFive) {
 		var data0 fiveResult
@@ -495,14 +520,15 @@ func (s *service) EvalFinish(ctx context.Context, req finishRequest) (err error)
 
 		if data0.Status == "success" {
 			info.Status = string(types.EvaluateStatusSuccess)
-			info.Five1 = data0.Data.ChineseLanguageSkill
-			info.Five2 = data0.Data.InferenceAbility
-			info.Five3 = data0.Data.CommandCompliance
-			info.Five4 = data0.Data.InnovationCapacity
-			info.Five5 = data0.Data.ReadingComprehension
+			info.Five1 = data0.Data.ChineseLanguageSkill * 10
+			info.Five2 = data0.Data.InferenceAbility * 10
+			info.Five3 = data0.Data.CommandCompliance * 10
+			info.Five4 = data0.Data.InnovationCapacity * 10
+			info.Five5 = data0.Data.ReadingComprehension * 10
 			info.Score, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", info.Five1+info.Five2+info.Five3+info.Five4+info.Five5), 64)
 		} else {
 			info.Status = string(types.EvaluateStatusFailed)
+			info.StatusMsg = req.Result
 		}
 
 	}
@@ -529,6 +555,7 @@ func (s *service) EvalFinish(ctx context.Context, req finishRequest) (err error)
 			}
 		} else {
 			info.Status = string(types.EvaluateStatusFailed)
+			info.StatusMsg = req.Result
 		}
 	}
 

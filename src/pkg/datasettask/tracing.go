@@ -11,6 +11,37 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (s *tracing) GetTaskFAQIntents(ctx context.Context, tenantId uint, taskId string) (res []string, err error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *tracing) GenerationAnnotationContent(ctx context.Context, tenantId uint, modelName, taskId, taskSegmentId string) (res taskSegmentAnnotationRequest, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "GetCheckTaskDatasetSimilarLog", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "pkg.datasettask",
+	})
+	defer func() {
+		span.LogKV("tenantId", tenantId, "taskId", taskId, "modelName", modelName, "taskId", taskId, "taskSegmentId", taskSegmentId, "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return s.next.GenerationAnnotationContent(ctx, tenantId, modelName, taskId, taskSegmentId)
+}
+
+func (s *tracing) GetCheckTaskDatasetSimilarLog(ctx context.Context, tenantId uint, taskId string) (res string, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "GetCheckTaskDatasetSimilarLog", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "pkg.datasettask",
+	})
+	defer func() {
+		span.LogKV("tenantId", tenantId, "taskId", taskId, "res", res, "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return s.next.GetCheckTaskDatasetSimilarLog(ctx, tenantId, taskId)
+}
+
 func (s *tracing) CancelCheckTaskDatasetSimilar(ctx context.Context, tenantId uint, taskId string) (err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "CancelCheckTaskDatasetSimilar", opentracing.Tag{
 		Key:   string(ext.Component),

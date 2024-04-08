@@ -15,6 +15,35 @@ type logging struct {
 	traceId string
 }
 
+func (s *logging) GetSegmentFaqIntentInSegmentId(ctx context.Context, segmentIds []uint, annotationStatus types.DatasetAnnotationStatus, annotationType types.DatasetAnnotationType) (res []types.DatasetAnnotationTaskSegment, err error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *logging) GetTaskByDetection(ctx context.Context, status types.DatasetAnnotationStatus, detectionStatus types.DatasetAnnotationDetectionStatus, preload ...string) (res []types.DatasetAnnotationTask, err error) {
+	defer func(begin time.Time) {
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "GetTaskByDetection", "status", status, "detectionStatus", detectionStatus, "preload", preload,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next.GetTaskByDetection(ctx, status, detectionStatus, preload...)
+}
+
+func (s *logging) GetTaskSegmentPrev(ctx context.Context, taskId uint, status types.DatasetAnnotationStatus) (res types.DatasetAnnotationTaskSegment, err error) {
+	defer func(begin time.Time) {
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "GetTaskSegmentPrev", "taskId", taskId, "status", status,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next.GetTaskSegmentPrev(ctx, taskId, status)
+}
+
 func (s *logging) GetDatasetDocumentByUUID(ctx context.Context, tenantId uint, uuid string, preload ...string) (res *types.DatasetDocument, err error) {
 	defer func(begin time.Time) {
 		_ = s.logger.Log(
@@ -75,16 +104,16 @@ func (s *logging) UpdateTask(ctx context.Context, data *types.DatasetAnnotationT
 	return s.next.UpdateTask(ctx, data)
 }
 
-func (s *logging) GetTask(ctx context.Context, tenantId uint, uuid string) (res *types.DatasetAnnotationTask, err error) {
+func (s *logging) GetTask(ctx context.Context, tenantId uint, uuid string, preloads ...string) (res *types.DatasetAnnotationTask, err error) {
 	defer func(begin time.Time) {
 		_ = s.logger.Log(
 			s.traceId, ctx.Value(s.traceId),
-			"method", "GetTask", "tenantId", tenantId, "uuid", uuid,
+			"method", "GetTask", "tenantId", tenantId, "uuid", uuid, "preloads", fmt.Sprintf("%v", preloads),
 			"took", time.Since(begin),
 			"err", err,
 		)
 	}(time.Now())
-	return s.next.GetTask(ctx, tenantId, uuid)
+	return s.next.GetTask(ctx, tenantId, uuid, preloads...)
 }
 
 func (s *logging) AddTaskSegments(ctx context.Context, data []types.DatasetAnnotationTaskSegment) (err error) {

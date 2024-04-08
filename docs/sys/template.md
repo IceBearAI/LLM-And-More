@@ -20,24 +20,48 @@
 
 ```shell
 #!/bin/bash
-export AUTH=sk-001
-export JOB_ID={{.JobId}}
+
+# 自动注入以下环境变量，可以直接使用
+# - TENANT_ID: 租户ID
+# - JOB_ID: 任务ID
+# - AUTH: 授权码
+# - API_URL: 回调API地址
+# - HF_ENDPOINT: huggingface地址
+# - HF_HOME: huggingface家目录
+# - HTTP_PROXY: HTTP代理
+# - HTTPS_PROXY: HTTPS代理
+# - NO_PROXY: 不代理的地址
+# - GPUS_PER_NODE: 每个节点的GPU数量
+# - MASTER_PORT: 主节点端口
+# - USE_LORA: 是否使用LORA
+# - OUTPUT_DIR: 输出路径
+# - NUM_TRAIN_EPOCHS: 训练轮数
+# - PER_DEVICE_TRAIN_BATCH_SIZE: 训练批次大小
+# - PER_DEVICE_EVAL_BATCH_SIZE: 评估批次大小
+# - GRADIENT_ACCUMULATION_STEPS: 累积步数
+# - LEARNING_RATE: 学习率
+# - MODEL_MAX_LENGTH: 模型最大长度
+# - BASE_MODEL_PATH: 基础模型路径
+# - BASE_MODEL_NAME: 基础模型名称
+# - SCENARIO: 应用场景
+# - TRAIN_FILE: 训练文件URL或路径
+# - EVAL_FILE: 验证文件URL或路径
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
-
-GPUS_PER_NODE={{.ProcPerNode}}
 NNODES=1
 NODE_RANK=0
 MASTER_ADDR=localhost
-MASTER_PORT=6001
-USE_LORA={{.Lora}}
+MASTER_PORT=19090
+Q_LORA=False
 
+DS_CONFIG_PATH="ds_config_zero3.json"
 
-MODEL="{{.BaseModelPath}}" # Set the path if you do not want to load from huggingface directly
-# ATTENTION: specify the path to your training data, which should be a json file consisting of a list of conversations.
-# See the section for finetuning in README for more information.
-DATA="{{.DataPath}}"
+if [ -n "$BASE_MODEL_PATH" ]; then
+	BASE_MODEL=$BASE_MODEL_PATH
+else
+	BASE_MODEL=$BASE_MODEL_NAME
+fi
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $GPUS_PER_NODE \
@@ -46,11 +70,7 @@ DISTRIBUTED_ARGS="
     --master_addr $MASTER_ADDR \
     --master_port $MASTER_PORT
 "
-
-mkdir -p /data/train-data/
-wget -O {{.DataPath}} {{.FileUrl}}
-
-if [ "$USE_LORA" -eq 1 ]; then
+if [ "$USE_LORA" == "true" ]; then
     USE_LORA=True
     DS_CONFIG_PATH="ds_config_zero2.json"
 else
@@ -58,31 +78,70 @@ else
     DS_CONFIG_PATH="ds_config_zero3.json"
 fi
 
-torchrun $DISTRIBUTED_ARGS {{.ScriptFile}} \
-    --model_name_or_path $MODEL \
-    --data_path $DATA \
+mkdir -p /data/train-data/
+
+TRAIN_LOCAL_FILE=/data/train-data/train-${JOB_ID}
+EVAL_LOCAL_FILE=/data/train-data/eval-${JOB_ID}
+
+# 判断如果 DATASET_PATH 是url，则下载文件
+URL_REGEX="^(http|https)://"
+
+if [ $TRAIN_FILE =~ $URL_REGEX ]; then
+    echo "The path is a URL. Starting download..."
+    wget -O $TRAIN_LOCAL_FILE "$TRAIN_FILE"
+else
+    TRAIN_LOCAL_FILE=$TRAIN_FILE
+fi
+
+if [ $EVAL_FILE =~ $URL_REGEX ]; then
+    echo "The path is a URL. Starting download..."
+    wget -O $EVAL_LOCAL_FILE "$EVAL_FILE"
+else
+    EVAL_LOCAL_FILE=$EVAL_FILE
+fi
+
+output=$(torchrun $DISTRIBUTED_ARGS /app/finetune.py \
+    --model_name_or_path $BASE_MODEL \
+    --data_path $TRAIN_LOCAL_FILE \
     --bf16 True \
-    --output_dir {{.OutputDir}} \
-    --num_train_epochs {{.TrainEpoch}} \
-    --per_device_train_batch_size {{.TrainBatchSize}} \
-    --per_device_eval_batch_size {{.EvalBatchSize}} \
-    --gradient_accumulation_steps {{.AccumulationSteps}} \
+    --output_dir $OUTPUT_DIR \
+    --num_train_epochs $NUM_TRAIN_EPOCHS \
+    --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
+    --per_device_eval_batch_size $PER_DEVICE_EVAL_BATCH_SIZE \
+    --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
     --evaluation_strategy "no" \
     --save_strategy "steps" \
     --save_steps 1000 \
     --save_total_limit 10 \
-    --learning_rate 3e-4 \
+    --learning_rate $LEARNING_RATE \
     --weight_decay 0.1 \
     --adam_beta2 0.95 \
     --warmup_ratio 0.01 \
     --lr_scheduler_type "cosine" \
     --logging_steps 1 \
     --report_to "none" \
-    --model_max_length {{.ModelMaxLength}} \
+    --model_max_length $MODEL_MAX_LENGTH \
+    --gradient_checkpointing True \
     --lazy_preprocess True \
-    --use_lora $USE_LORA \
-    --gradient_checkpointing \
-    --deepspeed ${DS_CONFIG_PATH}
+    --use_lora ${USE_LORA} \
+    --q_lora ${Q_LORA} \
+    --deepspeed $DS_CONFIG_PATH)
+
+status=$?
+
+# 根据退出状态判断执行是否异常
+if [ $status -eq 0 ]; then
+    # 没有发生异常，正常输出内容
+    echo "执行成功!"
+    echo "${output}"
+    # 调用API并传递输出内容
+    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"success\"}"
+else
+    # 发生异常
+    echo "执行失败!"
+    # 调用API并传递错误信息
+    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"failed\", \"message\": \"${output}\"}"
+fi
 ```
 
 ### Job Configuration Parameters

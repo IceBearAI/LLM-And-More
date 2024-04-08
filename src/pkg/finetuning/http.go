@@ -96,9 +96,9 @@ func decodeCreateJobRequest(ctx context.Context, r *http.Request) (interface{}, 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return nil, err
 	}
-	if err := validate.Struct(req); err != nil {
-		return nil, encode.InvalidParams.Wrap(err)
-	}
+	//if err := validate.Struct(req); err != nil {
+	//	return nil, encode.InvalidParams.Wrap(err)
+	//}
 	return req, nil
 }
 

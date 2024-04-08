@@ -3,6 +3,7 @@ package modelevaluate
 import (
 	"context"
 	"github.com/IceBearAI/aigc/src/encode"
+	"github.com/IceBearAI/aigc/src/middleware"
 	"github.com/go-kit/kit/endpoint"
 	"time"
 )
@@ -21,6 +22,7 @@ type (
 		ModelID        int       `json:"modelId"`
 		Status         string    `json:"status"`
 		EvalTargetType string    `json:"evalTargetType"`
+		StatusMsg      string    `json:"statusMsg"`
 		Remark         string    `json:"remark"`
 		DataSize       int       `json:"dataSize"`
 		Complete       string    `json:"complete"`
@@ -115,22 +117,24 @@ type (
 )
 
 type Endpoints struct {
-	ListEndpoint      endpoint.Endpoint
-	CreateEndpoint    endpoint.Endpoint
-	CancelEndpoint    endpoint.Endpoint
-	DeleteEndpoint    endpoint.Endpoint
-	FiveGraphEndpoint endpoint.Endpoint
-	FinishEndpoint    endpoint.Endpoint
+	ListEndpoint       endpoint.Endpoint
+	CreateEndpoint     endpoint.Endpoint
+	CancelEndpoint     endpoint.Endpoint
+	DeleteEndpoint     endpoint.Endpoint
+	FiveGraphEndpoint  endpoint.Endpoint
+	FinishEndpoint     endpoint.Endpoint
+	GetEvalLogEndpoint endpoint.Endpoint
 }
 
 func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 	eps := Endpoints{
-		ListEndpoint:      makeListEndpoint(s),
-		CreateEndpoint:    makeCreateEndpoint(s),
-		CancelEndpoint:    makeCancelEndpoint(s),
-		DeleteEndpoint:    makeDeleteEndpoint(s),
-		FiveGraphEndpoint: makeFiveGraphEndpoint(s),
-		FinishEndpoint:    makeFinishEndpoint(s),
+		ListEndpoint:       makeListEndpoint(s),
+		CreateEndpoint:     makeCreateEndpoint(s),
+		CancelEndpoint:     makeCancelEndpoint(s),
+		DeleteEndpoint:     makeDeleteEndpoint(s),
+		FiveGraphEndpoint:  makeFiveGraphEndpoint(s),
+		FinishEndpoint:     makeFinishEndpoint(s),
+		GetEvalLogEndpoint: makeGetEvalLogEndpoint(s),
 	}
 
 	for _, m := range dmw["Evaluate"] {
@@ -140,9 +144,24 @@ func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 		eps.DeleteEndpoint = m(eps.DeleteEndpoint)
 		eps.FiveGraphEndpoint = m(eps.FiveGraphEndpoint)
 		eps.FinishEndpoint = m(eps.FinishEndpoint)
+		eps.GetEvalLogEndpoint = m(eps.GetEvalLogEndpoint)
+
 	}
 
 	return eps
+}
+
+func makeGetEvalLogEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		tenantId, _ := ctx.Value(middleware.ContextKeyTenantId).(uint)
+		modelId, _ := ctx.Value(contextKeyModelName).(string)
+		modelEvalId, _ := ctx.Value(contextKeyModelEvaluateId).(string)
+		res, err := s.GetEvalLog(ctx, tenantId, modelId, modelEvalId)
+		return encode.Response{
+			Data:  res,
+			Error: err,
+		}, err
+	}
 }
 
 func makeListEndpoint(s Service) endpoint.Endpoint {

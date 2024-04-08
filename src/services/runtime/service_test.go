@@ -19,7 +19,7 @@ var s = NewDocker(WithWorkspace("/Users/cong/go/src/github.com/icowan/LLM-And-Mo
 
 func TestService_CreateDeployment(t *testing.T) {
 
-	//_ = os.Setenv("DOCKER_HOST", "tcp://10.170.32.94:2375")
+	//_ = os.Setenv("DOCKER_HOST", "tcp://127.0.0.1:2375")
 
 	ctx := context.Background()
 

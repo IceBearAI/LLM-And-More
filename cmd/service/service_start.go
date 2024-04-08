@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -62,17 +63,17 @@ aigc-server start -p :8080
 				_ = level.Error(logger).Log("cmd", "start.PreRunE", "err", err.Error())
 				return err
 			}
+
 			// 判断是否需要初始化数据，如果没有则初始化数据
 			if !gormDB.Migrator().HasTable(types.Accounts{}) {
-				if err = generateTable(); err != nil {
-					_ = level.Error(logger).Log("cmd.start.PreRunE", "generateTable", "err", err.Error())
-					return err
-				}
+				_ = generateTable()
 				if err = initData(); err != nil {
 					_ = level.Error(logger).Log("cmd.start.PreRunE", "initData", "err", err.Error())
 					return err
 				}
 			}
+			_ = generateTable()
+
 			//aigc-server channelID
 			channelRes, err := store.Chat().FindChannelByApiKey(cmd.Context(), serverChannelKey)
 			if err != nil {
@@ -107,6 +108,19 @@ aigc-server start -p :8080
 )
 
 func start(ctx context.Context) (err error) {
+	var clientOptions []kithttp.ClientOption
+	if serverDebug {
+		clientOptions = append(clientOptions, kithttp.ClientBefore(func(ctx context.Context, request *http.Request) context.Context {
+			dump, _ := httputil.DumpRequest(request, true)
+			fmt.Println(string(dump))
+			return ctx
+		}),
+			kithttp.ClientAfter(func(ctx context.Context, response *http.Response) context.Context {
+				dump, _ := httputil.DumpResponse(response, true)
+				fmt.Println(string(dump))
+				return ctx
+			}))
+	}
 
 	tiktoken.SetBpeLoader(tiktoken2.NewBpeLoader(DataFs))
 
@@ -130,20 +144,13 @@ func start(ctx context.Context) (err error) {
 	sysSvc = sys.NewService(logger, traceId, store, apiSvc)
 	datasetSvc = datasets.New(logger, traceId, store)
 	toolsSvc = tools.New(logger, traceId, store)
-	assistantsSvc = assistants.New(logger, traceId, store, []kithttp.ClientOption{
-		//kithttp.ClientBefore(func(ctx context.Context, request *http.Request) context.Context {
-		//	dump, _ := httputil.DumpRequest(request, true)
-		//	fmt.Println(string(dump))
-		//	return ctx
-		//}),
-		//kithttp.ClientAfter(func(ctx context.Context, response *http.Response) context.Context {
-		//	dump, _ := httputil.DumpResponse(response, true)
-		//	fmt.Println(string(dump))
-		//	return ctx
-		//}),
-	}, []openai.Option{
+	localAiHost := serviceLocalAiHost
+	if !strings.HasSuffix(localAiHost, "/v1") {
+		localAiHost = localAiHost + "/v1"
+	}
+	assistantsSvc = assistants.New(logger, traceId, store, clientOptions, []openai.Option{
 		openai.WithToken(serviceLocalAiToken),
-		openai.WithBaseURL(serviceLocalAiHost),
+		openai.WithBaseURL(localAiHost),
 	})
 	datasetDocumentSvc = datasetdocument.New(traceId, logger, store)
 	datasetTaskSvc = datasettask.New(traceId, logger, store, apiSvc, fileSvc,
@@ -193,6 +200,10 @@ func start(ctx context.Context) (err error) {
 	initHttpHandler(ctx, g)
 	//initGRPCHandler(g)
 	initCancelInterrupt(ctx, g)
+
+	if cronJobAuto {
+		autoCronjobHandler(ctx, g)
+	}
 
 	_ = level.Error(logger).Log("server exit", g.Run())
 	return nil
@@ -344,7 +355,6 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 	}, func(e error) {
 		closeConnection(ctx)
 		_ = level.Error(httpLogger).Log("transport", "HTTP", "httpListener.Close", "http", "err", e)
-		_ = level.Debug(logger).Log("db", "close", "err", db.Close())
 		//if rdb != nil {
 		//	_ = level.Debug(logger).Log("rdb", "close", "err", rdb.Close())
 		//}
@@ -369,6 +379,15 @@ func initCancelInterrupt(ctx context.Context, g *group.Group) {
 		}
 	}, func(err error) {
 		close(cancelInterrupt)
+	})
+}
+
+func autoCronjobHandler(ctx context.Context, g *group.Group) {
+	g.Add(func() error {
+		return cronStart(ctx, cronJobNames)
+	}, func(err2 error) {
+		closeConnection(ctx)
+		_ = level.Warn(logger).Log("")
 	})
 }
 

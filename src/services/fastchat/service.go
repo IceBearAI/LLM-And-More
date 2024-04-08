@@ -219,8 +219,11 @@ func (s *service) Embeddings(ctx context.Context, model string, documents any) (
 		}
 		return res, nil
 	}
-
-	tgt, _ := url.Parse(fmt.Sprintf("%s/v1/embeddings", s.localAiHost))
+	localAiHost := s.localAiHost
+	if !strings.HasSuffix(localAiHost, "/v1") {
+		localAiHost = fmt.Sprintf("%s/v1", localAiHost)
+	}
+	tgt, _ := url.Parse(fmt.Sprintf("%s/v1/embeddings", localAiHost))
 	ep := kithttp.NewClient(http.MethodPost, tgt, kithttp.EncodeJSONRequest, decodeJsonResponse(&res), s.opts...).Endpoint()
 	_, err = ep(ctx, map[string]any{
 		"input": documents,
@@ -239,7 +242,11 @@ func (s *service) CreateSdImageV1(ctx context.Context, prompt, negativePrompt, s
 }
 
 func (s *service) CheckLength(ctx context.Context, prompt string, maxToken int) (tokenNum int, err error) {
-	tgt, _ := url.Parse(fmt.Sprintf("%s/worker/count_token", s.localAiHost))
+	localAiHost := s.localAiHost
+	if !strings.HasSuffix(localAiHost, "/v1") {
+		localAiHost = fmt.Sprintf("%s/v1", localAiHost)
+	}
+	tgt, _ := url.Parse(fmt.Sprintf("%s/worker/count_token", localAiHost))
 
 	ep := kithttp.NewClient(http.MethodPost, tgt, kithttp.EncodeJSONRequest, func(ctx context.Context, response *http.Response) (response1 interface{}, e error) {
 		if response.StatusCode != http.StatusOK {
@@ -281,24 +288,18 @@ func (s *service) CheckLength(ctx context.Context, prompt string, maxToken int) 
 }
 
 func (s *service) CreateImage(ctx context.Context, prompt, size, format string) (res []openai.ImageResponseDataInner, err error) {
+	localAiHost := s.localAiHost
+	if !strings.HasSuffix(localAiHost, "/v1") {
+		localAiHost = fmt.Sprintf("%s/v1", localAiHost)
+	}
 	c := openai.NewClientWithConfig(openai.ClientConfig{
-		BaseURL:            fmt.Sprintf("%s/v1", s.localAiHost),
+		BaseURL:            fmt.Sprintf("%s/v1", localAiHost),
 		EmptyMessagesLimit: 300,
 		//HTTPClient:         http.DefaultClient,
 		HTTPClient: &http.Client{
 			Transport: &proxyRoundTripper{},
 		},
 	})
-
-	//translation, err := c.CreateTranslation(ctx, openai.AudioRequest{
-	//	Model:    openai.Whisper1,
-	//	FilePath: "~/Downloads/langchain.wav",
-	//})
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//fmt.Println(translation.Text)
 
 	image, err := c.CreateImage(ctx, openai.ImageRequest{
 		Prompt:         prompt,
@@ -342,16 +343,18 @@ func (s *service) getClient(ctx context.Context, model string) (*openai.Client, 
 		return openai.NewClientWithConfig(config), model
 	}
 
-	fmt.Println("localAiHost", s.localAiHost, "apiKey", s.localAiToken)
-
 	apiKey := s.localAiToken
 	platform, ok := ctx.Value(ContextKeyPlatform).(Platform)
 	if !ok || platform == "" {
 		if key, exists := ctx.Value(ContextKeyApiKey).(string); exists && key != "" {
 			apiKey = key
 		}
+		localAiHost := s.localAiHost
+		if !strings.HasSuffix(localAiHost, "/v1") {
+			localAiHost = fmt.Sprintf("%s/v1", localAiHost)
+		}
 		config := openai.DefaultConfig(apiKey)
-		config.BaseURL = fmt.Sprintf("%s/v1", s.localAiHost)
+		config.BaseURL = localAiHost
 		config.HTTPClient = httpClient
 		return openai.NewClientWithConfig(config), model
 	}
