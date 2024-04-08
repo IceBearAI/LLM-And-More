@@ -1,5 +1,5 @@
 # Golang 打包基础镜像
-FROM golang:1.21.5 AS build-env
+FROM golang:1.22.2 AS build-env
 
 ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn
