@@ -44,7 +44,10 @@ if args.train_path:
     train_output_file = os.path.join(args.output_path, 'train_dataset.jsonl')
     convert_new_format_to_old(args.train_path, train_output_file)
     print(f'Train dataset converted and saved to {train_output_file}')
-if args.test_path:
-    test_output_file = os.path.join(args.output_path, 'test_dataset.jsonl')
-    convert_new_format_to_old(args.test_path, test_output_file)
-    print(f'Test dataset converted and saved to {test_output_file}')
+try:
+    if args.test_path:
+        test_output_file = os.path.join(args.output_path, 'test_dataset.jsonl')
+        convert_new_format_to_old(args.test_path, test_output_file)
+        print(f'Test dataset converted and saved to {test_output_file}')
+except FileNotFoundError:
+    print('Test dataset not provided.')

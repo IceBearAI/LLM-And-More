@@ -155,7 +155,7 @@ elif [ "$SCENARIO" == "faq" ]; then
   formatted_datasets_path=/data/train-data/faq_formatted_datasets
   mkdir -p "$formatted_datasets_path"
 
-  python3 ./faq/convert_new_format.py \
+  python3 .convert_new_format.py \
       --train_path $TRAIN_LOCAL_FILE \
       --test_path $EVAL_LOCAL_FILE \
       --output_path "$formatted_datasets_path"
