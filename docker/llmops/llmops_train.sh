@@ -53,11 +53,10 @@ function set_cuda_devices {
     fi
 
     # 使用循环动态构建
-    devices=$(printf ",%d" $(seq 0 $1 | sed 's/ //g'))
-    export CUDA_VISIBLE_DEVICES="${devices:1}"
+    devices=$(printf ",%d" $(seq 0 $(($1-1)) | sed 's/ //g'))
+    export CUDA_VISIBLE_DEVICES=${devices:1}
 }
 set_cuda_devices $GPUS_PER_NODE
-echo $CUDA_VISIBLE_DEVICES
 
 LORA_MODULE_NAME=''
 MODENAME=$(echo "$BASE_MODEL_NAME" | tr '[:upper:]' '[:lower:]')
@@ -132,7 +131,7 @@ if [ "$SCENARIO" == "general" ]; then
 #  output=$(torchrun $DISTRIBUTED_ARGS {{.ScriptFile}} \
 #  output=$(deepspeed --include localhost:$CUDA_VISIBLE_DEVICES {{.ScriptFile}} \
   output=$(deepspeed {{.ScriptFile}} \
-      --data_path $GENERAL_DATA_PATH \
+      --data_path "$GENERAL_DATA_PATH" \
       --data_output_path "$OUTPUT_DIR/data_output" \
       --data_split 9,1,0 \
       --model_name_or_path $BASE_MODEL_PATH \
@@ -153,7 +152,7 @@ if [ "$SCENARIO" == "general" ]; then
       --zero_stage $ZERO_STAGE \
       --deepspeed \
       --print_loss \
-      --output_dir "$OUTPUT_DIR/general" \
+      --output_dir "$OUTPUT_DIR" \
       --start_from_step -1 \
       --save_per_steps 100 \
       --tensorboard_path "$OUTPUT_DIR/tensorboard" \
@@ -163,7 +162,7 @@ elif [ "$SCENARIO" == "faq" ]; then
   formatted_datasets_path=/data/train-data/faq_formatted_datasets
   mkdir -p "$formatted_datasets_path"
 
-  python3 .convert_new_format.py \
+  python3 ./convert_new_format.py \
       --train_path $TRAIN_LOCAL_FILE \
       --test_path $EVAL_LOCAL_FILE \
       --output_path "$formatted_datasets_path"
@@ -190,7 +189,7 @@ elif [ "$SCENARIO" == "faq" ]; then
       --ds_file $DS_FILE \
       --gradient_checkpointing \
       --show_loss_step 10 \
-      --output_dir "$OUTPUT_DIR/faq")
+      --output_dir "$OUTPUT_DIR")
 
 elif [ "$SCENARIO" == "rag" ]; then
 	RAG_ENHANCEMENT="False"
@@ -217,7 +216,7 @@ elif [ "$SCENARIO" == "rag" ]; then
       --ds_file $DS_FILE \
       --gradient_checkpointing \
       --show_loss_step 10 \
-      --output_dir "$OUTPUT_DIR/rag")
+      --output_dir "$OUTPUT_DIR")
 
 else
   echo "Invalid scenario selection!"
