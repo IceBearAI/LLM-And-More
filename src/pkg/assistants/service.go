@@ -194,8 +194,8 @@ func (s *service) Playground(ctx context.Context, tenantId uint, assistantId str
 		creationOptions = append(creationOptions, agents.WithCallbacksHandler(newStreamLogHandler(streamResp)))
 	}
 	executor := agents.NewExecutor(agents.NewConversationalAgent(llm, tools, creationOptions...), tools, []agents.Option{
-		agents.WithMaxIterations(3),
-		agents.WithReturnIntermediateSteps(),
+		//agents.WithMaxIterations(3),
+		//agents.WithReturnIntermediateSteps(),
 		agents.WithMemory(
 			memory.NewConversationBuffer(
 				memory.WithChatHistory(
