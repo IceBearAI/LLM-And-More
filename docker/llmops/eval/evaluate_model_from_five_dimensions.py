@@ -343,7 +343,7 @@ def evaluate_innovation_capacity(model, tokenizer, device, dataset_path="./eval_
     return accuracy
 
 
-def main(model_name_or_path, evaluation_dimensions, output_file, options, gpu_nums):
+def main(model_name_or_path, evaluation_dimensions, output_file, options, gpu_nums,local_rank):
     """
     模型评估主函数
 

@@ -228,7 +228,7 @@ def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq
 
 # 模型评估主函数
 def evaluate(model_name_or_path, dataset_path, evaluation_metrics, max_seq_len, per_device_batch_size, gpu_nums,
-             output_path):
+             output_path,local_rank):
     """
     模型评估主函数
     :param model_name_or_path: 模型名称或路径
