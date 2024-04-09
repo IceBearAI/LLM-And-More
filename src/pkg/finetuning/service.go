@@ -818,6 +818,7 @@ func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url
 		_ = level.Error(logger).Log("convertAlpaca", "convertAlpaca", "err", err.Error())
 		return "", errors.Wrap(err, "convertAlpaca")
 	}
+	sourceData = bytes.TrimSpace(sourceData)
 
 	type (
 		// Message 用于解析和验证每一行的JSON对象
@@ -841,6 +842,9 @@ func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(buf, maxCapacity)
 	for scanner.Scan() {
+		if len(scanner.Bytes()) < 1 {
+			continue
+		}
 		var data MessagesWrapper
 		if err = json.Unmarshal(scanner.Bytes(), &data); err != nil {
 			otherFormat = true
@@ -856,7 +860,7 @@ func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url
 	}
 	suffix := "json"
 	var alpacaDada []byte
-	if otherFormat {
+	if !otherFormat {
 		if strings.Contains(modelName, "qwen1.5") || strings.Contains(modelName, "qwen2") {
 			alpacaDada, err = getHttpFileBody(sourceS3Url)
 			if err != nil {
