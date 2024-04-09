@@ -1,11 +1,13 @@
 import json
-from transformers import AutoTokenizer, AutoModelForCausalLM, LlamaTokenizer
+
+import deepspeed
+import fire
+import jieba
 import torch
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from rouge import Rouge
-import jieba
 from tqdm import tqdm
-import fire
+from transformers import AutoTokenizer, AutoModelForCausalLM, LlamaTokenizer
 
 
 def calculate_bleu_chinese(reference, candidate):
@@ -32,7 +34,7 @@ def calculate_rouge_chinese(reference, candidate):
     return scores[0]['rouge-l']['f']
 
 
-def load_model(model_name_or_path, device):
+def load_model(model_name_or_path,gpu_nums):
     """
     加载模型和分词器
     """
@@ -40,7 +42,7 @@ def load_model(model_name_or_path, device):
     if "llama" in model_name_or_path.lower() or "Llama" in model_name_or_path:
         # 加载 Llama Tokenizer
         tokenizer = LlamaTokenizer.from_pretrained(
-            model_name_or_path, trust_remote_code=True, padding_side = "left")
+            model_name_or_path, trust_remote_code=True, padding_side="left")
         tokenizer.pad_token = tokenizer.eos_token
 
     else:
@@ -56,8 +58,16 @@ def load_model(model_name_or_path, device):
     model = AutoModelForCausalLM.from_pretrained(
         model_name_or_path, trust_remote_code=True)
 
-    model.to(device)
-    return model, tokenizer
+    ds_model = deepspeed.init_inference(
+        model=model,
+        mp_size=gpu_nums,
+        dtype=torch.float16,
+        replace_method="auto",
+        replace_with_kernel_inject=True,
+    )
+    print(f"模型加载至设备{ds_model.module.device}\n")
+
+    return ds_model, tokenizer
 
 
 def load_dataset(dataset_path):
@@ -78,14 +88,14 @@ def generate_answers_batch(model, tokenizer, batch_questions, max_length, device
     使用模型批量生成答案
     """
     inputs = tokenizer(batch_questions, return_tensors="pt", padding=True,
-                        truncation=True, max_length=1024).to(device)
+                       truncation=True, max_length=1024).to(device)
     # 使用模型生成答案
     outputs = model.generate(
         **inputs,
         pad_token_id=tokenizer.pad_token_id,
         num_return_sequences=1,  # 每次生成一个答案
         max_new_tokens=max_length,
-        eos_token_id = tokenizer.eos_token_id
+        eos_token_id=tokenizer.eos_token_id
     )
 
     results = []
@@ -117,15 +127,16 @@ def write_evaluation_results_json(eval_output_path, hyperparams, evaluation_resu
     print(f"evaluation results written to {eval_output_path}")
 
 
-def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq_len, per_device_batch_size, gpu_id, output_path):
+def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq_len, per_device_batch_size, gpu_nums,
+                   output_path):
     """
     真实的评估函数
     """
     # 移动模型到指定的GPU
     device = torch.device(
-        f'cuda:{gpu_id}' if torch.cuda.is_available() else 'cpu')
+        f'cuda' if torch.cuda.is_available() else 'cpu')
     # 加载模型和分词器
-    model, tokenizer = load_model(model_name_or_path, device)
+    model, tokenizer = load_model(model_name_or_path,gpu_nums)
     # print(f"Model loaded from {model_name_or_path}, running on {device}")
     # 加载测试集
     dataset = load_dataset(dataset_path)
@@ -153,8 +164,8 @@ def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq
     # 分批处理问题
     candidates = []
     for i in tqdm(range(0, len(questions), per_device_batch_size), desc="Evaluating", unit="batch"):
-        batch_questions = questions[i:i+per_device_batch_size]
-        batch_references = references[i:i+per_device_batch_size]
+        batch_questions = questions[i:i + per_device_batch_size]
+        batch_references = references[i:i + per_device_batch_size]
         batch_answers = generate_answers_batch(
             model, tokenizer, batch_questions, max_seq_len, device)
 
@@ -192,7 +203,7 @@ def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq
         "evaluation_metrics": evaluation_metrics,
         "max_seq_len": max_seq_len,
         "per_device_batch_size": per_device_batch_size,
-        "gpu_id": gpu_id
+        "gpu_nums": gpu_nums
     }
     eval_output_path = output_path + "/eval_results.json"
 
@@ -214,8 +225,10 @@ def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq
 
     return result
 
+
 # 模型评估主函数
-def evaluate(model_name_or_path, dataset_path, evaluation_metrics, max_seq_len, per_device_batch_size, gpu_id, output_path):
+def evaluate(model_name_or_path, dataset_path, evaluation_metrics, max_seq_len, per_device_batch_size, gpu_nums,
+             output_path,local_rank):
     """
     模型评估主函数
     :param model_name_or_path: 模型名称或路径
@@ -233,11 +246,12 @@ def evaluate(model_name_or_path, dataset_path, evaluation_metrics, max_seq_len, 
         evaluation_metrics=evaluation_metrics,
         max_seq_len=max_seq_len,
         per_device_batch_size=per_device_batch_size,
-        gpu_id=gpu_id,
+        gpu_nums=gpu_nums,
         output_path=output_path
     )
 
     return result
+
 
 if __name__ == '__main__':
     fire.Fire(evaluate)
