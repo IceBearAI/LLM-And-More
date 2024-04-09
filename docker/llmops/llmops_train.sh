@@ -29,7 +29,6 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 NNODES=1
 NODE_RANK=0
 MASTER_ADDR=localhost
-MASTER_PORT={{.MasterPort}}
 Q_LORA=False
 
 DISTRIBUTED_ARGS="
@@ -40,23 +39,16 @@ DISTRIBUTED_ARGS="
     --master_port $MASTER_PORT
 "
 function set_cuda_devices {
-    # 验证输入是否为空
-    if [ -z "$1" ]; then
-        echo "Error: No argument provided."
-        echo "Usage: set_cuda_devices <number_of_gpus>"
-        exit 1
-    fi
-
-    if ! [[ "$1" =~ ^[0-9]+$ ]]; then
-        echo "Error: Invalid argument. Please provide a positive integer."
-        exit 1
-    fi
-
-    # 使用循环动态构建
-    devices=$(printf ",%d" $(seq 0 $(($1-1)) | sed 's/ //g'))
-    export CUDA_VISIBLE_DEVICES=${devices:1}
+    case $1 in
+        1) export CUDA_VISIBLE_DEVICES=0 ;;
+        2) export CUDA_VISIBLE_DEVICES=0,1 ;;
+        4) export CUDA_VISIBLE_DEVICES=0,1,2,3 ;;
+        8) export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 ;;
+        *) echo "Invalid GPUS_PER_NODE!" ; exit 1 ;;
+    esac
 }
 set_cuda_devices $GPUS_PER_NODE
+
 
 LORA_MODULE_NAME=''
 MODENAME=$(echo "$BASE_MODEL_NAME" | tr '[:upper:]' '[:lower:]')
@@ -130,9 +122,9 @@ if [ "$SCENARIO" == "general" ]; then
 
 #  output=$(torchrun $DISTRIBUTED_ARGS {{.ScriptFile}} \
 #  output=$(deepspeed --include localhost:$CUDA_VISIBLE_DEVICES {{.ScriptFile}} \
-  output=$(deepspeed {{.ScriptFile}} \
-      --data_path "$GENERAL_DATA_PATH" \
-      --data_output_path "$OUTPUT_DIR/data_output" \
+  output=$(deepspeed /app/llmops_deepspeed_main.py \
+      --data_path $GENERAL_DATA_PATH \
+      --data_output_path $OUTPUT_DIR/data_output \
       --data_split 9,1,0 \
       --model_name_or_path $BASE_MODEL_PATH \
       --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
@@ -152,23 +144,20 @@ if [ "$SCENARIO" == "general" ]; then
       --zero_stage $ZERO_STAGE \
       --deepspeed \
       --print_loss \
-      --output_dir "$OUTPUT_DIR" \
+      --output_dir $OUTPUT_DIR \
       --start_from_step -1 \
-      --save_per_steps 100 \
-      --tensorboard_path "$OUTPUT_DIR/tensorboard" \
-      --tensorboard_port 6007 \
-      --enable_tensorboard)
+      --save_per_steps 100)
 elif [ "$SCENARIO" == "faq" ]; then
   formatted_datasets_path=/data/train-data/faq_formatted_datasets
   mkdir -p "$formatted_datasets_path"
 
-  python3 ./convert_new_format.py \
+  python3 .convert_new_format.py \
       --train_path $TRAIN_LOCAL_FILE \
       --test_path $EVAL_LOCAL_FILE \
       --output_path "$formatted_datasets_path"
 
 #  output=$(deepspeed {{.ScriptFile}}  \
-  output=$(deepspeed ./faq/faq_train.py \
+  output=$(deepspeed /app/faq/faq_train.py \
       --train_path "$formatted_datasets_path/train_dataset.jsonl" \
       --model_name_or_path $BASE_MODEL_PATH \
       --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
@@ -189,34 +178,11 @@ elif [ "$SCENARIO" == "faq" ]; then
       --ds_file $DS_FILE \
       --gradient_checkpointing \
       --show_loss_step 10 \
-      --output_dir "$OUTPUT_DIR")
+      --output_dir $OUTPUT_DIR)
 
 elif [ "$SCENARIO" == "rag" ]; then
-	RAG_ENHANCEMENT="False"
 
-    output=$(deepspeed ./rag/rag_train.py \
-      --train_path $TRAIN_LOCAL_FILE \
-      --enhancement $RAG_ENHANCEMENT \
-      --model_name_or_path $BASE_MODEL_PATH \
-      --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
-      --max_len $MODEL_MAX_LENGTH \
-      --max_src_len 1024 \
-      --learning_rate $LEARNING_RATE \
-      --weight_decay 0.1 \
-      --num_train_epochs 2 \
-      --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
-      --warmup_ratio 0.1 \
-      --mode $MODENAME \
-	  --train_type $TRAIN_TYPE \
-	  --lora_module_name $LORA_MODULE_NAME \
-      --lora_dim 4 \
-      --lora_alpha 64 \
-      --lora_dropout 0.1 \
-      --seed 1234 \
-      --ds_file $DS_FILE \
-      --gradient_checkpointing \
-      --show_loss_step 10 \
-      --output_dir "$OUTPUT_DIR")
+  pass
 
 else
   echo "Invalid scenario selection!"
@@ -229,10 +195,10 @@ if [ $status -eq 0 ]; then
     echo "执行成功!"
     echo "${API_URL}"
     # 调用API并传递输出内容
-    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{"status": "success"}"
+    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"success\"}"
 else
     # 发生异常
     echo "执行失败!"
     # 调用API并传递错误信息
-    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": "failed", \"message\": \"${output}\"}"
+    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"failed\", \"message\": \"${output}\"}"
 fi

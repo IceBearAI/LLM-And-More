@@ -1,0 +1,1 @@
+import{d as o,k as s,Z as t,j as a,m as n,W as c,n as e,aI as r}from"./utils-077ba0c9.js";const _="/assets/logo-dark-157fcdf7.png",l={class:"logo"},d=["src"],f=o({__name:"Logo",setup(i){return(p,m)=>(s(),t("div",l,[a(e(r),{to:"/"},{default:n(()=>[c("img",{style:{width:"106px",height:"38px"},src:e(_),alt:"home"},null,8,d)]),_:1})]))}});export{f as _};

@@ -52,7 +52,7 @@ else
     echo "${output}"
     job_status="failed"
     # 调用API并传递错误信息
-    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": "${job_status}", \"message\": \"${output}\"}"
+    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"${job_status}\", \"message\": \"${output}\"}"
 fi
 
 rm -rf $DATASET_OUTPUT_FILE
