@@ -336,7 +336,7 @@ def evaluate_innovation_capacity(model, tokenizer, device, dataset_path="./eval_
     return accuracy
 
 
-def main(model_name_or_path, evaluation_dimensions, output_file, options):
+def main(model_name_or_path, evaluation_dimensions, output_file, options,gpu_id):
     """
     模型评估主函数
 
@@ -344,9 +344,10 @@ def main(model_name_or_path, evaluation_dimensions, output_file, options):
     :param evaluation_dimensions: 评估维度列表
     :param output_file: 结果输出到文件
     :param options: 额外选项，如最大序列长度
+    :param gpu_id: GPU ID
     """
     # 移动模型到GPU
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = torch.device(f'cuda:{gpu_id}' if torch.cuda.is_available() else 'cpu')
     # 加载模型和分词器
     model, tokenizer = load_model(model_name_or_path, device)
 
