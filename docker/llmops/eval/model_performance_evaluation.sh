@@ -6,6 +6,25 @@ DATASET_OUTPUT_FILE="${OUTPUT_PATH}/eval_results.json"
 
 cd /app/eval/
 
+function set_cuda_devices {
+    # 验证输入是否为空
+    if [ -z "$1" ]; then
+        echo "Error: No argument provided."
+        echo "Usage: set_cuda_devices <number_of_gpus>"
+        exit 1
+    fi
+
+    if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+        echo "Error: Invalid argument. Please provide a positive integer."
+        exit 1
+    fi
+
+    # 使用循环动态构建
+    devices=$(printf ",%d" $(seq 0 $(($1-1)) | sed 's/ //g'))
+    export CUDA_VISIBLE_DEVICES=${devices:1}
+}
+set_cuda_devices $GPUS_PER_NODE
+
 # 判断如果 DATASET_PATH 是url，则下载文件
 URL_REGEX="^(http|https)://"
 
@@ -18,7 +37,7 @@ fi
 
 
 # 调用Python脚本并捕获输出和退出状态
-output=$(deepspeed --num_gpus $GPUS_PER_NODE model_performance_evaluation.py \
+output=$(deepspeed model_performance_evaluation.py \
   --model_name_or_path "${MODEL_PATH}" \
   --dataset_path "${DATASET_FILE}" \
   --evaluation_metrics "${EVALUATION_METRICS}" \
