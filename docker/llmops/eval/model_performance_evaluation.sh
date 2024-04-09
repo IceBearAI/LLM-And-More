@@ -16,25 +16,6 @@ else
     DATASET_FILE=$DATASET_PATH
 fi
 
-function set_cuda_devices {
-    # 验证输入是否为空
-    if [ -z "$1" ]; then
-        echo "Error: No argument provided."
-        echo "Usage: set_cuda_devices <number_of_gpus>"
-        exit 1
-    fi
-
-    if ! [[ "$1" =~ ^[0-9]+$ ]]; then
-        echo "Error: Invalid argument. Please provide a positive integer."
-        exit 1
-    fi
-
-    # 使用循环动态构建
-    devices=$(printf ",%d" $(seq 0 $(($1-1)) | sed 's/ //g'))
-    CUDA_VISIBLE_DEVICES=${devices:1}
-#     export CUDA_VISIBLE_DEVICES=${devices:1}
-}
-set_cuda_devices $GPUS_PER_NODE
 
 # 调用Python脚本并捕获输出和退出状态
 output=$(python3 model_performance_evaluation.py \
@@ -43,7 +24,7 @@ output=$(python3 model_performance_evaluation.py \
   --evaluation_metrics "${EVALUATION_METRICS}" \
   --max_seq_len ${MAX_SEQ_LEN} \
   --per_device_batch_size ${PER_DEVICE_BATCH_SIZE} \
-  --gpu_id $CUDA_VISIBLE_DEVICES \
+  --gpu_nums $GPUS_PER_NODE  \
   --output_path "${OUTPUT_PATH}" 2>&1)
 status=$?
 
