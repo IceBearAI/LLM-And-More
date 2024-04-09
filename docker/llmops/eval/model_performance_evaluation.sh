@@ -18,7 +18,7 @@ fi
 
 
 # 调用Python脚本并捕获输出和退出状态
-output=$(python3 model_performance_evaluation.py \
+output=$(deepspeed --num_gpus $GPUS_PER_NODE model_performance_evaluation.py \
   --model_name_or_path "${MODEL_PATH}" \
   --dataset_path "${DATASET_FILE}" \
   --evaluation_metrics "${EVALUATION_METRICS}" \
