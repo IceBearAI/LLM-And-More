@@ -8,16 +8,16 @@ evaluate_model_from_five_dimensions.py
 
 import json
 
+import deepspeed
+import fire
 import jieba
-from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 import torch
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers import LlamaTokenizer
 
-import fire
 
-
-def load_model(model_name_or_path, device):
+def load_model(model_name_or_path, gpu_nums):
     """
     加载模型和分词器
     """
@@ -38,9 +38,16 @@ def load_model(model_name_or_path, device):
     # 加载模型
     model = AutoModelForCausalLM.from_pretrained(
         model_name_or_path, trust_remote_code=True)
+    ds_model = deepspeed.init_inference(
+        model=model,
+        mp_size=gpu_nums,
+        dtype=torch.float16,
+        replace_method="auto",
+        replace_with_kernel_inject=True,
+    )
+    print(f"模型加载至设备{ds_model.module.device}\n")
 
-    model.to(device)
-    return model, tokenizer
+    return ds_model, tokenizer
 
 
 def load_dataset(dataset_path):
@@ -336,7 +343,7 @@ def evaluate_innovation_capacity(model, tokenizer, device, dataset_path="./eval_
     return accuracy
 
 
-def main(model_name_or_path, evaluation_dimensions, output_file, options):
+def main(model_name_or_path, evaluation_dimensions, output_file, options, gpu_nums,local_rank):
     """
     模型评估主函数
 
@@ -344,11 +351,12 @@ def main(model_name_or_path, evaluation_dimensions, output_file, options):
     :param evaluation_dimensions: 评估维度列表
     :param output_file: 结果输出到文件
     :param options: 额外选项，如最大序列长度
+    :param gpu_nums: GPU数量
     """
     # 移动模型到GPU
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # 加载模型和分词器
-    model, tokenizer = load_model(model_name_or_path, device)
+    model, tokenizer = load_model(model_name_or_path, gpu_nums)
 
     # 加载额外选项
     additional_parameters = options.get("additional_parameters", {})
