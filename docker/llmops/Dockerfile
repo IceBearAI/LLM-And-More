@@ -5,7 +5,7 @@ LABEL maintainer="solacowa@gmail.com"
 #RUN sed -i 's#http://deb.debian.org#https://mirrors.163.com#g' /etc/apt/sources.list.d/debian.sources
 COPY sources.list /etc/apt/sources.list
 
-RUN apt-get update -y && apt-get install -y curl wget git vim
+RUN apt-get update -y && apt-get install -y curl wget git vim jq
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get install -y cuda-toolkit --fix-missing
@@ -41,6 +41,7 @@ COPY ./requirements.txt /app/requirements.txt
 
 RUN pip3 install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 # 要安装flash-attn必须在有gpu的机器上构建
-RUN pip3 install fschat vllm flash-attn -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN pip3 install fschat vllm bitsandbytes
+RUN pip3 install flash-attn -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 COPY . /app/

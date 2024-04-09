@@ -1,6 +1,7 @@
 package finetuning
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -811,28 +812,79 @@ func (s *service) CancelJob(ctx context.Context, tenantId uint, jobId string) (e
 
 func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url string) (newS3Url string, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+
+	sourceData, err := getHttpFileBody(sourceS3Url)
+	if err != nil {
+		_ = level.Error(logger).Log("convertAlpaca", "convertAlpaca", "err", err.Error())
+		return "", errors.Wrap(err, "convertAlpaca")
+	}
+
+	type (
+		// Message 用于解析和验证每一行的JSON对象
+		Message struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		}
+
+		// MessagesWrapper 包含多个Message的结构体
+		MessagesWrapper struct {
+			Messages []Message `json:"messages"`
+		}
+	)
+
+	var otherFormat bool
+
+	f := util.NewFile(sourceData)
+	// 检查是否为JSONL格式
+	maxCapacity := 1024 * 1024          // 1MB
+	buf := make([]byte, 0, maxCapacity) // maxCapacity 是你希望设置的新的缓冲区大小
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(buf, maxCapacity)
+	for scanner.Scan() {
+		var data MessagesWrapper
+		if err = json.Unmarshal(scanner.Bytes(), &data); err != nil {
+			otherFormat = true
+			break
+		}
+	}
+	if err = scanner.Err(); err != nil {
+		_ = level.Warn(logger).Log("scanner.Err", err)
+	}
+	_, err = f.Seek(0, io.SeekStart)
+	if err != nil {
+		_ = level.Warn(logger).Log("f.Seek", err.Error())
+	}
 	suffix := "json"
 	var alpacaDada []byte
-	if strings.Contains(modelName, "qwen1.5") || strings.Contains(modelName, "qwen2") {
+	if otherFormat {
+		if strings.Contains(modelName, "qwen1.5") || strings.Contains(modelName, "qwen2") {
+			alpacaDada, err = getHttpFileBody(sourceS3Url)
+			if err != nil {
+				_ = level.Error(logger).Log("convertAlpaca", "convertAlpaca", "err", err.Error())
+				return "", errors.Wrap(err, "convertAlpaca")
+			}
+			suffix = "jsonl"
+		} else if strings.Contains(modelName, "qwen") {
+			alpacaDada, err = convertQwenTrainData(sourceS3Url)
+			if err != nil {
+				_ = level.Error(logger).Log("convertAlpaca", "convertAlpaca", "err", err.Error())
+				return "", errors.Wrap(err, "convertAlpaca")
+			}
+		} else {
+			alpacaDada, err = convertAlpaca(sourceS3Url, logger, modelName)
+			if err != nil {
+				_ = level.Error(logger).Log("convertAlpaca", "convertAlpaca", "err", err.Error())
+				return "", errors.Wrap(err, "convertAlpaca")
+			}
+		}
+	} else {
 		alpacaDada, err = getHttpFileBody(sourceS3Url)
 		if err != nil {
 			_ = level.Error(logger).Log("convertAlpaca", "convertAlpaca", "err", err.Error())
 			return "", errors.Wrap(err, "convertAlpaca")
 		}
-		suffix = "jsonl"
-	} else if strings.Contains(modelName, "qwen") {
-		alpacaDada, err = convertQwenTrainData(sourceS3Url)
-		if err != nil {
-			_ = level.Error(logger).Log("convertAlpaca", "convertAlpaca", "err", err.Error())
-			return "", errors.Wrap(err, "convertAlpaca")
-		}
-	} else {
-		alpacaDada, err = convertAlpaca(sourceS3Url, logger, modelName)
-		if err != nil {
-			_ = level.Error(logger).Log("convertAlpaca", "convertAlpaca", "err", err.Error())
-			return "", errors.Wrap(err, "convertAlpaca")
-		}
 	}
+
 	_ = level.Info(logger).Log("msg", "alpacaDada", "msg", "转换完成")
 
 	// 将 *bytes.Reader 类型强制转换为 multipart.File 类型

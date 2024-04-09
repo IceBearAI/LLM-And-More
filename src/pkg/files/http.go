@@ -3,7 +3,6 @@ package files
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"github.com/IceBearAI/aigc/src/encode"
 	"github.com/IceBearAI/aigc/src/helpers/page"
 	"github.com/IceBearAI/aigc/src/middleware"
@@ -84,10 +83,10 @@ func decodeCreateFileRequest(ctx context.Context, r *http.Request) (interface{},
 			return nil, encode.ErrSystem.Wrap(errors.New("统计微调数据tokens错误"))
 		}
 		for scanner.Scan() {
-			var data MessagesWrapper
-			if err = json.Unmarshal(scanner.Bytes(), &data); err != nil {
-				return nil, encode.InvalidParams.Wrap(errors.New("微调数据格式错误，仅支持jsonl格式"))
-			}
+			//var data MessagesWrapper
+			//if err = json.Unmarshal(scanner.Bytes(), &data); err != nil {
+			//	return nil, encode.InvalidParams.Wrap(errors.New("微调数据格式错误，仅支持jsonl格式"))
+			//}
 			tokens += len(enc.Encode(string(scanner.Bytes()), nil, nil))
 			line++
 		}
