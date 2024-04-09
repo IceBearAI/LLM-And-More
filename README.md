@@ -126,6 +126,8 @@ jsonl)，并存入本地数据库中，在之后的训练、评估模块中一�
 
 [golang](https://github.com/golang/go)版本请安装go1.21以上版本
 
+设置代理: `export GOPROXY=https://goproxy.cn`
+
 - 安装依赖包: `go mod tidy`
 - 本地启动: `make run`
 - build成x86 Linux可执行文件: `make build-linux`
