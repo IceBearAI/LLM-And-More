@@ -200,5 +200,6 @@ else
     # 发生异常
     echo "执行失败!"
     # 调用API并传递错误信息
+    output="${output//$'\n'/}"
     curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"failed\", \"message\": \"${output}\"}"
 fi
