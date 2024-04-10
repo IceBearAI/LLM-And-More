@@ -19,12 +19,12 @@ fi
 
 # 调用Python脚本并捕获输出和退出状态
 output=$(python3 analyze_similar_questions_and_intents.py \
-  --model_name ${DATASET_ANALYZE_MODEL} \
+  --model_name "${DATASET_ANALYZE_MODEL}" \
   --similarity_threshold 0.91 \
   --intent_similarity_threshold 0.86 \
-  --dataset ${DATASET_FILE} \
-  --output_file ${DATASET_OUTPUT_FILE} \
-  --dataset_type ${DATASET_TYPE} 2>&1)
+  --dataset "${DATASET_FILE}" \
+  --output_file "${DATASET_OUTPUT_FILE}" \
+  --dataset_type "${DATASET_TYPE}" 2>&1)
 status=$?
 
 # 根据退出状态判断执行是否异常
@@ -37,14 +37,14 @@ if [ $status -eq 0 ]; then
 #    content=$(<"${DATASET_OUTPUT_FILE}")
     json_content=$(jq -c '.' "$DATASET_OUTPUT_FILE")
     new_json=$(jq -n --argjson content "$json_content" '{"status": "success", "data": $content}')
-    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "${new_json}"
+    curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "${new_json}"
 else
     # 发生异常
     echo "执行失败，错误信息："
     echo "${output}"
     job_status="failed"
     # 调用API并传递错误信息
-    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"${job_status}\", \"message\": \"${output}\"}"
+    curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"${job_status}\", \"message\": \"${output}\"}"
 fi
 
-rm -rf $DATASET_OUTPUT_FILE
+rm -rf "$DATASET_OUTPUT_FILE"

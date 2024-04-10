@@ -1,5 +1,21 @@
 #!/bin/bash
 
+# 自动注入以下环境变量，可以直接使用
+# - TENANT_ID: 租户ID
+# - JOB_ID: 任务ID
+# - AUTH: 授权码
+# - API_URL: 回调API地址
+# - HF_ENDPOINT: huggingface地址
+# - HF_HOME: huggingface家目录
+# - HTTP_PROXY: HTTP代理
+# - HTTPS_PROXY: HTTPS代理
+# - NO_PROXY: 不代理的地址
+# - GPUS_PER_NODE: 每个节点的GPU数量
+# - DATASET_PATH: 数据集路径
+# - EVALUATION_METRICS: 评估指标
+# - MAX_SEQ_LEN: 最大长度
+# - PER_DEVICE_BATCH_SIZE: 评估批次
+
 # Python脚本执行的参数
 EVAL_DIMENSIONS='["inference_ability", "reading_comprehension", "chinese_language_skill", "command_compliance", "innovation_capacity"]'
 OPTIONS='{"additional_parameters": {"max_seq_len": 512}}'
@@ -29,10 +45,10 @@ set_cuda_devices $GPUS_PER_NODE
 # 执行 Python 脚本并捕获输出和退出状态
 output=$(deepspeed  evaluate_model_from_five_dimensions.py \
   --model_name_or_path="${MODEL_PATH}" \
-  --gpu_nums $GPUS_PER_NODE \
+  --gpu_nums "$GPUS_PER_NODE" \
   --evaluation_dimensions="${EVAL_DIMENSIONS}" \
   --output_file ${DATASET_OUTPUT_FILE} \
-  --options="${OPTIONS}" 2>&1)
+  --options "${OPTIONS}" 2>&1)
 status=$?
 
 # 根据退出状态判断执行是否异常
@@ -45,14 +61,14 @@ if [ $status -eq 0 ]; then
 #    content=$(<"${DATASET_OUTPUT_FILE}")
     json_content=$(jq -c '.' "$DATASET_OUTPUT_FILE")
     new_json=$(jq -n --argjson content "$json_content" '{"status": "success", "data": $content}')
-    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "${new_json}"
+    curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "${new_json}"
 else
     # 发生异常
     echo "执行失败，错误信息："
     echo "${output}"
     job_status="failed"
     # 调用API并传递错误信息
-    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"${job_status}\", \"message\": \"${output}\"}"
+    curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"${job_status}\", \"message\": \"${output}\"}"
 fi
 
 rm -rf $DATASET_OUTPUT_FILE

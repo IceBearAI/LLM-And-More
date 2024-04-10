@@ -275,11 +275,17 @@ func (s *service) Create(ctx context.Context, req createRequest) (err error) {
 		Name:  "EVALUATION_METRICS", // 评估的指标
 		Value: data.EvalTargetType,
 	}, runtime.Env{
+		Name:  "GPUS_PER_NODE", // 评估的指标
+		Value: strconv.Itoa(req.Gpu),
+	}, runtime.Env{
 		Name:  "MAX_SEQ_LEN", // 最大长度
 		Value: strconv.Itoa(data.MaxLength),
 	}, runtime.Env{
 		Name:  "PER_DEVICE_BATCH_SIZE", // 评估批次
 		Value: strconv.Itoa(data.BatchSize),
+	}, runtime.Env{
+		Name:  "MODEL_NAME", // 评估批次
+		Value: modelInfo.ModelName,
 	})
 
 	for _, v := range envs {
