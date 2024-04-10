@@ -25,7 +25,7 @@ TENANT_ID="9d65d67f-acd1-47ec-8858-6e57361997b4"
 LOG_PATH="../../mnt/output_path/log.txt"
 
 # 调用Python脚本并捕获输出和退出状态
-output=$(python diagnosis_monitoring.py --log_path="${LOG_PATH}" 2>&1)
+output=$(python3 diagnosis_monitoring.py --log_path="${LOG_PATH}" 2>&1)
 status=$?
 
 # 根据退出状态判断执行是否异常

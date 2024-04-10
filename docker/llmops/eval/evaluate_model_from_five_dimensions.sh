@@ -44,9 +44,9 @@ set_cuda_devices $GPUS_PER_NODE
 
 # 执行 Python 脚本并捕获输出和退出状态
 output=$(deepspeed  evaluate_model_from_five_dimensions.py \
-  --model_name_or_path="${MODEL_PATH}" \
+  --model_name_or_path "${MODEL_PATH}" \
   --gpu_nums "$GPUS_PER_NODE" \
-  --evaluation_dimensions="${EVAL_DIMENSIONS}" \
+  --evaluation_dimensions "${EVAL_DIMENSIONS}" \
   --output_file ${DATASET_OUTPUT_FILE} \
   --options "${OPTIONS}" 2>&1)
 status=$?

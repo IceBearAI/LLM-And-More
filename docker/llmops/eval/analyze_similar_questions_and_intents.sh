@@ -24,7 +24,7 @@ output=$(python3 analyze_similar_questions_and_intents.py \
   --intent_similarity_threshold 0.86 \
   --dataset "${DATASET_FILE}" \
   --output_file "${DATASET_OUTPUT_FILE}" \
-  --dataset_type "${DATASET_TYPE}" 2>&1)
+  --dataset_type "${DATASET_TYPE}")
 status=$?
 
 # 根据退出状态判断执行是否异常

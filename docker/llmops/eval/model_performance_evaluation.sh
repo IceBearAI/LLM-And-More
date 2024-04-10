@@ -62,7 +62,7 @@ output=$(deepspeed model_performance_evaluation.py \
   --max_seq_len "${MAX_SEQ_LEN}" \
   --per_device_batch_size "${PER_DEVICE_BATCH_SIZE}" \
   --gpu_nums "$GPUS_PER_NODE"  \
-  --output_path "${OUTPUT_PATH}" 2>&1)
+  --output_path "${OUTPUT_PATH}")
 status=$?
 
 # 根据退出状态判断执行是否异常
