@@ -49,8 +49,8 @@ def get_value_based_on_key(map_dict, model_name_or_path):
     # 如果没有找到匹配项，返回None
     return None
 
-def log_info(epoch, step, loss, learning_rate):
-    return {'loss': loss,'Step': step, 'learning_rate': learning_rate, 'epoch': epoch}
+def log_info(Rank,epoch, step, loss, learning_rate):
+    return {'rank': Rank,'loss': loss,'Step': step, 'learning_rate': learning_rate, 'epoch': epoch}
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -457,7 +457,7 @@ def main():
             outputs = model(**batch, use_cache=False)
             loss = outputs.loss
             learning_rate = model.optimizer.param_groups[0]['lr']
-            log_data = log_info(epoch, step, loss.item(), learning_rate)
+            log_data = log_info(args.global_rank,epoch, step, loss.item(), learning_rate)
             print_rank_0(log_data)
             # if args.print_loss:
             #     print_rank_0(
