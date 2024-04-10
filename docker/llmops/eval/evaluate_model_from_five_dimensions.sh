@@ -48,7 +48,7 @@ output=$(deepspeed  evaluate_model_from_five_dimensions.py \
   --gpu_nums "$GPUS_PER_NODE" \
   --evaluation_dimensions "${EVAL_DIMENSIONS}" \
   --output_file ${DATASET_OUTPUT_FILE} \
-  --options "${OPTIONS}" 2>&1)
+  --options "${OPTIONS}")
 status=$?
 
 # 根据退出状态判断执行是否异常
