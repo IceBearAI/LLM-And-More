@@ -109,16 +109,26 @@ function download_file {
 }
 
 download_file "$TRAIN_FILE" "$TRAIN_LOCAL_FILE"
-download_file "$EVAL_FILE" "$EVAL_LOCAL_FILE"
+if [[ -n "$EVAL_FILE" ]]; then
+    download_file "$EVAL_FILE" "$EVAL_LOCAL_FILE"
+else
+    echo "EVAL_FILE is empty. Skipping download."
+fi
 
 if [ "$SCENARIO" == "general" ]; then
   GENERAL_DATA_PATH=/data/train-data/formatted_datasets
   mkdir -p $GENERAL_DATA_PATH
 
-  python3 jsonl_to_arrow_format.py \
-    --train_path "$TRAIN_LOCAL_FILE" \
-    --test_path "$EVAL_LOCAL_FILE" \
-    --output_path "$GENERAL_DATA_PATH"
+  if [[ -e "$EVAL_LOCAL_FILE" ]]; then
+      python3 jsonl_to_arrow_format.py \
+          --train_path "$TRAIN_LOCAL_FILE" \
+          --test_path "$EVAL_LOCAL_FILE" \
+          --output_path "$GENERAL_DATA_PATH"
+  else
+      python3 jsonl_to_arrow_format.py \
+          --train_path "$TRAIN_LOCAL_FILE" \
+          --output_path "$GENERAL_DATA_PATH"
+  fi
 
 #  output=$(torchrun $DISTRIBUTED_ARGS {{.ScriptFile}} \
 #  output=$(deepspeed --include localhost:$CUDA_VISIBLE_DEVICES {{.ScriptFile}} \
