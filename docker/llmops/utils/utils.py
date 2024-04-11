@@ -97,6 +97,8 @@ def save_hf_format(model, tokenizer, args, sub_folder=""):
     torch.save(save_dict, output_model_file)
     model_to_save.config.to_json_file(output_config_file)
     tokenizer.save_vocabulary(output_dir)
+    model_to_save.config.save_pretrained(output_dir)
+    tokenizer.save_pretrained(output_dir)
 
 
 def set_random_seed(seed):
