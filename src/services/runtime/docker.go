@@ -257,6 +257,13 @@ func NewDocker(opts ...CreationOption) Service {
 		opt(options)
 	}
 	dockerCli, _ := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	//images, _ := dockerCli.ImageSearch(context.Background(), "dudulu/fschat:latest", types.ImageSearchOptions{})
+	//if len(images) == 0 {
+	//	_, err := dockerCli.ImagePull(context.Background(), "dudulu/fschat:latest", types.ImagePullOptions{})
+	//	if err != nil {
+	//		fmt.Println(err)
+	//	}
+	//}
 	return &docker{
 		options:   options,
 		dockerCli: dockerCli,
