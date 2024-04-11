@@ -443,8 +443,8 @@ def main():
             f"Beginning of Epoch {epoch+1}/{args.num_train_epochs}, Total Micro Batches {len(train_dataloader)}",
             args.global_rank)
         # 如果第一个epoch开始，启动TensorBoard服务
-        if epoch == 0 and args.global_rank == 0:
-            start_tensorboard(args)
+#         if epoch == 0 and args.global_rank == 0:
+#             start_tensorboard(args)
         model.train()
         rounds = len(train_dataloader)
         for step, batch in enumerate(train_dataloader):
