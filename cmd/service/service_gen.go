@@ -87,7 +87,6 @@ python3 -m $MODEL_WORKER --host 0.0.0.0 --port $HTTP_PORT \
     $MODEL_PATH $QUANTIZATION $NUM_GPUS $MAX_GPU_MEMORY $DEVICE_OPTION
 `
 	shellTrain = `#!/bin/bash
-
 # 自动注入以下环境变量，可以直接使用
 # - TENANT_ID: 租户ID
 # - JOB_ID: 任务ID
@@ -113,102 +112,196 @@ python3 -m $MODEL_WORKER --host 0.0.0.0 --port $HTTP_PORT \
 # - SCENARIO: 应用场景
 # - TRAIN_FILE: 训练文件URL或路径
 # - EVAL_FILE: 验证文件URL或路径
-
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
-NNODES=1
-NODE_RANK=0
-MASTER_ADDR=localhost
-MASTER_PORT=19090
-Q_LORA=False
+JOB_STATUS="success"
+JOB_MESSAGE=""
 
-DS_CONFIG_PATH="ds_config_zero3.json"
+function callback() {
+  # 根据退出状态判断执行是否异常
+  if [ $JOB_STATUS -eq 0 ]; then
+      # 没有发生异常，正常输出内容
+      echo "执行成功!"
+      echo "${API_URL}"
+      # 调用API并传递输出内容
+      curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"success\"}"
+  else
+      # 发生异常
+      echo "执行失败!"
+      # 调用API并传递错误信息
+#      JOB_MESSAGE="${JOB_MESSAGE//$'\n'/}"
+#      JOB_MESSAGE="${JOB_MESSAGE//$'\n'/}"
+      JOB_MESSAGE=$(jq -n --arg content "$JOB_MESSAGE" '{"status": "failed", "message": $content}')
+      curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "$JOB_MESSAGE"
+  fi
+}
 
-if [ -n "$BASE_MODEL_PATH" ]; then
-	BASE_MODEL=$BASE_MODEL_PATH
+function set_cuda_devices {
+    # 验证输入是否为空
+    if [ -z "$1" ]; then
+        echo "Error: No argument provided."
+        echo "Usage: set_cuda_devices <number_of_gpus>"
+        exit 1
+    fi
+
+    if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+        echo "Error: Invalid argument. Please provide a positive integer."
+        exit 1
+    fi
+
+    # 使用循环动态构建
+    devices=$(printf ",%d" $(seq 0 $(($1-1)) | sed 's/ //g'))
+    export CUDA_VISIBLE_DEVICES=${devices:1}
+}
+set_cuda_devices $GPUS_PER_NODE
+
+
+LORA_MODULE_NAME=''
+MODENAME=$(echo "$BASE_MODEL_NAME" | tr '[:upper:]' '[:lower:]')
+case $MODENAME in
+    *'llama2'*)
+        LORA_MODULE_NAME='gate_proj,down_proj,up_proj'
+        MODENAME='llama2'
+        ;;
+    *'baichuan2'*)
+        LORA_MODULE_NAME='W_pack'
+        MODENAME='baichuan2_13b'
+        ;;
+    *'glm3'*)
+        LORA_MODULE_NAME='query_key_value,dense_h_to_4h,dense_4h_to_h,dense'
+        MODENAME='glm3'
+        ;;
+    *'glm2'*)
+        LORA_MODULE_NAME='gate_proj,down_proj,up_proj'
+        MODENAME='glm2'
+        ;;
+    *'glm'*)
+        LORA_MODULE_NAME='gate_proj,down_proj,up_proj'
+        MODENAME='glm'
+        ;;
+    *'qwen1.5'*)
+        LORA_MODULE_NAME='q_proj,k_proj,v_proj,o_proj,up_proj,gate_proj,down_proj'
+        MODENAME='qwen1.5'
+        ;;
+    *)
+        MODENAME='auto'
+        echo "未知模型名称"
+        ;;
+esac
+
+if [ "$USE_LORA" = true ]; then
+    TRAIN_TYPE="lora"
+    ZERO_STAGE=2
+    DS_FILE=faq/ds_zero2_no_offload.json
 else
-	BASE_MODEL=$BASE_MODEL_NAME
+    TRAIN_TYPE="all"
+    ZERO_STAGE=3
+    DS_FILE=faq/ds_zero3_offload.json
 fi
 
-DISTRIBUTED_ARGS="
-    --nproc_per_node $GPUS_PER_NODE \
-    --nnodes $NNODES \
-    --node_rank $NODE_RANK \
-    --master_addr $MASTER_ADDR \
-    --master_port $MASTER_PORT
-"
-if [ "$USE_LORA" == "true" ]; then
-    USE_LORA=True
-    DS_CONFIG_PATH="ds_config_zero2.json"
-else
-    USE_LORA=False
-    DS_CONFIG_PATH="ds_config_zero3.json"
-fi
-
-mkdir -p /data/train-data/
-
-TRAIN_LOCAL_FILE=/data/train-data/train-${JOB_ID}
-EVAL_LOCAL_FILE=/data/train-data/eval-${JOB_ID}
-
-# 判断如果 DATASET_PATH 是url，则下载文件
 URL_REGEX="^(http|https)://"
+mkdir -p /data/train-data/
+TRAIN_LOCAL_FILE=/data/train-data/train-${JOB_ID}.jsonl
+EVAL_LOCAL_FILE=/data/train-data/eval-${JOB_ID}.jsonl
 
-if [ $TRAIN_FILE =~ $URL_REGEX ]; then
-    echo "The path is a URL. Starting download..."
-    wget -O $TRAIN_LOCAL_FILE "$TRAIN_FILE"
-else
-    TRAIN_LOCAL_FILE=$TRAIN_FILE
+function download_file {
+    if [[ "$1" =~ $URL_REGEX ]]; then
+        echo "The path is a URL. Starting download..."
+        wget -O $2 "$1"
+    else
+        echo "File path is local. No download needed."
+        cp "$1" "$2"
+    fi
+}
+
+download_file "$TRAIN_FILE" "$TRAIN_LOCAL_FILE"
+
+if [ "$EVAL_FILE" != "" ]; then
+  download_file "$EVAL_FILE" "$EVAL_LOCAL_FILE"
 fi
 
-if [ $EVAL_FILE =~ $URL_REGEX ]; then
-    echo "The path is a URL. Starting download..."
-    wget -O $EVAL_LOCAL_FILE "$EVAL_FILE"
+temp_file=$(mktemp)
+
+if [ "$SCENARIO" == "general" ]; then
+  GENERAL_DATA_PATH=/data/train-data/formatted_datasets
+  mkdir -p $GENERAL_DATA_PATH
+
+  python3 jsonl_to_arrow_format.py \
+    --train_path "$TRAIN_LOCAL_FILE" \
+    --test_path "$EVAL_LOCAL_FILE" \
+    --output_path "$GENERAL_DATA_PATH"
+
+#  output=$(torchrun $DISTRIBUTED_ARGS {{.ScriptFile}} \
+#  output=$(deepspeed --include localhost:$CUDA_VISIBLE_DEVICES {{.ScriptFile}} \
+  deepspeed /app/llmops_deepspeed_main.py \
+      --data_path $GENERAL_DATA_PATH \
+      --data_output_path $OUTPUT_DIR/data_output \
+      --data_split 9,1,0 \
+      --model_name_or_path $BASE_MODEL_PATH \
+      --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
+      --per_device_eval_batch_size $PER_DEVICE_EVAL_BATCH_SIZE \
+      --max_seq_len $MODEL_MAX_LENGTH \
+      --learning_rate $LEARNING_RATE \
+      --weight_decay 0. \
+      --num_train_epochs $NUM_TRAIN_EPOCHS  \
+      --train_type $TRAIN_TYPE \
+      --lora_dim 2 \
+      --lora_module_name $LORA_MODULE_NAME \
+      --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
+      --lr_scheduler_type cosine \
+      --num_warmup_steps 0 \
+      --seed 42 \
+      --gradient_checkpointing \
+      --zero_stage $ZERO_STAGE \
+      --deepspeed \
+      --print_loss \
+      --output_dir $OUTPUT_DIR \
+      --start_from_step -1 \
+      --save_per_steps 100  > >(tee "$temp_file") 2>&1
+elif [ "$SCENARIO" == "faq" ]; then
+  formatted_datasets_path=/data/train-data/faq_formatted_datasets
+  mkdir -p "$formatted_datasets_path"
+
+  python3 /app/convert_new_format.py \
+      --train_path $TRAIN_LOCAL_FILE \
+      --test_path $EVAL_LOCAL_FILE \
+      --output_path "$formatted_datasets_path"
+
+#  output=$(deepspeed {{.ScriptFile}}  \
+  deepspeed /app/faq/faq_train.py \
+      --train_path "$formatted_datasets_path/train_dataset.jsonl" \
+      --model_name_or_path $BASE_MODEL_PATH \
+      --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
+      --max_len $MODEL_MAX_LENGTH \
+      --max_src_len 128 \
+      --learning_rate $LEARNING_RATE \
+      --weight_decay 0.1 \
+      --num_train_epochs 2 \
+      --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
+      --warmup_ratio 0.1 \
+      --mode $MODENAME \
+      --train_type $TRAIN_TYPE \
+      --lora_module_name $LORA_MODULE_NAME \
+      --lora_dim 4 \
+      --lora_alpha 64 \
+      --lora_dropout 0.1 \
+      --seed 1234 \
+      --ds_file $DS_FILE \
+      --gradient_checkpointing \
+      --show_loss_step 10 \
+      --output_dir $OUTPUT_DIR  > >(tee "$temp_file") 2>&1
+
+elif [ "$SCENARIO" == "rag" ]; then
+
+  pass
+
 else
-    EVAL_LOCAL_FILE=$EVAL_FILE
+  echo "Invalid scenario selection!"
 fi
 
-output=$(torchrun $DISTRIBUTED_ARGS /app/finetune.py \
-    --model_name_or_path $BASE_MODEL \
-    --data_path $TRAIN_LOCAL_FILE \
-    --bf16 True \
-    --output_dir $OUTPUT_DIR \
-    --num_train_epochs $NUM_TRAIN_EPOCHS \
-    --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
-    --per_device_eval_batch_size $PER_DEVICE_EVAL_BATCH_SIZE \
-    --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
-    --evaluation_strategy "no" \
-    --save_strategy "steps" \
-    --save_steps 1000 \
-    --save_total_limit 10 \
-    --learning_rate $LEARNING_RATE \
-    --weight_decay 0.1 \
-    --adam_beta2 0.95 \
-    --warmup_ratio 0.01 \
-    --lr_scheduler_type "cosine" \
-    --logging_steps 1 \
-    --report_to "none" \
-    --model_max_length $MODEL_MAX_LENGTH \
-    --gradient_checkpointing True \
-    --lazy_preprocess True \
-    --use_lora ${USE_LORA} \
-    --q_lora ${Q_LORA} \
-    --deepspeed $DS_CONFIG_PATH)
-
-status=$?
-
-# 根据退出状态判断执行是否异常
-if [ $status -eq 0 ]; then
-    # 没有发生异常，正常输出内容
-    echo "执行成功!"
-    echo "${output}"
-    # 调用API并传递输出内容
-    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"success\"}"
-else
-    # 发生异常
-    echo "执行失败!"
-    # 调用API并传递错误信息
-    curl -X PUT ${API_URL} -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"failed\", \"message\": \"${output}\"}"
-fi
+JOB_STATUS=$?
+JOB_MESSAGE=$(<"$temp_file")
+callback
 `
 
 	generateCmd = &cobra.Command{

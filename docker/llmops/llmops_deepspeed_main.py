@@ -49,6 +49,8 @@ def get_value_based_on_key(map_dict, model_name_or_path):
     # 如果没有找到匹配项，返回None
     return None
 
+def log_info(Rank,epoch, step, loss, learning_rate):
+    return {'rank': Rank,'loss': loss,'Step': step, 'learning_rate': learning_rate, 'epoch': epoch}
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -441,8 +443,8 @@ def main():
             f"Beginning of Epoch {epoch+1}/{args.num_train_epochs}, Total Micro Batches {len(train_dataloader)}",
             args.global_rank)
         # 如果第一个epoch开始，启动TensorBoard服务
-        if epoch == 0 and args.global_rank == 0:
-            start_tensorboard(args)
+#         if epoch == 0 and args.global_rank == 0:
+#             start_tensorboard(args)
         model.train()
         rounds = len(train_dataloader)
         for step, batch in enumerate(train_dataloader):
@@ -454,10 +456,13 @@ def main():
             batch = to_device(batch, device)
             outputs = model(**batch, use_cache=False)
             loss = outputs.loss
-            if args.print_loss:
-                print_rank_0(
-                    f"Epoch: {epoch}, Step: {step}, Rank: {torch.distributed.get_rank()}, loss = {loss}"
-                )
+            learning_rate = model.optimizer.param_groups[0]['lr']
+            log_data = log_info(args.global_rank,epoch, step, loss.item(), learning_rate)
+            print_rank_0(log_data)
+            # if args.print_loss:
+            #     print_rank_0(
+            #         f"Epoch: {epoch}, Step: {step}, Rank: {torch.distributed.get_rank()}, loss = {loss}"
+            #     )
             model.backward(loss)
             model.step()
             end = time.time()

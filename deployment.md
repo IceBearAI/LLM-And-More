@@ -142,6 +142,8 @@ $ docker run -d --network host -p 8000:8000 -it dudulu/fschat:v0.2.36 python3 -m
 
 会在`AIGC_RUNTIME_DOCKER_WORKSPACE`下的`aigc-data-cfs`目录
 
+**注意：需要提前将模型下载到 `AIGC_RUNTIME_DOCKER_WORKSPACE` 所指定的目录下**
+
 可以通过环境变量或命令行传参：
 
 #### 使用环境变量

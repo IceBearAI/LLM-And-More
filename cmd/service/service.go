@@ -10,6 +10,7 @@ import (
 	"github.com/IceBearAI/aigc/src/services/fastchat"
 	"github.com/IceBearAI/aigc/src/services/ldapcli"
 	runtime2 "github.com/IceBearAI/aigc/src/services/runtime"
+	"github.com/IceBearAI/aigc/src/util"
 	"github.com/sashabaranov/go-openai"
 	gormlogger "gorm.io/gorm/logger"
 	"net"
@@ -608,7 +609,94 @@ func prepare(ctx context.Context) error {
 		RuntimePlatform: runtimePlatform,
 	}, clientOpts)
 
+	// 如果是docker来台，查询fschat-controller 和 fschat-api是否启动，如果没有则创建
+	if strings.EqualFold(runtimePlatform, "docker") {
+		if fschatErr := runFastChat(ctx); fschatErr != nil {
+			_ = level.Warn(logger).Log("fschat", "run", "err", fschatErr)
+		}
+	}
+
 	return err
+}
+
+func runFastChat(ctx context.Context) (err error) {
+	status, err := apiSvc.Runtime().GetDeploymentStatus(ctx, "fschat-controller")
+	if err != nil {
+		_ = level.Error(logger).Log("fschat-controller", "status", "err", err)
+		return err
+	}
+	_ = level.Info(logger).Log("fschat-controller", "status", status)
+	if !util.StringInArray([]string{
+		"Failed",
+		"Unknown",
+	}, status) {
+		_ = level.Info(logger).Log("fschat-controller", "status", "running", true)
+		return
+	}
+
+	// 创建fschat-controller
+	deploymentName, err := apiSvc.Runtime().CreateDeployment(ctx, runtime2.Config{
+		ServiceName: "fschat-controller",
+		Image:       "dudulu/fschat:latest",
+		Command: []string{
+			"python3",
+			"-m",
+			"fastchat.serve.controller",
+			"--host",
+			"0.0.0.0",
+			"--port",
+			"21001",
+		},
+		Ports: map[string]string{
+			"21001": "21001",
+		},
+		Replicas: 1,
+	})
+	if err != nil {
+		_ = level.Error(logger).Log("fschat-controller", "create", "err", err)
+		return err
+	}
+
+	_ = level.Info(logger).Log("fschat-controller", "create", "success", deploymentName)
+	status, err = apiSvc.Runtime().GetDeploymentStatus(ctx, "fschat-api")
+	if err != nil {
+		_ = level.Error(logger).Log("fschat-api", "status", "err", err)
+		return err
+	}
+	_ = level.Info(logger).Log("fschat-api", "status", status)
+	if !util.StringInArray([]string{
+		"Failed",
+		"Unknown",
+	}, status) {
+		_ = level.Info(logger).Log("fschat-api", "status", "running", true)
+	}
+	// 创建fschat-api
+	deploymentName, err = apiSvc.Runtime().CreateDeployment(ctx, runtime2.Config{
+		ServiceName: "fschat-api",
+		Image:       "dudulu/fschat:latest",
+		Command: []string{
+			"python3",
+			"-m",
+			"fastchat.serve.openai_api_server",
+			"--host",
+			"0.0.0.0",
+			"--port",
+			"8000",
+			"--controller-address",
+			"http://$(hostname -I | awk '{print $1}'):21001",
+		},
+		Ports: map[string]string{
+			"8000": "8000",
+		},
+		Replicas: 1,
+	})
+	if err != nil {
+		_ = level.Error(logger).Log("fschat-api", "create", "err", err)
+		return err
+	}
+
+	_ = level.Info(logger).Log("fschat-api", "create", "success", deploymentName)
+	return
 }
 
 func Run() {

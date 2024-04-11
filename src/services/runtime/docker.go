@@ -3,14 +3,14 @@ package runtime
 import (
 	"context"
 	"fmt"
-	"io"
-	"path/filepath"
-	"strings"
-
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
+	"io"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"path/filepath"
+	"strings"
 )
 
 // WithWorkspace returns a CreationOption that sets the workspace.
@@ -33,7 +33,7 @@ type docker struct {
 	createOptions CreationOptions
 }
 
-func (s docker) CreateJob(ctx context.Context, config Config) (jobName string, err error) {
+func (s *docker) CreateJob(ctx context.Context, config Config) (jobName string, err error) {
 	_ = s.RemoveJob(ctx, config.ServiceName)
 
 	exposedPorts := make(nat.PortSet)
@@ -81,6 +81,14 @@ func (s docker) CreateJob(ctx context.Context, config Config) (jobName string, e
 		ExposedPorts: exposedPorts,
 	}
 
+	// s.createOptions.shmSizes.createOptions.shmSize
+	defaultShmSize := s.options.shmSize
+	if defaultShmSize == "" {
+		defaultShmSize = "4G"
+	}
+	parse := resource.MustParse(defaultShmSize)
+	shmSize := parse.Value()
+
 	hcf := &container.HostConfig{
 		PortBindings: hostPortBindings,
 		Resources: container.Resources{
@@ -89,7 +97,8 @@ func (s docker) CreateJob(ctx context.Context, config Config) (jobName string, e
 		},
 		NetworkMode: "host",
 		//Mounts: hostMount,
-		Binds: hostBinds,
+		Binds:   hostBinds,
+		ShmSize: shmSize,
 	}
 	var dr []container.DeviceRequest
 	if config.GPU != 0 {
@@ -126,7 +135,7 @@ func (s docker) CreateJob(ctx context.Context, config Config) (jobName string, e
 	return config.ServiceName, nil
 }
 
-func (s docker) getContainerGpuNum(ctx context.Context) (gpuNum []string, err error) {
+func (s *docker) getContainerGpuNum(ctx context.Context) (gpuNum []string, err error) {
 	containers, err := s.dockerCli.ContainerList(ctx, container.ListOptions{})
 	if err != nil {
 		err = errors.Wrap(err, "ContainerList err")
@@ -159,8 +168,6 @@ func (s docker) getContainerGpuNum(ctx context.Context) (gpuNum []string, err er
 		}
 	}
 
-	fmt.Println("availableGPUs", availableGPUs)
-
 	return availableGPUs, nil
 }
 
@@ -174,12 +181,12 @@ func replacerServiceName(name string) string {
 	return replacer.Replace(name)
 }
 
-func (s docker) CreateDeployment(ctx context.Context, config Config) (deploymentName string, err error) {
+func (s *docker) CreateDeployment(ctx context.Context, config Config) (deploymentName string, err error) {
 	config.ServiceName = replacerServiceName(config.ServiceName)
 	return s.CreateJob(ctx, config)
 }
 
-func (s docker) GetDeploymentLogs(ctx context.Context, id string) (log string, err error) {
+func (s *docker) GetDeploymentLogs(ctx context.Context, id string) (log string, err error) {
 	out, err := s.dockerCli.ContainerLogs(ctx, id, container.LogsOptions{
 		ShowStderr: true,
 		ShowStdout: true,
@@ -197,11 +204,11 @@ func (s docker) GetDeploymentLogs(ctx context.Context, id string) (log string, e
 	return string(b), nil
 }
 
-func (s docker) GetJobLogs(ctx context.Context, id string) (log string, err error) {
+func (s *docker) GetJobLogs(ctx context.Context, id string) (log string, err error) {
 	return s.GetDeploymentLogs(ctx, id)
 }
 
-func (s docker) GetJobStatus(ctx context.Context, jobName string) (status string, err error) {
+func (s *docker) GetJobStatus(ctx context.Context, jobName string) (status string, err error) {
 	cJson, err := s.dockerCli.ContainerInspect(ctx, jobName)
 	if err != nil {
 		err = fmt.Errorf("ContainerInspect err: %s", err.Error())
@@ -223,17 +230,12 @@ func (s docker) GetJobStatus(ctx context.Context, jobName string) (status string
 	return status, nil
 }
 
-func (s docker) GetDeploymentStatus(ctx context.Context, deploymentName string) (status string, err error) {
+func (s *docker) GetDeploymentStatus(ctx context.Context, deploymentName string) (status string, err error) {
 	return s.GetJobStatus(ctx, deploymentName)
 }
 
-func (s docker) RemoveJob(ctx context.Context, jobName string) (err error) {
-	timeout := 60
-	err = s.dockerCli.ContainerStop(ctx, jobName, container.StopOptions{
-		Timeout: &timeout,
-		Signal:  "SIGKILL",
-	})
-	if err != nil {
+func (s *docker) RemoveJob(ctx context.Context, jobName string) (err error) {
+	if err = s.dockerCli.ContainerKill(ctx, jobName, "SIGKILL"); err != nil {
 		err = errors.Wrap(err, "ContainerStop err")
 	}
 
@@ -241,7 +243,7 @@ func (s docker) RemoveJob(ctx context.Context, jobName string) (err error) {
 	return errors.Wrap(err, "ContainerRemove err")
 }
 
-func (s docker) RemoveDeployment(ctx context.Context, deploymentName string) (err error) {
+func (s *docker) RemoveDeployment(ctx context.Context, deploymentName string) (err error) {
 	deploymentName = replacerServiceName(deploymentName)
 	return s.RemoveJob(ctx, deploymentName)
 }
@@ -255,6 +257,13 @@ func NewDocker(opts ...CreationOption) Service {
 		opt(options)
 	}
 	dockerCli, _ := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	//images, _ := dockerCli.ImageSearch(context.Background(), "dudulu/fschat:latest", types.ImageSearchOptions{})
+	//if len(images) == 0 {
+	//	_, err := dockerCli.ImagePull(context.Background(), "dudulu/fschat:latest", types.ImagePullOptions{})
+	//	if err != nil {
+	//		fmt.Println(err)
+	//	}
+	//}
 	return &docker{
 		options:   options,
 		dockerCli: dockerCli,
