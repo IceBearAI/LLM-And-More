@@ -41,8 +41,10 @@ function callback() {
       # 发生异常
       echo "执行失败!"
       # 调用API并传递错误信息
-      JOB_MESSAGE="${JOB_MESSAGE//$'\n'/}"
-      curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"failed\", \"message\": \"${JOB_MESSAGE}\"}"
+#      JOB_MESSAGE="${JOB_MESSAGE//$'\n'/}"
+#      JOB_MESSAGE="${JOB_MESSAGE//$'\n'/}"
+      JOB_MESSAGE=$(jq -n --arg content "$JOB_MESSAGE" '{"status": "failed", "message": $content}')
+      curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "$JOB_MESSAGE"
   fi
 }
 
