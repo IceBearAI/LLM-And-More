@@ -329,7 +329,7 @@ func (c Config) GenContainers() (res []v1.Container, err error) {
 		}
 
 		ports = append(ports, v1.ContainerPort{
-			Name:          k,
+			Name:          fmt.Sprintf("port-%s", k),
 			ContainerPort: int32(containerPort),
 			HostPort:      int32(hostPort),
 			Protocol:      v1.ProtocolTCP,
