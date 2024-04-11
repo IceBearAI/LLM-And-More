@@ -335,7 +335,7 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		Name:  "QUANTIZATION",
 		Value: request.Quantization,
 	}, runtime.Env{
-		Name:  "GPUS_PER_NODE",
+		Name:  "NUM_GPUS",
 		Value: strconv.Itoa(request.Gpu),
 	}, runtime.Env{
 		Name:  "MAX_GPU_MEMORY",

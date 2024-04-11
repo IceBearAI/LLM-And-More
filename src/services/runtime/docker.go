@@ -6,6 +6,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -228,14 +229,18 @@ func (s docker) GetDeploymentStatus(ctx context.Context, deploymentName string) 
 }
 
 func (s docker) RemoveJob(ctx context.Context, jobName string) (err error) {
-	timeout := 60
-	err = s.dockerCli.ContainerStop(ctx, jobName, container.StopOptions{
-		Timeout: &timeout,
-		Signal:  "SIGKILL",
-	})
-	if err != nil {
+	//timeout := 60
+	if err = s.dockerCli.ContainerKill(ctx, jobName, "SIGKILL"); err != nil {
 		err = errors.Wrap(err, "ContainerStop err")
 	}
+	time.Sleep(2 * time.Second)
+	//err = s.dockerCli.ContainerStop(ctx, jobName, container.StopOptions{
+	//	Timeout: &timeout,
+	//	Signal:  "SIGKILL",
+	//})
+	//if err != nil {
+	//	err = errors.Wrap(err, "ContainerStop err")
+	//}
 
 	err = s.dockerCli.ContainerRemove(ctx, jobName, container.RemoveOptions{})
 	return errors.Wrap(err, "ContainerRemove err")
