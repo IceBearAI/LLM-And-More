@@ -109,7 +109,7 @@ func cronStart(ctx context.Context, args []string) (err error) {
 			}
 			_ = level.Info(logger).Log("msg", "add cron job success", "entryID", entryID, "name", "finetuning.run-waiting-train")
 		case "finetuning.running-log":
-			entryID, err := crontab.AddJob("0 0/1 * * * *", &fineTuningRunningLogCronJob{
+			entryID, err := crontab.AddJob("0/20 * * * * *", &fineTuningRunningLogCronJob{
 				fineTuning: fineTuningSvc,
 				logger:     log.With(logger, "cron", "finetuning.running-log"),
 				Name:       "finetuning.running-log",
