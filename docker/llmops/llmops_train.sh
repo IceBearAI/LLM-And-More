@@ -47,13 +47,21 @@ function callback() {
 }
 
 function set_cuda_devices {
-    case $1 in
-        1) export CUDA_VISIBLE_DEVICES=0 ;;
-        2) export CUDA_VISIBLE_DEVICES=0,1 ;;
-        4) export CUDA_VISIBLE_DEVICES=0,1,2,3 ;;
-        8) export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 ;;
-        *) echo "Invalid GPUS_PER_NODE!" ; exit 1 ;;
-    esac
+    # 验证输入是否为空
+    if [ -z "$1" ]; then
+        echo "Error: No argument provided."
+        echo "Usage: set_cuda_devices <number_of_gpus>"
+        exit 1
+    fi
+
+    if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+        echo "Error: Invalid argument. Please provide a positive integer."
+        exit 1
+    fi
+
+    # 使用循环动态构建
+    devices=$(printf ",%d" $(seq 0 $(($1-1)) | sed 's/ //g'))
+    export CUDA_VISIBLE_DEVICES=${devices:1}
 }
 set_cuda_devices $GPUS_PER_NODE
 
