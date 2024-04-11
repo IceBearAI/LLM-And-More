@@ -458,6 +458,7 @@ def main():
             loss = outputs.loss
             learning_rate = model.optimizer.param_groups[0]['lr']
             log_data = log_info(args.global_rank,epoch, step, loss.item(), learning_rate)
+            print_rank_0(log_data)
             # if args.print_loss:
             #     print_rank_0(
             #         f"Epoch: {epoch}, Step: {step}, Rank: {torch.distributed.get_rank()}, loss = {loss}"
@@ -466,7 +467,6 @@ def main():
             model.step()
             end = time.time()
             print_rank_0(f'finished step {step}, used {end-start} seconds.')
-            print_rank_0(log_data)
             # if torch.distributed.get_rank() == 0:
             #     print_throughput(model.module, args, end - start,
             #                      args.global_rank)
