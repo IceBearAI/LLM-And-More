@@ -29,13 +29,11 @@ python3 analyze_similar_questions_and_intents.py \
 status=$?
 
 output=$(<"$temp_file")
-output=$(echo "$output" | sed 's/"/\\"/g')
 
 # 根据退出状态判断执行是否异常
 if [ $status -eq 0 ]; then
     # 没有发生异常，正常输出内容
-    echo "执行成功，输出内容："
-    job_status="success"
+    echo "执行成功"
     # 调用API并传递输出内容
 #    content=$(<"${DATASET_OUTPUT_FILE}")
     json_content=$(jq -c '.' "$DATASET_OUTPUT_FILE")
@@ -43,10 +41,10 @@ if [ $status -eq 0 ]; then
     curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "${new_json}"
 else
     # 发生异常
-    echo "执行失败，错误信息："
-    job_status="failed"
+    echo "执行失败"
+    output=$(jq -n --arg content "$output" '{"status": "failed", "message": $content}')
     # 调用API并传递错误信息
-    curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"${job_status}\", \"message\": \"${output}\"}"
+    curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "$output"
 fi
 
 rm -rf "$DATASET_OUTPUT_FILE"
