@@ -86,10 +86,12 @@ def save_hf_format(model, tokenizer, args, sub_folder=""):
     model_to_save = model.module if hasattr(model, 'module') else model
     CONFIG_NAME = "config.json"
     WEIGHTS_NAME = "pytorch_model.bin"
+    GENERATION_NAME = "generation_config.json"
     output_dir = os.path.join(args.output_dir, sub_folder)
     os.makedirs(output_dir, exist_ok=True)
     output_model_file = os.path.join(output_dir, WEIGHTS_NAME)
     output_config_file = os.path.join(output_dir, CONFIG_NAME)
+    output_generation_file = os.path.join(output_dir, GENERATION_NAME)
     save_dict = model_to_save.state_dict()
     for key in list(save_dict.keys()):
         if "lora" in key:
@@ -97,8 +99,10 @@ def save_hf_format(model, tokenizer, args, sub_folder=""):
     torch.save(save_dict, output_model_file)
     model_to_save.config.to_json_file(output_config_file)
     tokenizer.save_vocabulary(output_dir)
-    model_to_save.config.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
+    # 从模型配置中获取生成配置文件
+    model_to_save.generation_config.to_json_file(output_generation_file)
+    # model_to_save.generation_config.save_pretrained(output_dir)
 
 
 def set_random_seed(seed):
