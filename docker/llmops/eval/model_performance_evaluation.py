@@ -175,6 +175,9 @@ def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq
 
         batch_scores = []
         for reference, answer in zip(batch_references, batch_answers):
+            if not reference or not answer:
+                print("Warning: one of the inputs for reference and answer is empty, skipping")
+                continue
             single_score = {
                 "question": reference,
                 "reference": reference,
