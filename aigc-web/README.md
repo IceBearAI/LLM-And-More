@@ -20,7 +20,7 @@ sudo npm install -g pnpm@7.9.5 --registry=https://registry.npmmirror.com/
 
 ### 📦 代码仓库
 
-- GitHub：https://github.com/LLM-And-More/aigc/aigc-web
+- GitHub：https://github.com/IceBear-CreditEase-LLM/aigc-admin-web
 
 ### 🔨 项目功能
 
@@ -117,7 +117,7 @@ pnpm build
 
 ### 🧩 后项目
 
-- [aigc-server](https://github.com/LLM-And-More/aigc)
+- [aigc-admin](https://github.com/IceBear-CreditEase-LLM/aigc-admin)
 
 ### 📚 文件资源目录
 

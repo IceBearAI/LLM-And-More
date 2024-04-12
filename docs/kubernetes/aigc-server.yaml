@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aigc-server
+  namespace: aigc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      aigc.io/name: aigc-server
+      aigc.io/serviceName: aigc-server
+  template:
+    metadata:
+      labels:
+        aigc.io/name: aigc-server
+        aigc.io/serviceName: aigc-server
+    spec:
+      volumes:
+        - name: aigc-data
+          persistentVolumeClaim:
+            claimName: aigc-data
+      containers:
+        - args:
+            - start
+            - --server.domain
+            - http://$(MY_POD_IP):8080
+          command:
+            - aigc-server
+          env:
+            - name: HF_ENDPOINT
+              value: https://hf-mirror.com
+            - name: HTTP_PROXY
+              value:
+            - name: HTTPS_PROXY
+              value:
+            - name: NO_PROXY
+              value: .idc,.corp,.local,localhost,fschat-controller,fschat-api
+            - name: AIGC_ADMIN_SERVER_STORAGE_PATH
+              value: /data/aigc/storage
+            - name: AIGC_RUNTIME_PLATFORM
+              value: k8s
+            - name: AIGC_RUNTIME_K8S_CONFIG_PATH
+              value: /data/aigc/storage/k8s-config.yaml
+            - name: AIGC_RUNTIME_K8S_VOLUME_NAME
+              value: aigc-data
+            - name: AIGC_DATASETS_IMAGE
+              value: dudulu/llmops:latest
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: MY_INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          image: dudulu/aigc-server:v0.0.3
+          name: aigc-server
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 200m
+              memory: 2048M
+          volumeMounts:
+            - mountPath: /data/
+              name: aigc-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aigc-server
+  namespace: aigc
+spec:
+  ports:
+    - name: http
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    aigc.io/name: aigc-server
+    aigc.io/serviceName: aigc-server
+  type: NodePort

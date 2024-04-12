@@ -143,7 +143,7 @@ const (
 	EnvNameFsChatApiAddress        = "AIGC_FSCHAT_API_ADDRESS"
 
 	DefaultRuntimePlatform      = "docker"
-	DefaultRuntimeShmSize       = "16G"
+	DefaultRuntimeShmSize       = "16Gi"
 	DefaultRuntimeK8sHost       = ""
 	DefaultRuntimeK8sToken      = ""
 	DefaultRuntimeK8sInsecure   = false

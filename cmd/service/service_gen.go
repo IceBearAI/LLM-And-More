@@ -126,11 +126,10 @@ function callback() {
       # 调用API并传递输出内容
       curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"success\"}"
   else
+      sleep 40
       # 发生异常
       echo "执行失败!"
       # 调用API并传递错误信息
-#      JOB_MESSAGE="${JOB_MESSAGE//$'\n'/}"
-#      JOB_MESSAGE="${JOB_MESSAGE//$'\n'/}"
       JOB_MESSAGE=$(jq -n --arg content "$JOB_MESSAGE" '{"status": "failed", "message": $content}')
       curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "$JOB_MESSAGE"
   fi
@@ -471,7 +470,8 @@ VALUES
 	(11, '2024-03-19 14:05:27.624', '2024-03-19 14:41:47.741', NULL, 'LocalAI', 'text-generation', 'qwen1.5-14b-chat', 32768, 0, 0, 0, '', 14.20, 'admin', '', 1, '', '', '', 0, 0, 1),
 	(12, '2024-03-19 14:06:26.666', '2024-03-19 14:41:33.633', NULL, 'LocalAI', 'text-generation', 'qwen1.5-72b', 32768, 0, 0, 0, '', 72.30, 'admin', '', 1, '', '', '', 0, 0, 1),
 	(13, '2024-03-19 14:06:43.121', '2024-03-19 14:41:30.391', NULL, 'LocalAI', 'text-generation', 'qwen1.5-72b-chat', 32768, 0, 0, 0, '', 72.30, 'admin', '', 1, '', '', '', 0, 0, 1),
-	(14, '2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'qwen-plus', 32768, 0, 0, 0, '', 14.20, 'admin', '', 1, '', '', '', 0, 0, 1);
+	(14, '2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'qwen1.5-32b', 32768, 0, 0, 0, '', 32.40, 'admin', '', 1, '', '', '', 0, 0, 1),
+	(14, '2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'qwen1.5-32b-chat', 32768, 0, 0, 0, '', 32.40, 'admin', '', 1, '', '', '', 0, 0, 1);
 `
 
 	initSysDictSql = `INSERT INTO sys_dict (id, created_at, updated_at, deleted_at, parent_id, code, dict_value, dict_label, dict_type, sort, remark)
