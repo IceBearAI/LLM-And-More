@@ -3,9 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # DeepSpeed Team
-import subprocess
 import warnings
-from utils.perf import print_throughput
 from utils.model.model_utils import create_hf_model
 from utils.module.lora import convert_linear_layer_to_lora, convert_lora_to_linear_layer, only_optimize_lora_parameters, make_model_gradient_checkpointing_compatible
 from utils.ds_utils import get_train_ds_config
@@ -15,7 +13,6 @@ import argparse
 import os
 import math
 import sys
-import time
 
 import torch
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
@@ -35,23 +32,6 @@ sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 
 warnings.filterwarnings('ignore')
-
-def get_value_based_on_key(map_dict, model_name_or_path):
-    # 转换model_name_or_path为小写以进行不区分大小写的比较
-    model_name_or_path_lower = model_name_or_path.lower()
-
-    # 遍历map_dict中的所有键值对
-    for key, value in map_dict.items():
-        # 如果model_name_or_path包含当前键（不区分大小写）
-        if key.lower() in model_name_or_path_lower:
-            return value  # 返回相关联的值
-
-    # 如果没有找到匹配项，返回None
-    return None
-
-def log_info(Rank,epoch, step, loss, learning_rate):
-    return {'rank': Rank,'loss': loss,'Step': step, 'learning_rate': learning_rate, 'epoch': epoch}
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Finetune a transformers model on a causal language modeling task")
@@ -220,23 +200,6 @@ def parse_args():
 
     return args
 
-
-def start_tensorboard(args):
-    # 启动TensorBoard服务，并返回URL
-    tensorboard_command = f"tensorboard --logdir={args.tensorboard_path} --port={args.tensorboard_port} --bind_all"
-    print_rank_0(f"Starting TensorBoard with command: {tensorboard_command}")
-    subprocess.Popen(tensorboard_command, shell=True)
-    print_rank_0("==" * 30)
-    print_rank_0("==" * 30)
-    print_rank_0("==" * 30)
-    tensorboard_url = f"http://localhost:{args.tensorboard_port}/"
-    print_rank_0(f"TensorBoard URL: {tensorboard_url}")
-    print_rank_0("==" * 30)
-    print_rank_0("==" * 30)
-    print_rank_0("==" * 30)
-    return tensorboard_url
-
-
 def notexists_mkdir(args):
     # 不存在即创建输出目录
     if not os.path.exists(args.output_dir):
@@ -281,15 +244,6 @@ def main():
 
     torch.distributed.barrier()
     print_rank_0('finished setting torch.')
-    # load_hf_tokenizer will get the correct tokenizer and set padding tokens based on the model family
-    # if args.rope_pi:
-    # model_config = AutoConfig.from_pretrained('/home/calf/ssd/workspace/DeepSpeedExamples/applications/DeepSpeed-Chat/training/step1_supervised_finetuning/config')
-    # model_config.max_position_embeddings = model_config.max_position_embeddings*args.rope_ratio
-    # model_config['rope_pi'] = args.rope_pi
-    # model_config['rope_ratio'] = args.rope_ratio
-    # model_config.rope_scaling = {}
-    # model_config.rope_scaling["type"] = "linear"
-    # model_config.rope_scaling["factor"] = 0.5
 
     tokenizer = load_hf_tokenizer(args.model_name_or_path, fast_tokenizer=True)
     model = create_hf_model(AutoModelForCausalLM,
@@ -426,25 +380,13 @@ def main():
     print_rank_0(
         f"***** Evaluating perplexity, Epoch {0}/{args.num_train_epochs} *****",
         args.global_rank)
-    # perplexity = evaluation(model, eval_dataloader)
-    # print_rank_0(f"ppl: {perplexity}", args.global_rank)
-
-    # print_rank_0("-=" * 30)
-    # print_rank_0("-=" * 30)
-    # print_rank_0(f"device: {device}")
-    # for param in model.parameters():
-    #     print_rank_0(f"Model device:{param.device}")
-    # print_rank_0("-=" * 30)
-    # print_rank_0("-=" * 30)
-
 
     for epoch in range(args.num_train_epochs):
         print_rank_0(
             f"Beginning of Epoch {epoch+1}/{args.num_train_epochs}, Total Micro Batches {len(train_dataloader)}",
             args.global_rank)
         # 如果第一个epoch开始，启动TensorBoard服务
-#         if epoch == 0 and args.global_rank == 0:
-#             start_tensorboard(args)
+
         model.train()
         rounds = len(train_dataloader)
         for step, batch in enumerate(train_dataloader):
@@ -452,34 +394,13 @@ def main():
                 print_rank_0(f'skipping {step}-th step of {rounds}.')
                 continue
             print_rank_0(f'training {step}-th step of {rounds}.')
-            start = time.time()
             batch = to_device(batch, device)
             outputs = model(**batch, use_cache=False)
             loss = outputs.loss
             learning_rate = model.optimizer.param_groups[0]['lr']
-            log_data = log_info(args.global_rank,epoch, step, loss.item(), learning_rate)
-            print_rank_0(log_data)
-            # if args.print_loss:
-            #     print_rank_0(
-            #         f"Epoch: {epoch}, Step: {step}, Rank: {torch.distributed.get_rank()}, loss = {loss}"
-            #     )
             model.backward(loss)
             model.step()
-            end = time.time()
-            print_rank_0(f'finished step {step}, used {end-start} seconds.')
-            # if torch.distributed.get_rank() == 0:
-            #     print_throughput(model.module, args, end - start,
-            #                      args.global_rank)
 
-            if step % args.save_per_steps == 0:
-                print_rank_0(f'saving at step {step}...')
-                if args.global_rank == 0:
-                    save_hf_format(convert_lora_to_linear_layer(
-                        model), tokenizer, args)
-                if args.zero_stage == 3:
-                    save_zero_three_model(
-                        model, args.global_rank, args.output_dir, zero_stage=args.zero_stage)
-                print_rank_0(f'saving finished!')
         # Evaluate perplexity on the validation set.
         print_rank_0(
             f"***** Evaluating perplexity, Epoch {epoch+1}/{args.num_train_epochs} *****",
