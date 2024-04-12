@@ -136,10 +136,19 @@ func (s *k8s) CreateJob(ctx context.Context, config Config) (jobName string, err
 	}
 
 	if s.createOptions.k8sVolumeName != "" {
-		config.Volumes = append(config.Volumes, Volume{
-			Key:   s.createOptions.k8sVolumeName,
-			Value: "/data",
-		})
+		volumeNameExists := false
+		for _, v := range config.Volumes {
+			if v.Key == s.createOptions.k8sVolumeName {
+				volumeNameExists = true
+				break
+			}
+		}
+		if !volumeNameExists {
+			config.Volumes = append(config.Volumes, Volume{
+				Key:   s.createOptions.k8sVolumeName,
+				Value: "/data",
+			})
+		}
 	}
 
 	job, err := config.GenJob()

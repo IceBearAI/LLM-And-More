@@ -27,7 +27,9 @@ def calculate_rouge_chinese(reference, candidate):
     # 将字符列表转换为字符串，每个字符后加空格以符合Rouge库的处理方式
     reference_joined = ' '.join(reference_chars)
     candidate_joined = ' '.join(candidate_chars)
-
+    if not reference_joined or not candidate_joined:
+        print("Warning: one of the inputs is empty, skipping")
+        return 0.0
     # 计算Rouge得分
     rouge = Rouge()
     scores = rouge.get_scores(candidate_joined, reference_joined)
@@ -149,16 +151,22 @@ def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq
     if isinstance(evaluation_metrics, str):
         evaluation_metrics = [evaluation_metrics]
 
-    # 准备问题列表
-    # 分为2轮和3轮对话
-    item = dataset[0]
-    if len(item['messages']) == 2:
-        questions = [item['messages'][0]['content'] for item in dataset]
-        references = [item['messages'][1]['content'] for item in dataset]
-    else:
-        questions = [item['messages'][0]['content'] +
-                     item['messages'][1]['content'] for item in dataset]
-        references = [item['messages'][2]['content'] for item in dataset]
+    modified_dataset = []
+
+    for item in dataset:
+        if 'messages' in item and len(item['messages']) >= 2:
+            if item['messages'][0]['role'] == 'system':
+                for i in range(1,len(item['messages']) - 1):
+                    if item['messages'][i]['role'] == 'user' and item['messages'][i + 1]['role'] == 'assistant':
+                        questions = item['messages'][0]['content'] + item['messages'][i]['content']
+                        references = item['messages'][i + 1]['content']
+                        modified_dataset.append({"question": questions, "reference": references})
+            else:
+                for i in range(len(item['messages']) - 1):
+                    if item['messages'][i]['role'] == 'user' and item['messages'][i + 1]['role'] == 'assistant':
+                        questions = item['messages'][i]['content']
+                        references = item['messages'][i + 1]['content']
+                        modified_dataset.append({"question": questions, "reference": references})
     scores = []
 
     # 分批处理问题
@@ -173,6 +181,9 @@ def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq
 
         batch_scores = []
         for reference, answer in zip(batch_references, batch_answers):
+            if not reference or not answer:
+                print("Warning: one of the inputs for reference and answer is empty, skipping")
+                continue
             single_score = {
                 "question": reference,
                 "reference": reference,

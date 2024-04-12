@@ -480,6 +480,9 @@ func (s *service) _createFineTuningJob(ctx context.Context, jobId string) (err e
 		Name:  "SCENARIO",
 		Value: string(jobInfo.Scenario),
 	}, runtime.Env{
+		Name:  "MASTER_PORT",
+		Value: strconv.Itoa(jobInfo.MasterPort),
+	}, runtime.Env{
 		Name:  "HF_HOME",
 		Value: "/data/hf",
 	}, runtime.Env{
@@ -616,6 +619,9 @@ func (s *service) ListTemplate(ctx context.Context, tenantId uint, request ListT
 	}
 	response.List = make([]Template, 0)
 	for _, tpl := range templates {
+		if !tpl.Enabled {
+			continue
+		}
 		response.List = append(response.List, Template{
 			Id:            tpl.ID,
 			Name:          tpl.Name,

@@ -1,0 +1,204 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fschat-controller
+  namespace: aigc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      aigc.io/name: fschat-controller
+      aigc.io/serviceName: fschat-controller
+  template:
+    metadata:
+      labels:
+        aigc.io/name: fschat-controller
+        aigc.io/serviceName: fschat-controller
+    spec:
+      containers:
+        - name: fschat-controller
+          image: dudulu/fschat:v0.2.36
+          command:
+            - python3
+          args:
+            - '-m'
+            - fastchat.serve.controller
+            - '--host'
+            - 0.0.0.0
+            - '--port'
+            - '21001'
+          ports:
+            - containerPort: 21001
+              protocol: TCP
+          env:
+            - name: MY_SERVICE_NAME
+              value: fschat-controller
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: MY_CPU_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: fschat-controller
+                  resource: limits.cpu
+                  divisor: '0'
+            - name: MY_MEM_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: fschat-controller
+                  resource: limits.memory
+                  divisor: '0'
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: MY_INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          resources:
+            requests:
+              cpu: 200m
+              memory: 2048M
+      restartPolicy: Always
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fschat-api
+  namespace: aigc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      aigc.io/name: fschat-api
+      aigc.io/serviceName: fschat-api
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        aigc.io/name: fschat-api
+        aigc.io/serviceName: fschat-api
+    spec:
+      containers:
+        - name: fschat-api
+          image: dudulu/fschat:v0.2.36
+          command:
+            - python3
+          args:
+            - '-m'
+            - fastchat.serve.openai_api_server
+            - '--host'
+            - 0.0.0.0
+            - '--port'
+            - '8000'
+            - '--controller-address'
+            - http://fschat-controller:21001
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          env:
+            - name: MY_SERVICE_NAME
+              value: fschat-api
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: MY_CPU_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: fschat-api
+                  resource: limits.cpu
+                  divisor: '0'
+            - name: MY_MEM_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: fschat-api
+                  resource: limits.memory
+                  divisor: '0'
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: MY_INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          resources:
+            requests:
+              cpu: 200m
+              memory: 2048M
+      restartPolicy: Always
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fschat-controller
+  namespace: aigc
+  labels:
+    aigc.io/name: fschat-controller
+    aigc.io/serviceName: fschat-controller
+spec:
+  ports:
+    - name: 'http'
+      protocol: TCP
+      port: 21001
+      targetPort: 21001
+  selector:
+    aigc.io/name: fschat-controller
+    aigc.io/serviceName: fschat-controller
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fschat-api
+  namespace: aigc
+  labels:
+    aigc.io/name: fschat-api
+    aigc.io/serviceName: fschat-api
+spec:
+  ports:
+    - name: 'http'
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
+  selector:
+    aigc.io/name: fschat-api
+    aigc.io/serviceName: fschat-api

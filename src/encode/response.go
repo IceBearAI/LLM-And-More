@@ -3,7 +3,9 @@ package encode
 import (
 	"context"
 	"github.com/pkg/errors"
+	"log"
 	"net/http"
+	"reflect"
 	"strings"
 
 	kithttp "github.com/go-kit/kit/transport/http"
@@ -74,7 +76,10 @@ func JsonResponse(ctx context.Context, w http.ResponseWriter, response interface
 		JsonError(ctx, f.Failed(), w)
 		return nil
 	}
-	resp := response.(Response)
+	resp, ok := response.(Response)
+	if !ok {
+		log.Println("response is not Response type", reflect.TypeOf(response))
+	}
 	if resp.Error == nil {
 		resp.Code = 200
 		resp.Success = true
