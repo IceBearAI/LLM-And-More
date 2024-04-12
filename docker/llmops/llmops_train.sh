@@ -134,13 +134,19 @@ fi
 temp_file=$(mktemp)
 
 if [ "$SCENARIO" == "general" ]; then
-  GENERAL_DATA_PATH=/data/train-data/formatted_datasets
+  GENERAL_DATA_PATH=/data/train-data/formatted_datasets/${JOB_ID}
   mkdir -p $GENERAL_DATA_PATH
+  if [ -n "$EVAL_FILE" ]; then
+    python3 jsonl_to_arrow_format.py \
+        --train_path "$TRAIN_LOCAL_FILE" \
+        --test_path "$EVAL_LOCAL_FILE" \
+        --output_path "$GENERAL_DATA_PATH"
+  else
+    python3 jsonl_to_arrow_format.py \
+        --train_path "$TRAIN_LOCAL_FILE" \
+        --output_path "$GENERAL_DATA_PATH"
+  fi
 
-  python3 jsonl_to_arrow_format.py \
-    --train_path "$TRAIN_LOCAL_FILE" \
-    --test_path "$EVAL_LOCAL_FILE" \
-    --output_path "$GENERAL_DATA_PATH"
 
 #  output=$(torchrun $DISTRIBUTED_ARGS {{.ScriptFile}} \
 #  output=$(deepspeed --include localhost:$CUDA_VISIBLE_DEVICES {{.ScriptFile}} \
