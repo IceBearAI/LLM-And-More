@@ -2,22 +2,20 @@
 # Copyright (c) Microsoft Corporation.
 # SPDX-License-Identifier: Apache-2.0
 
-# DeepSpeed Team
-import warnings
-from utils.model.model_utils import create_hf_model
-from utils.module.lora import convert_linear_layer_to_lora, convert_lora_to_linear_layer, only_optimize_lora_parameters, make_model_gradient_checkpointing_compatible
-from utils.ds_utils import get_train_ds_config
-from utils.utils import print_rank_0, to_device, save_hf_format, set_random_seed, get_all_reduce_mean, get_optimizer_grouped_parameters, save_zero_three_model, load_hf_tokenizer
-from utils.data.data_utils import create_prompt_dataset
 import argparse
-import os
 import math
+import os
+# DeepSpeed Team
+import subprocess
 import sys
+import time
+import warnings
 
+import deepspeed
 import torch
+from deepspeed.ops.adam import DeepSpeedCPUAdam, FusedAdam
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
-
 from transformers import (
     AutoModelForCausalLM,
     SchedulerType,
@@ -25,16 +23,23 @@ from transformers import (
     get_scheduler,
 )
 
-import deepspeed
-from deepspeed.ops.adam import DeepSpeedCPUAdam, FusedAdam
+from utils.data.data_utils import create_prompt_dataset
+from utils.ds_utils import get_train_ds_config
+from utils.model.model_utils import create_hf_model
+from utils.module.lora import convert_linear_layer_to_lora, convert_lora_to_linear_layer, only_optimize_lora_parameters, \
+    make_model_gradient_checkpointing_compatible
+from utils.utils import print_rank_0, to_device, save_hf_format, set_random_seed, get_all_reduce_mean, \
+    get_optimizer_grouped_parameters, save_zero_three_model, load_hf_tokenizer
 
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 
 warnings.filterwarnings('ignore')
 
-def log_info(Rank,epoch, step, loss, learning_rate):
-    return {'rank': Rank,'loss': loss,'Step': step, 'learning_rate': learning_rate, 'epoch': epoch}
+
+def log_info(Rank, epoch, step, loss, learning_rate):
+    return {'rank': Rank, 'loss': loss, 'Step': step, 'learning_rate': learning_rate, 'epoch': epoch}
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -43,15 +48,15 @@ def parse_args():
                         nargs='*',
                         default="formatted_JCQA",
                         help='Path to the training dataset. Accepted format:'
-                        '1) a single data path, 2) multiple datasets in the'
-                        'form: dataset1-path dataset2-path ...')
+                             '1) a single data path, 2) multiple datasets in the'
+                             'form: dataset1-path dataset2-path ...')
     parser.add_argument('--data_split',
                         type=str,
                         default='10,0,0',
                         help='Comma-separated list of proportions for training'
-                        'phase 1, 2, and 3 data. For example the split `6,2,2`'
-                        'will use 60%% of data for phase 1, 20%% for phase 2'
-                        'and 20%% for phase 3.')
+                             'phase 1, 2, and 3 data. For example the split `6,2,2`'
+                             'will use 60%% of data for phase 1, 20%% for phase 2'
+                             'and 20%% for phase 3.')
     parser.add_argument(
         '--sft_only_data_path',
         nargs='*',
@@ -195,14 +200,27 @@ def parse_args():
                         type=int,
                         default=6006,
                         help='Port for tensorboard')
-    # Print loss
-    parser.add_argument('--print_loss',
-                        action='store_true',
-                        help='Prints loss at each step.')
     parser = deepspeed.add_config_arguments(parser)
     args = parser.parse_args()
 
     return args
+
+
+def start_tensorboard(args):
+    # 启动TensorBoard服务，并返回URL
+    tensorboard_command = f"tensorboard --logdir={args.tensorboard_path} --port={args.tensorboard_port} --bind_all"
+    print_rank_0(f"Starting TensorBoard with command: {tensorboard_command}")
+    subprocess.Popen(tensorboard_command, shell=True)
+    print_rank_0("==" * 30)
+    print_rank_0("==" * 30)
+    print_rank_0("==" * 30)
+    tensorboard_url = f"http://localhost:{args.tensorboard_port}/"
+    print_rank_0(f"TensorBoard URL: {tensorboard_url}")
+    print_rank_0("==" * 30)
+    print_rank_0("==" * 30)
+    print_rank_0("==" * 30)
+    return tensorboard_url
+
 
 def notexists_mkdir(args):
     # 不存在即创建输出目录
@@ -349,6 +367,7 @@ def main():
         except:
             pass
         return perplexity
+
     print_rank_0('finished defining evaluation function.')
     # Split weights in two groups, one with weight decay and the other not.
     optimizer_grouped_parameters = get_optimizer_grouped_parameters(
@@ -384,32 +403,42 @@ def main():
     print_rank_0(
         f"***** Evaluating perplexity, Epoch {0}/{args.num_train_epochs} *****",
         args.global_rank)
-
+    total_steps = len(train_dataloader) * args.num_train_epochs
     for epoch in range(args.num_train_epochs):
         print_rank_0(
-            f"Beginning of Epoch {epoch+1}/{args.num_train_epochs}, Total Micro Batches {len(train_dataloader)}",
+            f"Beginning of Epoch {epoch + 1}/{args.num_train_epochs}, Total Micro Batches {len(train_dataloader)}",
             args.global_rank)
         # 如果第一个epoch开始，启动TensorBoard服务
-
+        #         if epoch == 0 and args.global_rank == 0:
+        #             start_tensorboard(args)
         model.train()
         rounds = len(train_dataloader)
+
         for step, batch in enumerate(train_dataloader):
+            global_step = epoch * len(train_dataloader) + step
             if step < args.start_from_step:
                 print_rank_0(f'skipping {step}-th step of {rounds}.')
                 continue
             print_rank_0(f'training {step}-th step of {rounds}.')
+            start = time.time()
             batch = to_device(batch, device)
             outputs = model(**batch, use_cache=False)
             loss = outputs.loss
             learning_rate = model.optimizer.param_groups[0]['lr']
-            log_data = log_info(args.global_rank,epoch, step, loss.item(), learning_rate)
+            progress = global_step / total_steps
+            log_data = log_info(args.global_rank, progress, step, loss.item(), learning_rate)
             print_rank_0(log_data)
             model.backward(loss)
             model.step()
+            end = time.time()
+            print_rank_0(f'finished step {step}, used {end - start} seconds.')
+            # if torch.distributed.get_rank() == 0:
+            #     print_throughput(model.module, args, end - start,
+            #                      args.global_rank)
 
         # Evaluate perplexity on the validation set.
         print_rank_0(
-            f"***** Evaluating perplexity, Epoch {epoch+1}/{args.num_train_epochs} *****",
+            f"***** Evaluating perplexity, Epoch {epoch + 1}/{args.num_train_epochs} *****",
             args.global_rank)
         average_loss, perplexity = evaluation_loss_perplexity(
             model, eval_dataloader, device)
