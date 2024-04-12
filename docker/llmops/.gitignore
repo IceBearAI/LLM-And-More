@@ -1,0 +1,13 @@
+data
+output
+
+# MacOS忽略文件
+.DS_Store
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
