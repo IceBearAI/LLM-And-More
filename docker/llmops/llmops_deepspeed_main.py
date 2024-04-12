@@ -32,6 +32,10 @@ sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 
 warnings.filterwarnings('ignore')
+
+def log_info(Rank,epoch, step, loss, learning_rate):
+    return {'rank': Rank,'loss': loss,'Step': step, 'learning_rate': learning_rate, 'epoch': epoch}
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Finetune a transformers model on a causal language modeling task")
@@ -398,6 +402,8 @@ def main():
             outputs = model(**batch, use_cache=False)
             loss = outputs.loss
             learning_rate = model.optimizer.param_groups[0]['lr']
+            log_data = log_info(args.global_rank,epoch, step, loss.item(), learning_rate)
+            print_rank_0(log_data)
             model.backward(loss)
             model.step()
 
