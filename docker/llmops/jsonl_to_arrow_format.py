@@ -1,8 +1,9 @@
 import argparse
 import json
+import os
+
 import pandas as pd
 import pyarrow as pa
-import os
 
 # 解析命令行参数
 parser = argparse.ArgumentParser(description='JSONL to Arrow conversion.')
@@ -16,15 +17,31 @@ args = parser.parse_args()
 
 
 def jsonl_to_dataframe(file_path):
-    if file_path and os.path.exists(file_path):
-        with open(file_path, 'r', encoding='utf-8') as file:
-            data = [json.loads(line) for line in file]
-        return pd.DataFrame({
-            'input': [d['messages'][0]['content'] for d in data],
-            'output': [d['messages'][1]['content'] for d in data]
-        })
-    else:
-        return pd.DataFrame({'input': [''], 'output': ['']})  # Return an empty dataframe for empty or non-existent paths
+    if not file_path or not os.path.exists(file_path):
+        return pd.DataFrame({'input': [], 'output': []})
+
+    with open(file_path, 'r', encoding='utf-8') as file:
+        data = [json.loads(line) for line in file]
+
+    modified_dataset = []
+    for item in data:
+        messages = item.get('messages', [])
+        if len(messages) >= 2:
+            if messages[0]['role'] == 'system':
+                for i in range(1, len(messages) - 1):
+                    if messages[i]['role'] == 'user' and messages[i + 1]['role'] == 'assistant':
+                        input_text = ' '.join(m['content'] for m in messages[:i + 1])
+                        output_text = messages[i + 1]['content']
+                        modified_dataset.append({"input": input_text, "output": output_text})
+
+            else:
+                for i in range(len(messages) - 1):
+                    if messages[i]['role'] == 'user' and messages[i + 1]['role'] == 'assistant':
+                        input_text = ' '.join(m['content'] for m in messages[:i + 1])
+                        output_text = messages[i + 1]['content']
+                        modified_dataset.append({"input": input_text, "output": output_text})
+
+    return pd.DataFrame(modified_dataset)
 
 
 def dataframe_to_arrow(df, file_path):
