@@ -121,7 +121,7 @@ LLM-And-More致力于为专业开发者和一线业务人员提供专业、易�
 ## 安装及使用
 
 - 克隆项目: `git clone https://github.com/IceBearAI/aigc.git`
-- 进入项目: `cd aigc-server`
+- 进入项目: `cd aigc-web`
 
 该系统依赖**Docker**需要安装此服务
 
