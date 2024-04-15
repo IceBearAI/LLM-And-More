@@ -58,7 +58,7 @@ function WebSocketConnectMethod( config ) { //定义socket连接方法类
 	// SOCEKT连接中的消息与状态响应
 	function onOpen( e ) {
 		// 发送json
-		var chunk_size = new Array( 5, 10, 5 );
+		var chunk_size = [5, 10, 5];
 		var request = {
 			chunk_size: chunk_size,
 			"wav_name":  "h5",

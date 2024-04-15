@@ -49,6 +49,8 @@ type Service interface {
 	CancelEval(ctx context.Context, id uint) (err error)
 	// DeleteEval 删除评估任务
 	DeleteEval(ctx context.Context, id uint) (err error)
+	// GetModelLogs 获取模型输出日志
+	GetModelLogs(ctx context.Context, modelName, containerName string) (res string, err error)
 }
 
 // CreationOptions is the options for the faceswap service.
@@ -104,6 +106,16 @@ type service struct {
 	store   repository.Repository
 	apiSvc  services.Service
 	options *CreationOptions
+}
+
+func (s *service) GetModelLogs(ctx context.Context, modelName, containerName string) (res string, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	modelInfo, err := s.store.Model().GetModelByModelName(ctx, modelName)
+	if err != nil {
+		_ = level.Warn(logger).Log("store.Model", "GetModelByModelName", "err", err.Error())
+		return
+	}
+	return s.apiSvc.Runtime().GetDeploymentLogs(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(modelName), modelInfo.ID), containerName)
 }
 
 func (s *service) DeleteEval(ctx context.Context, id uint) (err error) {
@@ -426,13 +438,24 @@ func (s *service) ListModels(ctx context.Context, request ListModelRequest) (res
 		ProviderName: request.ProviderName,
 		ModelType:    request.ModelType,
 	}
-	models, total, err := s.store.Model().ListModels(ctx, req)
+	models, total, err := s.store.Model().ListModels(ctx, req, "ModelDeploy")
 	if err != nil {
 		_ = level.Error(logger).Log("store.Model", "ListModels", "err", err.Error())
 		return res, encode.ErrSystem.Wrap(errors.New("查询模型列表失败"))
 	}
+
 	list := make([]Model, 0)
 	for _, v := range models {
+		var containerNames []string
+		if v.ModelDeploy.ModelID > 0 {
+			containerNames, err = s.apiSvc.Runtime().GetDeploymentContainerNames(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(v.ModelName), v.ID))
+			if err != nil {
+				_ = level.Warn(logger).Log("api.PaasChat", "GetDeploymentContainerNames", "err", err.Error())
+				continue
+			}
+		}
+		c := convert(&v)
+		c.ContainerNames = containerNames
 		list = append(list, convert(&v))
 	}
 	res = ListModelResponse{
@@ -504,7 +527,15 @@ func (s *service) GetModel(ctx context.Context, id uint) (res Model, err error) 
 			return res, errors.New("别名模型不存在")
 		}
 	}
+	var containerNames []string
+	if m.ModelDeploy.ModelID > 0 {
+		containerNames, err = s.apiSvc.Runtime().GetDeploymentContainerNames(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(m.ModelName), m.ID))
+		if err != nil {
+			_ = level.Warn(logger).Log("api.PaasChat", "GetDeploymentContainerNames", "err", err.Error())
+		}
+	}
 	res = convert(&m)
+	res.ContainerNames = containerNames
 	return
 }
 
@@ -576,6 +607,7 @@ func convert(data *types.Models) Model {
 		Gpu:           data.Gpu,
 		Cpu:           data.Cpu,
 		Memory:        data.Memory,
+		ServiceName:   fmt.Sprintf("%s-%d", util.ReplacerServiceName(data.ModelName), data.ID),
 	}
 	tenants := make([]Tenant, 0)
 	for _, t := range data.Tenants {
@@ -584,6 +616,7 @@ func convert(data *types.Models) Model {
 			Name: t.Name,
 		})
 	}
+
 	m.Tenants = tenants
 	operation := make([]string, 0)
 	operation = append(operation, "edit")

@@ -30,7 +30,7 @@ Recorder.prototype.wav=function(res,True,False){
 		var writeString=function(str){
 			for (var i=0;i<str.length;i++,offset++) {
 				data.setUint8(offset,str.charCodeAt(i));
-			};
+			}
 		};
 		var write16=function(v){
 			data.setUint16(offset,v,true);
@@ -73,12 +73,12 @@ Recorder.prototype.wav=function(res,True,False){
 				//16转8据说是雷霄骅的 https://blog.csdn.net/sevennight1989/article/details/85376149 细节比blqw的按比例的算法清晰点，虽然都有明显杂音
 				var val=(res[i]>>8)+128;
 				data.setInt8(offset,val,true);
-			};
+			}
 		}else{
 			for (var i=0;i<size;i++,offset+=2){
 				data.setInt16(offset,res[i],true);
-			};
-		};
+			}
+		}
 		
 		
 		True(new Blob([data.buffer],{type:"audio/wav"}));

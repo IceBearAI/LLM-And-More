@@ -16,8 +16,10 @@ import (
 	"github.com/IceBearAI/aigc/src/pkg/modelevaluate"
 	"github.com/IceBearAI/aigc/src/pkg/models"
 	"github.com/IceBearAI/aigc/src/pkg/sys"
+	"github.com/IceBearAI/aigc/src/pkg/terminal"
 	"github.com/IceBearAI/aigc/src/pkg/tools"
 	"github.com/IceBearAI/aigc/src/repository/types"
+	"github.com/igm/sockjs-go/v3/sockjs"
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/tmc/langchaingo/llms/openai"
 	"io/fs"
@@ -105,6 +107,7 @@ aigc-server start -p :8080
 	toolsSvc           tools.Service
 	assistantsSvc      assistants.Service
 	modelEvaluateSvc   modelevaluate.Service
+	terminalSvc        terminal.Service
 )
 
 func start(ctx context.Context) (err error) {
@@ -166,6 +169,7 @@ func start(ctx context.Context) (err error) {
 		modelevaluate.WithCallbackHost(serverDomain),
 		modelevaluate.WithVolumeName(runtimeK8sVolumeName),
 	)
+	terminalSvc = terminal.New(logger, traceId, store, apiSvc, terminal.WithSessionTimeout(3600))
 
 	if logger != nil {
 		authSvc = auth.NewLogging(logger, logging.TraceId)(authSvc)
@@ -179,6 +183,7 @@ func start(ctx context.Context) (err error) {
 		datasetDocumentSvc = datasetdocument.NewLogging(logger, logging.TraceId)(datasetDocumentSvc)
 		datasetTaskSvc = datasettask.NewLogging(logger, logging.TraceId)(datasetTaskSvc)
 		modelEvaluateSvc = modelevaluate.NewLogging(logger, logging.TraceId)(modelEvaluateSvc)
+		terminalSvc = terminal.NewLogging(logger, logging.TraceId)(terminalSvc)
 	}
 
 	if tracer != nil {
@@ -193,6 +198,7 @@ func start(ctx context.Context) (err error) {
 		toolsSvc = tools.NewTracing(tracer)(toolsSvc)
 		datasetTaskSvc = datasettask.NewTracing(tracer)(datasetTaskSvc)
 		modelEvaluateSvc = modelevaluate.NewTracing(tracer)(modelEvaluateSvc)
+		terminalSvc = terminal.NewTracing(tracer)(terminalSvc)
 	}
 
 	g := &group.Group{}
@@ -320,6 +326,12 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 	r.PathPrefix("/api/mgr/annotation/task").Handler(http.StripPrefix("/api/mgr/annotation/task", datasettask.MakeHTTPHandler(datasetTaskSvc, authEms, opts)))
 	// Model Evaluate模块
 	r.PathPrefix("/api/evaluate").Handler(http.StripPrefix("/api/evaluate", modelevaluate.MakeHTTPHandler(modelEvaluateSvc, authEms, opts)))
+	sockjsOptions := sockjs.DefaultOptions
+	http.Handle("/ws/terminal/console/exec/", sockjs.NewHandler("/ws/terminal/console/exec", sockjsOptions, func(session sockjs.Session) {
+		terminalSvc.HandleTerminalSession(session)
+	}))
+	r.PathPrefix("/ws").Handler(http.StripPrefix("/ws", terminal.MakeHTTPHandler(terminalSvc, authEms, opts))).Name("ws")
+
 	// 对外metrics
 	r.Handle("/metrics", promhttp.Handler())
 	// 心跳检测

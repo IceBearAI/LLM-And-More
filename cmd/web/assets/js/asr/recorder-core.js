@@ -9,10 +9,10 @@ https://github.com/xiangyuecn/Recorder
 		define(function(){
 			return Recorder;
 		});
-	};
+	}
 	if(typeof(module)=='object' && module.exports){
 		module.exports=Recorder;
-	};
+	}
 }(function(window){
 "use strict";
 
@@ -38,8 +38,8 @@ Recorder.IsOpen=function(){
 		if(track){
 			var state=track.readyState;
 			return state=="live"||state==track.LIVE;
-		};
-	};
+		}
+	}
 	return false;
 };
 /*H5录音时的AudioContext缓冲大小。会影响H5录音时的onProcess调用速率，相对于AudioContext.sampleRate=48000时，4096接近12帧/s，调节此参数可生成比较流畅的回调动画。
@@ -55,7 +55,7 @@ Recorder.Destroy=function(){
 	
 	for(var k in DestroyList){
 		DestroyList[k]();
-	};
+	}
 };
 var DestroyList={};
 //登记一个需要销毁全局资源的处理方法
@@ -68,15 +68,15 @@ Recorder.Support=function(){
 	if(!scope[getUserMediaTxt]){
 		scope=navigator;
 		scope[getUserMediaTxt]||(scope[getUserMediaTxt]=scope.webkitGetUserMedia||scope.mozGetUserMedia||scope.msGetUserMedia);
-	};
+	}
 	if(!scope[getUserMediaTxt]){
 		return false;
-	};
+	}
 	Recorder.Scope=scope;
 	
 	if(!Recorder.GetContext()){
 		return false;
-	};
+	}
 	return true;
 };
 //获取全局的AudioContext对象，如果浏览器不支持将返回null
@@ -84,10 +84,10 @@ Recorder.GetContext=function(){
 	var AC=window.AudioContext;
 	if(!AC){
 		AC=window.webkitAudioContext;
-	};
+	}
 	if(!AC){
 		return null;
-	};
+	}
 	
 	if(!Recorder.Ctx||Recorder.Ctx.state=="closed"){
 		//不能反复构造，低版本number of hardware contexts reached maximum (6)
@@ -98,9 +98,9 @@ Recorder.GetContext=function(){
 			if(ctx&&ctx.close){//能关掉就关掉，关不掉就保留着
 				ctx.close();
 				Recorder.Ctx=0;
-			};
+			}
 		});
-	};
+	}
 	return Recorder.Ctx;
 };
 
@@ -123,7 +123,7 @@ var Connect=function(streamStore,isUserMedia){
 		var ctxDest=ctx.destination,cmsdTxt="createMediaStreamDestination";
 		if(ctx[cmsdTxt]){
 			ctxDest=ctx[cmsdTxt]();
-		};
+		}
 		media.connect(node);
 		node.connect(ctxDest);
 	}
@@ -142,14 +142,14 @@ var Connect=function(streamStore,isUserMedia){
 				s=s<0?s*0x8000:s*0x7FFF;
 				pcm[j]=s;
 				sum+=Math.abs(s);
-			};
+			}
 			
 			for(var k in calls){
 				calls[k](pcm,sum);
-			};
+			}
 			
 			return;
-		};
+		}
 	};
 	
 	var scriptProcessor="ScriptProcessor";//一堆字符串名字，有利于压缩js
@@ -180,7 +180,7 @@ var Connect=function(streamStore,isUserMedia){
 				setTimeout(function(){ onReceive(arr) });//立即退出回调，试图减少对浏览器录音的影响
 			}else{
 				onReceive(arr);
-			};
+			}
 		};
 	};
 
@@ -196,7 +196,7 @@ var connWorklet=function(){
 	if(!(isWorklet && ctx[audioWorklet] && AwNode)){
 		oldScript();//被禁用 或 不支持，直接使用老的
 		return;
-	};
+	}
 	var clazzUrl=function(){
 		var xf=function(f){return f.toString().replace(/^function|DEL_/g,"").replace(/\$RA/g,recAudioWorklet)};
 		var clazz='class '+RecProc+' extends AudioWorkletProcessor{';
@@ -260,9 +260,9 @@ var connWorklet=function(){
 				if(awNext()){
 					CLog(audioWorklet+"未返回任何音频，恢复使用"+scriptProcessor,3);
 					oldFn&&oldScript();//未来没有老的，可能是误判
-				};
+				}
 			},500);
-		};
+		}
 	};
 	var createNode=function(){
 		if(!awNext())return;
@@ -273,12 +273,12 @@ var connWorklet=function(){
 		node.port.onmessage=function(e){
 			if(badInt){
 				clearTimeout(badInt);badInt="";
-			};
+			}
 			if(awNext()){
 				onReceive(e.data.val);
 			}else if(!isWorklet){
 				CLog(audioWorklet+"多余回调",3);
-			};
+			}
 		};
 		CLog("Connect采用"+audioWorklet+"，设置"+RecTxt+"."+ConnectEnableWorklet+"=false可恢复老式"+scriptProcessor+webMTips+oldIsBest,3);
 	};
@@ -289,7 +289,7 @@ var connWorklet=function(){
 		if(ctx[RecProc]){
 			createNode();
 			return;
-		};
+		}
 		var url=clazzUrl();
 		ctx[audioWorklet].addModule(url).then(function(e){
 			if(!awNext())return;
@@ -297,7 +297,7 @@ var connWorklet=function(){
 			createNode();
 			if(badInt){//重新计时
 				nodeAlive();
-			};
+			}
 		})[CatchTxt](function(e){ //fix 关键字，保证catch压缩时保持字符串形式
 			CLog(audioWorklet+".addModule失败",1,e);
 			awNext()&&oldScript();
@@ -333,9 +333,9 @@ var connWebM=function(){
 				if(mrNext()){
 					CLog(MediaRecorderTxt+"未返回任何音频，降级使用"+audioWorklet,3);
 					connWorklet();
-				};
+				}
 			},500);
-		};
+		}
 	};
 	
 	var mrSet=Object.assign({mimeType:webmType}, Recorder.ConnectWebMOptions);
@@ -351,15 +351,15 @@ var connWebM=function(){
 				if(f32arr==-1){//无法提取，立即降级
 					connWorklet();
 					return;
-				};
+				}
 				
 				if(badInt){
 					clearTimeout(badInt);badInt="";
-				};
+				}
 				onReceive(f32arr);
 			}else if(!isWebM){
 				CLog(MediaRecorderTxt+"多余回调",3);
-			};
+			}
 		};
 		reader.readAsArrayBuffer(e.data);
 	};
@@ -379,14 +379,14 @@ var _Disconn_n=function(stream){
 		stream._n.port.postMessage({kill:true});
 		stream._n.disconnect();
 		stream._n=null;
-	};
+	}
 };
 var _Disconn_r=function(stream){
 	stream._ra=null;
 	if(stream._r){
 		stream._r.stop();
 		stream._r=null;
-	};
+	}
 };
 var Disconnect=function(streamStore){
 	streamStore=streamStore||Recorder;
@@ -397,11 +397,11 @@ var Disconnect=function(streamStore){
 		if(stream._m){
 			stream._m.disconnect();
 			stream._m=null;
-		};
+		}
 		if(stream._p){
 			stream._p.disconnect();
 			stream._p.onaudioprocess=stream._p=null;
-		};
+		}
 		_Disconn_n(stream);
 		_Disconn_r(stream);
 		
@@ -410,10 +410,10 @@ var Disconnect=function(streamStore){
 			for(var i=0;i<tracks.length;i++){
 				var track=tracks[i];
 				track.stop&&track.stop();
-			};
+			}
 			stream.stop&&stream.stop();
-		};
-	};
+		}
+	}
 	streamStore.Stream=0;
 };
 
@@ -449,16 +449,16 @@ Recorder.SampleData=function(pcmDatas,pcmSampleRate,newSampleRate,prevChunkInfo,
 	var frameSize=option.frameSize||1;
 	if(option.frameType){
 		frameSize=option.frameType=="mp3"?1152:1;
-	};
+	}
 	
 	var nLen=pcmDatas.length;
 	if(index>nLen+1){
 		CLog("SampleData似乎传入了未重置chunk "+index+">"+nLen,3);
-	};
+	}
 	var size=0;
 	for(var i=index;i<nLen;i++){
 		size+=pcmDatas[i].length;
-	};
+	}
 	size=Math.max(0,size-Math.floor(offset));
 	
 	//采样 https://www.cnblogs.com/blqw/p/3782420.html
@@ -468,7 +468,7 @@ Recorder.SampleData=function(pcmDatas,pcmSampleRate,newSampleRate,prevChunkInfo,
 	}else{//新采样高于录音采样不处理，省去了插值处理
 		step=1;
 		newSampleRate=pcmSampleRate;
-	};
+	}
 	
 	size+=frameNext.length;
 	var res=new Int16Array(size);
@@ -477,7 +477,7 @@ Recorder.SampleData=function(pcmDatas,pcmSampleRate,newSampleRate,prevChunkInfo,
 	for(var i=0;i<frameNext.length;i++){
 		res[idx]=frameNext[i];
 		idx++;
-	};
+	}
 	//处理数据
 	for (;index<nLen;index++) {
 		var o=pcmDatas[index];
@@ -500,9 +500,9 @@ Recorder.SampleData=function(pcmDatas,pcmSampleRate,newSampleRate,prevChunkInfo,
 			
 			idx++;
 			i+=step;//抽样
-		};
+		}
 		offset=i-il;
-	};
+	}
 	//帧处理
 	frameNext=null;
 	var frameNextSize=res.length%frameSize;
@@ -510,7 +510,7 @@ Recorder.SampleData=function(pcmDatas,pcmSampleRate,newSampleRate,prevChunkInfo,
 		var u8Pos=(res.length-frameNextSize)*2;
 		frameNext=new Int16Array(res.buffer.slice(u8Pos));
 		res=new Int16Array(res.buffer.slice(0,u8Pos));
-	};
+	}
 	
 	return {
 		index:index
@@ -543,7 +543,7 @@ Recorder.PowerLevel=function(pcmAbsSum,pcmLength){
 		level=Math.round(power/1250*10);
 	}else{
 		level=Math.round(Math.min(100,Math.max(0,(1+Math.log(power/10000)/Math.log(10))*100)));
-	};
+	}
 	return level;
 };
 
@@ -578,18 +578,18 @@ Recorder.CLog=function(msg,err){
 		fn=err==1?console.error:err==3?console.warn:fn;
 	}else{
 		i=1;
-	};
+	}
 	for(;i<a.length;i++){
 		arr.push(a[i]);
-	};
+	}
 	if(IsLoser){//古董浏览器，仅保证基本的可执行不代码异常
 		fn&&fn("[IsLoser]"+arr[0],arr.length>1?arr:"");
 	}else{
 		fn.apply(console,arr);
-	};
+	}
 };
 var CLog=function(){ Recorder.CLog.apply(this,arguments); };
-var IsLoser=true;try{IsLoser=!console.log.apply;}catch(e){};
+var IsLoser=true;try{IsLoser=!console.log.apply;}catch(e){}
 
 
 
@@ -634,12 +634,12 @@ function initFn(set){
 	
 	for(var k in set){
 		o[k]=set[k];
-	};
+	}
 	this.set=o;
 	
 	this._S=9;//stop同步锁，stop可以阻止open过程中还未运行的start
 	this.Sync={O:9,C:9};//和Recorder.Sync一致，只不过这个是非全局的，仅用来简化代码逻辑，无实际作用
-};
+}
 //同步锁，控制对Stream的竞争；用于close时中断异步的open；一个对象open如果变化了都要阻止close，Stream的控制权交个新的对象
 Recorder.Sync={/*open*/O:9,/*close*/C:9};
 
@@ -687,10 +687,10 @@ Recorder.prototype=initFn.prototype={
 					This.close();
 				}else{
 					err="open被中断";
-				};
+				}
 				failCall(err);
 				return true;
-			};
+			}
 		};
 		
 		//环境配置检查
@@ -698,7 +698,7 @@ Recorder.prototype=initFn.prototype={
 		if(checkMsg){
 			failCall("不能录音："+checkMsg);
 			return;
-		};
+		}
 		
 		
 		//***********已直接提供了音频流************
@@ -706,7 +706,7 @@ Recorder.prototype=initFn.prototype={
 			if(!Recorder.GetContext()){
 				failCall("不支持此浏览器从流中获取录音");
 				return;
-			};
+			}
 			
 			Disconnect(streamStore);//可能已open过，直接先尝试断开
 			This.Stream=This.set.sourceStream;
@@ -720,7 +720,7 @@ Recorder.prototype=initFn.prototype={
 			}
 			ok();
 			return;
-		};
+		}
 		
 		
 		//***********打开麦克风得到全局的音频流************
@@ -730,7 +730,7 @@ Recorder.prototype=initFn.prototype={
 			}catch(e){
 				failCall('无权录音(跨域，请尝试给iframe添加麦克风访问策略，如allow="camera;microphone")');
 				return;
-			};
+			}
 			
 			if(/Permission|Allow/i.test(code)){
 				failCall("用户拒绝了录音权限",true);
@@ -740,7 +740,7 @@ Recorder.prototype=initFn.prototype={
 				failCall(msg+"，无可用麦克风");
 			}else{
 				failCall(msg);
-			};
+			}
 		};
 		
 		
@@ -748,11 +748,11 @@ Recorder.prototype=initFn.prototype={
 		if(Recorder.IsOpen()){
 			ok();
 			return;
-		};
+		}
 		if(!Recorder.Support()){
 			codeFail("","此浏览器不支持录音");
 			return;
-		};
+		}
 				
 		//请求权限，如果从未授权，一般浏览器会弹出权限请求弹框
 		var f1=function(stream){
@@ -763,7 +763,7 @@ Recorder.prototype=initFn.prototype={
 				if(oldStream){
 					Disconnect(); //直接断开已存在的，旧的Connect未完成会自动终止
 					stream._call=oldStream._call;
-				};
+				}
 				Recorder.Stream=stream;
 				if(lockFail())return;
 				
@@ -774,7 +774,7 @@ Recorder.prototype=initFn.prototype={
 					ok();
 				}else{
 					failCall("录音功能无效：无音频流");
-				};
+				}
 			},100);
 		};
 		var f2=function(e){
@@ -797,10 +797,10 @@ Recorder.prototype=initFn.prototype={
 		}catch(e){//不能设置trackSet就算了
 			This.CLog(getUserMediaTxt,3,e);
 			pro=Recorder.Scope[getUserMediaTxt]({audio:true},f1,f2);
-		};
+		}
 		if(pro&&pro.then){
 			pro.then(f1)[CatchTxt](f2); //fix 关键字，保证catch压缩时保持字符串形式
-		};
+		}
 	}
 	//关闭释放录音资源
 	,close:function(call){
@@ -816,7 +816,7 @@ Recorder.prototype=initFn.prototype={
 			This.CLog("close被忽略（因为同时open了多个rec，只有最后一个会真正close）",3);
 			call();
 			return;
-		};
+		}
 		Lock.C++;//获得控制权
 		
 		Disconnect(streamStore);
@@ -850,7 +850,7 @@ Recorder.prototype=initFn.prototype={
 		if(!errMsg && !Recorder[tag] && window.Int8Array && !new Int8Array(new Int32Array([1]).buffer)[0]){
 			Traffic(tag); //如果开启了流量统计，这里将发送一个图片请求
 			errMsg="不支持"+tag+"架构";
-		};
+		}
 		
 		//编码器检查环境下配置是否可用
 		if(!errMsg){
@@ -860,9 +860,9 @@ Recorder.prototype=initFn.prototype={
 			}else{//未实现检查的手动检查配置是否有效
 				if(set.takeoffEncodeChunk){
 					errMsg=type+"类型"+(This[type]?"":"(未加载编码器)")+"不支持设置takeoffEncodeChunk";
-				};
-			};
-		};
+				}
+			}
+		}
 		
 		return errMsg||"";
 	}
@@ -893,8 +893,8 @@ Recorder.prototype=initFn.prototype={
 			if(engineCtx){
 				engineCtx.pcmDatas=[];
 				engineCtx.pcmSize=0;
-			};
-		};
+			}
+		}
 	}
 	,envResume:function(){//和平台环境无关的恢复录音
 		//重新开始计数
@@ -920,7 +920,7 @@ Recorder.prototype=initFn.prototype={
 		This.envInLast=now;
 		if(This.buffers.length==1){//记下首个录音数据的录制时间
 			This.envInFirst=now-pcmTime;
-		};
+		}
 		var envInFixTs=This.envInFixTs;
 		envInFixTs.splice(0,0,{t:now,d:pcmTime});
 		//保留3秒的计数滑动窗口，另外超过3秒的停顿不补偿
@@ -930,10 +930,10 @@ Recorder.prototype=initFn.prototype={
 			if(now-o.t>3000){
 				envInFixTs.length=i;
 				break;
-			};
+			}
 			tsInStart=o.t;
 			tsPcm+=o.d;
-		};
+		}
 		//达到需要的数据量，开始侦测是否需要补偿
 		var tsInPrev=envInFixTs[1];
 		var tsIn=now-tsInStart;
@@ -951,9 +951,9 @@ Recorder.prototype=initFn.prototype={
 					var addPcm=new Int16Array(addTime*bufferSampleRate/1000);
 					size+=addPcm.length;
 					buffers.push(addPcm);
-				};
-			};
-		};
+				}
+			}
+		}
 		
 		
 		var sizeOld=This.recSize,addSize=size;
@@ -976,7 +976,7 @@ Recorder.prototype=initFn.prototype={
 			bufferFirstIdx=buffers.length;
 			buffers.push(chunkInfo.data);
 			bufferSampleRate=chunkInfo[sampleRateTxt];
-		};
+		}
 		
 		var duration=Math.round(bufferSize/bufferSampleRate*1000);
 		var bufferNextIdx=buffers.length;
@@ -997,32 +997,32 @@ Recorder.prototype=initFn.prototype={
 					//推入后台边录边转码
 					if(engineCtx&&buffer.length){
 						This[set.type+"_encode"](engineCtx,buffer);
-					};
-				};
-			};
+					}
+				}
+			}
 			
 			//同步清理This.buffers，不管buffers到底清了多少个，buffersThis是使用不到的进行全清
 			if(hasClear && engineCtx){
 				var i=bufferFirstIdxThis;
 				if(buffersThis[0]){
 					i=0;
-				};
+				}
 				for(;i<bufferNextIdxThis;i++){
 					buffersThis[i]=null;
-				};
-			};
+				}
+			}
 			
 			//统计修改后的size，如果异步发生clear要原样加回来，同步的无需操作
 			if(hasClear){
 				num=asyncBegin?addSize:0;
 				
 				buffers[0]=null;//彻底被清理
-			};
+			}
 			if(engineCtx){
 				engineCtx.pcmSize+=num;
 			}else{
 				This.recSize+=num;
-			};
+			}
 		};
 		//实时回调处理数据，允许修改或替换上次回调以来新增的数据 ，但是不允许修改已处理过的，不允许增删第一维数组 ，允许将第二维数组任意修改替换成空数组也可以
 		var asyncBegin=0,procTxt="rec.set.onProcess";
@@ -1031,12 +1031,12 @@ Recorder.prototype=initFn.prototype={
 		}catch(e){
 			//此错误显示不要用CLog，这样控制台内相同内容不会重复打印
 			console.error(procTxt+"回调出错是不允许的，需保证不会抛异常",e);
-		};
+		}
 		
 		var slowT=Date.now()-now;
 		if(slowT>10 && This.envInFirst-now>1000){ //1秒后开始onProcess性能监测
 			This.CLog(procTxt+"低性能，耗时"+slowT+"ms",3);
-		};
+		}
 		
 		if(asyncBegin===true){
 			//开启了异步模式，onProcess已接管buffers新数据，立即清空，避免出现未处理的数据
@@ -1046,8 +1046,8 @@ Recorder.prototype=initFn.prototype={
 					hasClear=1;
 				}else{
 					buffers[i]=new Int16Array(0);
-				};
-			};
+				}
+			}
 			
 			if(hasClear){
 				This.CLog("未进入异步前不能清除buffers",3);
@@ -1057,11 +1057,11 @@ Recorder.prototype=initFn.prototype={
 					engineCtx.pcmSize-=addSize;
 				}else{
 					This.recSize-=addSize;
-				};
-			};
+				}
+			}
 		}else{
 			asyncEnd();
-		};
+		}
 	}
 	
 	
@@ -1078,11 +1078,11 @@ Recorder.prototype=initFn.prototype={
 			}
 		}else if(!Recorder.IsOpen()){//监测全局麦克风是否打开并且有效
 			isOpen=0;
-		};
+		}
 		if(!isOpen){
 			This.CLog("未open",1);
 			return;
-		};
+		}
 		This.CLog("开始录音");
 		
 		This._stop();
@@ -1094,7 +1094,7 @@ Recorder.prototype=initFn.prototype={
 			//open未完成就调用了stop，此种情况终止start。也应尽量避免出现此情况
 			This.CLog("start被中断",3);
 			return;
-		};
+		}
 		This._SO=0;
 		
 		var end=function(){
@@ -1115,7 +1115,7 @@ Recorder.prototype=initFn.prototype={
 			});
 		}else{
 			end();
-		};
+		}
 	}
 	/*暂停录音*/
 	,pause:function(){
@@ -1124,7 +1124,7 @@ Recorder.prototype=initFn.prototype={
 			This.state=2;
 			This.CLog("pause");
 			delete This._streamStore().Stream._call[This.id];
-		};
+		}
 	}
 	/*恢复录音*/
 	,resume:function(){
@@ -1138,10 +1138,10 @@ Recorder.prototype=initFn.prototype={
 			stream._call[This.id]=function(pcm,sum){
 				if(This.state==1){
 					This.envIn(pcm,sum);
-				};
+				}
 			};
 			ConnAlive(stream);//AudioWorklet只会在ctx激活后运行
-		};
+		}
 	}
 	
 	
@@ -1151,15 +1151,15 @@ Recorder.prototype=initFn.prototype={
 		var This=this,set=This.set;
 		if(!This.isMock){
 			This._S++;
-		};
+		}
 		if(This.state){
 			This.pause();
 			This.state=0;
-		};
+		}
 		if(!keepEngine && This[set.type+"_stop"]){
 			This[set.type+"_stop"](This.engineCtx);
 			This.engineCtx=0;
-		};
+		}
 	}
 	/*
 	结束录音并返回录音数据blob对象
@@ -1177,7 +1177,7 @@ Recorder.prototype=initFn.prototype={
 			This._stop();//彻底关掉engineCtx
 			if(autoClose){
 				This.close();
-			};
+			}
 		};
 		var err=function(msg){
 			This.CLog("结束录音失败："+msg,1);
@@ -1191,7 +1191,7 @@ Recorder.prototype=initFn.prototype={
 			}else if(blob.size<Math.max(100,duration/2)){//1秒小于0.5k？
 				err("生成的"+set.type+"无效");
 				return;
-			};
+			}
 			True&&True(blob,duration);
 			end();
 		};
@@ -1200,22 +1200,22 @@ Recorder.prototype=initFn.prototype={
 			if(!This.state || isCtxWait){
 				err("未开始录音"+(isCtxWait?"，开始录音前无用户交互导致AudioContext未运行":""));
 				return;
-			};
+			}
 			This._stop(true);
-		};
+		}
 		var size=This.recSize;
 		if(!size){
 			err("未采集到录音");
 			return;
-		};
+		}
 		if(!This.buffers[0]){
 			err("音频buffers被释放");
 			return;
-		};
+		}
 		if(!This[set.type]){
 			err("未加载"+set.type+"编码器");
 			return;
-		};
+		}
 		
 		//环境配置检查，此处仅针对mock调用，因为open已经检查过了
 		if(This.isMock){
@@ -1223,8 +1223,8 @@ Recorder.prototype=initFn.prototype={
 			if(checkMsg){
 				err("录音错误："+checkMsg);
 				return;
-			};
-		};
+			}
+		}
 		
 		//此类型有边录边转码(Worker)支持
 		var engineCtx=This.engineCtx;
@@ -1236,7 +1236,7 @@ Recorder.prototype=initFn.prototype={
 				ok(blob,duration);
 			},err);
 			return;
-		};
+		}
 		
 		//标准UI线程转码，调整采样率
 		t1=Date.now();
@@ -1263,7 +1263,7 @@ Recorder.prototype=initFn.prototype={
 if(window[RecTxt]){
 	CLog("重复引入"+RecTxt,3);
 	window[RecTxt].Destroy();
-};
+}
 window[RecTxt]=Recorder;
 
 
@@ -1273,7 +1273,7 @@ window[RecTxt]=Recorder;
 var WebM_Extract=function(inBytes, scope){
 	if(!scope.pos){
 		scope.pos=[0]; scope.tracks={}; scope.bytes=[];
-	};
+	}
 	var tracks=scope.tracks, position=[scope.pos[0]];
 	var endPos=function(){ scope.pos[0]=position[0] };
 	
@@ -1341,7 +1341,7 @@ var WebM_Extract=function(inBytes, scope){
 							}
 						}
 					}
-				};
+				}
 				scope._ht=1;
 				CLog("WebM Tracks",tracks);
 				endPos();
@@ -1406,7 +1406,7 @@ var WebM_Extract=function(inBytes, scope){
 				i+=track0.channels;
 			}
 			arr=new Float32Array(arr2);
-		};
+		}
 		return arr;
 	}
 };
@@ -1422,7 +1422,7 @@ var BytesEq=function(bytes1,bytes2){
 //字节数组BE转成int数字
 var BytesInt=function(bytes){
 	var s="";//0-8字节，js位运算只支持4字节
-	for(var i=0;i<bytes.length;i++){var n=bytes[i];s+=(n<16?"0":"")+n.toString(16)};
+	for(var i=0;i<bytes.length;i++){var n=bytes[i];s+=(n<16?"0":"")+n.toString(16)}
 	return parseInt(s,16)||0;
 };
 //读取一个可变长数值字节数组
@@ -1474,11 +1474,11 @@ var Traffic=Recorder.Traffic=function(report){
 				imgUrl="https:"+imgUrl;
 			}else{
 				imgUrl="http:"+imgUrl;
-			};
-		};
+			}
+		}
 		if(report){
 			imgUrl=imgUrl+"&cu="+encodeURIComponent(host+report);
-		};
+		}
 		
 		if(!data[idf]){
 			data[idf]=1;
@@ -1486,8 +1486,8 @@ var Traffic=Recorder.Traffic=function(report){
 			var img=new Image();
 			img.src=imgUrl;
 			CLog("Traffic Analysis Image: "+(report||RecTxt+".TrafficImgUrl="+Recorder.TrafficImgUrl));
-		};
-	};
+		}
+	}
 };
 
 }));

@@ -177,17 +177,18 @@ func (l *logging) ListEval(ctx context.Context, request ListEvalRequest) (res []
 	return l.next.ListEval(ctx, request)
 }
 
-func (l *logging) ListModels(ctx context.Context, request ListModelRequest) (res []types.Models, total int64, err error) {
+func (l *logging) ListModels(ctx context.Context, request ListModelRequest, preloads ...string) (res []types.Models, total int64, err error) {
 	defer func(begin time.Time) {
 		_ = l.logger.Log(
 			l.traceId, ctx.Value(l.traceId),
 			"method", "ListModels",
 			"request", fmt.Sprintf("%+v", request),
+			"preloads", fmt.Sprintf("%+v", preloads),
 			"took", time.Since(begin),
 			"err", err,
 		)
 	}(time.Now())
-	return l.next.ListModels(ctx, request)
+	return l.next.ListModels(ctx, request, preloads...)
 }
 
 func (l *logging) CreateModel(ctx context.Context, data *types.Models) (err error) {

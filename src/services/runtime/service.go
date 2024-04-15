@@ -125,7 +125,7 @@ func (c Config) GenVolumeAndVolumeMount() (volumes []v1.Volume, volumeMounts []v
 
 	if len(c.ConfigData) > 0 {
 		var items []v1.KeyToPath
-		for k, _ := range c.ConfigData {
+		for k := range c.ConfigData {
 			_, fileName := filepath.Split(k)
 			items = append(items, v1.KeyToPath{
 				Key:  c.FilePath2Key(k),
@@ -491,7 +491,7 @@ type Service interface {
 	// CreateDeployment 创建deployment
 	CreateDeployment(ctx context.Context, config Config) (deploymentName string, err error)
 	// GetDeploymentLogs 获取部署的日志
-	GetDeploymentLogs(ctx context.Context, deploymentName string) (log string, err error)
+	GetDeploymentLogs(ctx context.Context, deploymentName, containerName string) (log string, err error)
 	// GetJobLogs 获取job的日志
 	GetJobLogs(ctx context.Context, jobName string) (log string, err error)
 	// GetJobStatus 获取job的状态
@@ -502,6 +502,10 @@ type Service interface {
 	RemoveJob(ctx context.Context, jobName string) (err error)
 	// RemoveDeployment 删除部署
 	RemoveDeployment(ctx context.Context, deploymentName string) (err error)
+	// WaitForTerminal 处理客户端发来的ws建立请求
+	WaitForTerminal(ctx context.Context, ts Session, config Config, container, cmd string)
+	// GetDeploymentContainerNames 获取部署的容器名
+	GetDeploymentContainerNames(ctx context.Context, deploymentName string) (containerNames []string, err error)
 }
 
 // Middleware is a service middleware

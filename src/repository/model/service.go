@@ -33,7 +33,7 @@ type ListEvalRequest struct {
 
 type Service interface {
 	// ListModels 模型分页列表
-	ListModels(ctx context.Context, request ListModelRequest) (res []types.Models, total int64, err error)
+	ListModels(ctx context.Context, request ListModelRequest, preloads ...string) (res []types.Models, total int64, err error)
 	// CreateModel 创建模型
 	CreateModel(ctx context.Context, data *types.Models) (err error)
 	// GetModel 获取模型
@@ -170,8 +170,15 @@ func (s *service) GetModelByModelName(ctx context.Context, modelName string) (re
 	return
 }
 
-func (s *service) ListModels(ctx context.Context, request ListModelRequest) (res []types.Models, total int64, err error) {
+func (s *service) ListModels(ctx context.Context, request ListModelRequest, preloads ...string) (res []types.Models, total int64, err error) {
 	query := s.db.WithContext(ctx).Model(&types.Models{})
+	for _, v := range preloads {
+		if v == "ModelDeploy" {
+			query = query.Preload(v, "status = ? AND deleted_at IS NULL", types.ModelDeployStatusRunning.String())
+		} else {
+			query = query.Preload(v)
+		}
+	}
 	if request.ModelName != "" {
 		query = query.Where("model_name LIKE ?", "%"+request.ModelName+"%")
 	}

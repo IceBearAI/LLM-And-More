@@ -137,7 +137,7 @@ type ListFindTuningJobRequest struct {
 func (s *service) ListFindTuningJob(ctx context.Context, request ListFindTuningJobRequest) (res []types.FineTuningTrainJob, total int64, err error) {
 	query := s.db.WithContext(ctx).Model(&types.FineTuningTrainJob{})
 	if request.FineTunedModel != "" {
-		query = query.Where("fine_tuned_model = ?", request.FineTunedModel)
+		query = query.Where("fine_tuned_model like ?", "%"+request.FineTunedModel+"%")
 	}
 	if request.TrainStatus != "" {
 		query = query.Where("train_status = ?", request.TrainStatus)

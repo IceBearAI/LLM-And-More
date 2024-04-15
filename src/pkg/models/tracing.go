@@ -12,6 +12,19 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (t *tracing) GetModelLogs(ctx context.Context, modelName, containerName string) (res string, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "GetModelLogs", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "pkg.model",
+	})
+	defer func() {
+		span.LogKV("modelName", modelName, "containerName", containerName, "err", err)
+		span.SetTag("err", err != nil)
+		span.Finish()
+	}()
+	return t.next.GetModelLogs(ctx, modelName, containerName)
+}
+
 func (t *tracing) DeleteEval(ctx context.Context, id uint) (err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "DeleteEval", opentracing.Tag{
 		Key:   string(ext.Component),

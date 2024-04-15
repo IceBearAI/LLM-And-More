@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 var validate = validator.New()
@@ -21,6 +22,16 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 	ems = append(ems, dmw...)
 	var kitopts = []kithttp.ServerOption{
 		kithttp.ServerBefore(func(ctx context.Context, request *http.Request) context.Context {
+			vars := mux.Vars(request)
+			if containerName, ok := vars["containerName"]; ok && !strings.EqualFold(containerName, "") {
+				ctx = context.WithValue(ctx, contextKeyModelContainerName, containerName)
+			}
+			if modelName, ok := vars["modelName"]; ok && !strings.EqualFold(modelName, "") {
+				ctx = context.WithValue(ctx, contextKeyModelName, modelName)
+			}
+			if id, ok := vars["id"]; ok && !strings.EqualFold(id, "") {
+				ctx = context.WithValue(ctx, contextKeyModelId, id)
+			}
 			return ctx
 		}),
 	}
@@ -97,6 +108,12 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 		encode.JsonResponse,
 		kitopts...,
 	)).Methods(http.MethodDelete)
+	r.Handle("/models/{modelName}/container/{containerName}/logs", kithttp.NewServer(
+		eps.GetModelLogsEndpoint,
+		kithttp.NopRequestDecoder,
+		encode.JsonResponse,
+		kitopts...,
+	)).Methods(http.MethodGet)
 	return r
 }
 

@@ -13,6 +13,19 @@ type logging struct {
 	traceId string
 }
 
+func (l *logging) GetModelLogs(ctx context.Context, modelName, containerName string) (res string, err error) {
+	defer func(begin time.Time) {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"modelName", modelName,
+			"containerName", containerName,
+			"method", "GetModelLogs",
+			"err", err,
+		)
+	}(time.Now())
+	return l.next.GetModelLogs(ctx, modelName, containerName)
+}
+
 func (l *logging) DeleteEval(ctx context.Context, id uint) (err error) {
 	defer func(begin time.Time) {
 		_ = l.logger.Log(

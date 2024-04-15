@@ -14,7 +14,7 @@ const (
 
 // 随机字符串
 func Krand(size int, kind int) []byte {
-	ikind, kinds, result := kind, [][]int{[]int{10, 48}, []int{26, 97}, []int{26, 65}}, make([]byte, size)
+	ikind, kinds, result := kind, [][]int{{10, 48}, {26, 97}, {26, 65}}, make([]byte, size)
 	isAll := kind > KC_RAND_KIND_UPPER || kind < KC_RAND_KIND_NUM
 	rand.Seed(time.Now().UnixNano())
 	for i := 0; i < size; i++ {

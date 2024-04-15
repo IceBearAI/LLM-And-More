@@ -17,24 +17,26 @@ type (
 		ModelType     string `json:"modelType"`
 		MaxTokens     int    `json:"maxTokens"`
 		//IsPrivate    bool      `json:"isPrivate"`
-		IsFineTuning bool      `json:"isFineTuning"`
-		Enabled      bool      `json:"enabled"`
-		Remark       string    `json:"remark"`
-		CreatedAt    time.Time `json:"createdAt"`
-		UpdatedAt    time.Time `json:"updatedAt"`
-		Tenants      []Tenant  `json:"tenants"`
-		DeployStatus string    `json:"deployStatus"`
-		Operation    []string  `json:"operation"`
-		JobId        string    `json:"jobId"`
-		LastOperator string    `json:"lastOperator"`
-		Parameters   float64   `json:"parameters"`
-		Replicas     int       `json:"replicas"`     //并行/实例数量
-		Label        string    `json:"label"`        //调度标签
-		K8sCluster   string    `json:"k8sCluster"`   //k8s集群
-		InferredType string    `json:"inferredType"` //推理类型cpu,gpu
-		Gpu          int       `json:"gpu"`          //GPU数
-		Cpu          int       `json:"cpu"`          //CPU核数
-		Memory       int       `json:"memory"`       //内存G
+		IsFineTuning   bool      `json:"isFineTuning"`
+		Enabled        bool      `json:"enabled"`
+		Remark         string    `json:"remark"`
+		CreatedAt      time.Time `json:"createdAt"`
+		UpdatedAt      time.Time `json:"updatedAt"`
+		Tenants        []Tenant  `json:"tenants"`
+		DeployStatus   string    `json:"deployStatus"`
+		Operation      []string  `json:"operation"`
+		JobId          string    `json:"jobId"`
+		LastOperator   string    `json:"lastOperator"`
+		Parameters     float64   `json:"parameters"`
+		Replicas       int       `json:"replicas"`     //并行/实例数量
+		Label          string    `json:"label"`        //调度标签
+		K8sCluster     string    `json:"k8sCluster"`   //k8s集群
+		InferredType   string    `json:"inferredType"` //推理类型cpu,gpu
+		Gpu            int       `json:"gpu"`          //GPU数
+		Cpu            int       `json:"cpu"`          //CPU核数
+		Memory         int       `json:"memory"`       //内存G
+		ServiceName    string    `json:"serviceName"`
+		ContainerNames []string  `json:"containerNames"`
 	}
 
 	Tenant struct {
@@ -148,6 +150,12 @@ type (
 		MaxGpuMemory int    `json:"maxGpuMemory"`
 		K8sCluster   string `json:"k8sCluster"` //k8s集群
 	}
+
+	// modelLogRequest 模型日志请求
+	modelLogRequest struct {
+		ModelName     string
+		ContainerName string
+	}
 )
 
 type Endpoints struct {
@@ -162,6 +170,7 @@ type Endpoints struct {
 	ListEvalEndpoint      endpoint.Endpoint
 	CancelEvalEndpoint    endpoint.Endpoint
 	DeleteEvalEndpoint    endpoint.Endpoint
+	GetModelLogsEndpoint  endpoint.Endpoint
 }
 
 func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
@@ -177,6 +186,7 @@ func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 		ListEvalEndpoint:      makeListEvalEndpoint(s),
 		CancelEvalEndpoint:    makeCancelEvalEndpoint(s),
 		DeleteEvalEndpoint:    makeDeleteEvalEndpoint(s),
+		GetModelLogsEndpoint:  makeGetModelLogsEndpoint(s),
 	}
 	for _, m := range dmw["Model"] {
 		eps.ListModelsEndpoint = m(eps.ListModelsEndpoint)
@@ -189,8 +199,21 @@ func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 		eps.CreateEvalEndpoint = m(eps.CreateEvalEndpoint)
 		eps.ListEvalEndpoint = m(eps.ListEvalEndpoint)
 		eps.CancelEvalEndpoint = m(eps.CancelEvalEndpoint)
+		eps.GetModelLogsEndpoint = m(eps.GetModelLogsEndpoint)
 	}
 	return eps
+}
+
+func makeGetModelLogsEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		modelName, _ := ctx.Value(contextKeyModelName).(string)
+		containerName, _ := ctx.Value(contextKeyModelContainerName).(string)
+		resp, err := s.GetModelLogs(ctx, modelName, containerName)
+		return encode.Response{
+			Data:  resp,
+			Error: err,
+		}, err
+	}
 }
 
 func makeListModelsEndpoint(s Service) endpoint.Endpoint {

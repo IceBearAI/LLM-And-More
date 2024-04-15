@@ -182,17 +182,17 @@ func (t *tracing) GetEval(ctx context.Context, id uint) (res types.LLMEvalResult
 	return t.next.GetEval(ctx, id)
 }
 
-func (t *tracing) ListModels(ctx context.Context, request ListModelRequest) (res []types.Models, total int64, err error) {
+func (t *tracing) ListModels(ctx context.Context, request ListModelRequest, preloads ...string) (res []types.Models, total int64, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "ListModels", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-		span.LogKV("request", fmt.Sprintf("%+v", request), "err", err)
+		span.LogKV("request", fmt.Sprintf("%+v", request), "preloads", preloads, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
 		span.Finish()
 	}()
-	return t.next.ListModels(ctx, request)
+	return t.next.ListModels(ctx, request, preloads...)
 }
 
 func (t *tracing) CreateModel(ctx context.Context, data *types.Models) (err error) {

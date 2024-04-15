@@ -33,6 +33,16 @@ type docker struct {
 	createOptions CreationOptions
 }
 
+func (s *docker) WaitForTerminal(ctx context.Context, ts Session, config Config, container, cmd string) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *docker) GetDeploymentContainerNames(ctx context.Context, deploymentName string) (containerNames []string, err error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (s *docker) CreateJob(ctx context.Context, config Config) (jobName string, err error) {
 	_ = s.RemoveJob(ctx, config.ServiceName)
 
@@ -70,7 +80,7 @@ func (s *docker) CreateJob(ctx context.Context, config Config) (jobName string, 
 	//	hostBinds = append(hostBinds, fmt.Sprintf("%s:%s", filepath.Join(s.options.workspace, s.options.k8sVolumeName), "/data"))
 	//}
 
-	for k, _ := range config.ConfigData {
+	for k := range config.ConfigData {
 		hostBinds = append(hostBinds, fmt.Sprintf("%s:%s", filepath.Join(s.options.workspace, config.ServiceName, k), k))
 	}
 
@@ -186,7 +196,7 @@ func (s *docker) CreateDeployment(ctx context.Context, config Config) (deploymen
 	return s.CreateJob(ctx, config)
 }
 
-func (s *docker) GetDeploymentLogs(ctx context.Context, id string) (log string, err error) {
+func (s *docker) GetDeploymentLogs(ctx context.Context, id, containerName string) (log string, err error) {
 	out, err := s.dockerCli.ContainerLogs(ctx, id, container.LogsOptions{
 		ShowStderr: true,
 		ShowStdout: true,
@@ -205,7 +215,7 @@ func (s *docker) GetDeploymentLogs(ctx context.Context, id string) (log string, 
 }
 
 func (s *docker) GetJobLogs(ctx context.Context, id string) (log string, err error) {
-	return s.GetDeploymentLogs(ctx, id)
+	return s.GetDeploymentLogs(ctx, id, "")
 }
 
 func (s *docker) GetJobStatus(ctx context.Context, jobName string) (status string, err error) {
