@@ -171,6 +171,7 @@ if [ "$SCENARIO" == "general" ]; then
       --gradient_checkpointing \
       --zero_stage $ZERO_STAGE \
       --offload \
+      --only_optimize_lora \
       --deepspeed \
       --output_dir $OUTPUT_DIR \
       --start_from_step -1 \
