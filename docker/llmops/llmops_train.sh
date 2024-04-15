@@ -170,6 +170,7 @@ if [ "$SCENARIO" == "general" ]; then
       --seed 42 \
       --gradient_checkpointing \
       --zero_stage $ZERO_STAGE \
+      --offload \
       --deepspeed \
       --output_dir $OUTPUT_DIR \
       --start_from_step -1 \
