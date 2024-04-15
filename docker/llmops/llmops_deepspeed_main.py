@@ -419,7 +419,7 @@ def main():
             if step < args.start_from_step:
                 print_rank_0(f'skipping {step}-th step of {rounds}.')
                 continue
-            print_rank_0(f'training {step}-th step of {rounds}.')
+            print_rank_0(f'training {step}-th step of {rounds}.',args.global_rank)
             start = time.time()
             batch = to_device(batch, device)
             outputs = model(**batch, use_cache=False)
@@ -427,11 +427,11 @@ def main():
             learning_rate = model.optimizer.param_groups[0]['lr']
             progress = global_step / total_steps
             log_data = log_info(args.global_rank, progress, step, loss.item(), learning_rate)
-            print_rank_0(log_data)
+            print_rank_0(log_data,args.global_rank)
             model.backward(loss)
             model.step()
             end = time.time()
-            print_rank_0(f'finished step {step}, used {end - start} seconds.')
+            print_rank_0(f'finished step {step}, used {end - start} seconds.',args.global_rank)
             # if torch.distributed.get_rank() == 0:
             #     print_throughput(model.module, args, end - start,
             #                      args.global_rank)

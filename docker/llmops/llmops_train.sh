@@ -171,7 +171,6 @@ if [ "$SCENARIO" == "general" ]; then
       --gradient_checkpointing \
       --zero_stage $ZERO_STAGE \
       --deepspeed \
-      --print_loss \
       --output_dir $OUTPUT_DIR \
       --start_from_step -1 \
       --save_per_steps 100  > >(tee "$temp_file") 2>&1

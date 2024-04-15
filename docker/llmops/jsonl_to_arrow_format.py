@@ -18,7 +18,7 @@ args = parser.parse_args()
 
 def jsonl_to_dataframe(file_path):
     if not file_path or not os.path.exists(file_path):
-        return pd.DataFrame({'input': [], 'output': []})
+        return pd.DataFrame({'input': [''], 'output': ['']})
 
     with open(file_path, 'r', encoding='utf-8') as file:
         data = [json.loads(line) for line in file]
