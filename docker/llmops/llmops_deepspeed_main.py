@@ -95,7 +95,7 @@ def parse_args():
     parser.add_argument(
         "--learning_rate",
         type=float,
-        default=1e-3,
+        default=1e-5,
         help="Initial learning rate (after the potential warmup period) to use.",
     )
     parser.add_argument("--weight_decay",
@@ -180,7 +180,7 @@ def parse_args():
     parser.add_argument(
         "--lora_learning_rate",
         type=float,
-        default=5e-4,
+        default=2e-5,
         help="Initial LoRA learning rate (after the potential warmup period) to use."
     )
     # save per steps
@@ -403,7 +403,8 @@ def main():
     print_rank_0(
         f"***** Evaluating perplexity, Epoch {0}/{args.num_train_epochs} *****",
         args.global_rank)
-    total_steps = len(train_dataloader) * args.num_train_epochs
+    total_steps = len(train_dataloader)
+    total_epochs = args.num_train_epochs
     for epoch in range(args.num_train_epochs):
         print_rank_0(
             f"Beginning of Epoch {epoch + 1}/{args.num_train_epochs}, Total Micro Batches {len(train_dataloader)}",
@@ -415,7 +416,6 @@ def main():
         rounds = len(train_dataloader)
 
         for step, batch in enumerate(train_dataloader):
-            global_step = epoch * len(train_dataloader) + step
             if step < args.start_from_step:
                 print_rank_0(f'skipping {step}-th step of {rounds}.')
                 continue
@@ -425,7 +425,7 @@ def main():
             outputs = model(**batch, use_cache=False)
             loss = outputs.loss
             learning_rate = model.optimizer.param_groups[0]['lr']
-            progress = global_step / total_steps
+            progress = epoch + (step + 1) / total_steps
             log_data = log_info(args.global_rank, progress, step, loss.item(), learning_rate)
             print_rank_0(log_data,args.global_rank)
             model.backward(loss)

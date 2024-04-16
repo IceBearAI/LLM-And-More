@@ -26,20 +26,30 @@ def jsonl_to_dataframe(file_path):
     modified_dataset = []
     for item in data:
         messages = item.get('messages', [])
-        if len(messages) >= 2:
-            if messages[0]['role'] == 'system':
-                for i in range(1, len(messages) - 1):
-                    if messages[i]['role'] == 'user' and messages[i + 1]['role'] == 'assistant':
-                        input_text = ' '.join(m['content'] for m in messages[:i + 1])
-                        output_text = messages[i + 1]['content']
-                        modified_dataset.append({"input": input_text, "output": output_text})
+        if messages and len(messages) >= 2:
+            for i in range(len(messages) - 1):
+                if messages[i]['role'] == 'user' and messages[i + 1]['role'] == 'assistant':
+                    input_text = '\n'.join(m['content'] for m in messages[:i + 1])
+                    output_text = messages[i + 1]['content']
+                    modified_dataset.append({"input": input_text, "output": output_text})
+                elif messages[i]['role'] == 'assistant' and (i == len(messages) - 2):
+                    try:
+                        input_text = '\n'.join(m['content'] for m in messages[:i + 1])
+                        output_text = messages[i + 2]['content']
+                    except:
+                        input_text = '\n'.join(m['content'] for m in messages[:i + 2])
+                        output_text = ""
+                    modified_dataset.append({"input": input_text, "output": output_text})
+        else:
+            instruction=item.get('instruction', '')
+            input_text=item.get('input', '')
+            output_text=item.get('output', '')
+            if not input_text or not output_text:
+                continue
+            if instruction:
+                input_text=instruction+"\n"+input_text
 
-            else:
-                for i in range(len(messages) - 1):
-                    if messages[i]['role'] == 'user' and messages[i + 1]['role'] == 'assistant':
-                        input_text = ' '.join(m['content'] for m in messages[:i + 1])
-                        output_text = messages[i + 1]['content']
-                        modified_dataset.append({"input": input_text, "output": output_text})
+            modified_dataset.append({"input": input_text, "output": output_text})
 
     return pd.DataFrame(modified_dataset)
 
