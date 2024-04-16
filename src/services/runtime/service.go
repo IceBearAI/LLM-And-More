@@ -31,6 +31,7 @@ type CreationOptions struct {
 	k8sConfigPath  string
 	k8sTokenModel  k8sTokenModel
 	k8sVolumeName  string
+	labelName      string
 }
 
 type k8sTokenModel struct {
@@ -77,6 +78,7 @@ type Config struct {
 	ShmSize string
 
 	restartPolicy v1.RestartPolicy
+	LabelName     string
 }
 
 func (c Config) FilePath2Key(filePath string) string {
@@ -178,17 +180,13 @@ func (c Config) GenVolumeAndVolumeMount() (volumes []v1.Volume, volumeMounts []v
 
 func (c Config) GenDeploymentLabels() map[string]string {
 	return map[string]string{
-		"runtime.io/name":       c.ServiceName,
-		"runtime.io/namespace":  c.namespace,
-		"runtime.io/deployment": c.ServiceName,
+		c.LabelName: c.ServiceName,
 	}
 }
 
 func (c Config) GenJobLabels() map[string]string {
 	return map[string]string{
-		"runtime.io/name":      c.ServiceName,
-		"runtime.io/namespace": c.namespace,
-		"runtime.io/job":       c.ServiceName,
+		c.LabelName: c.ServiceName,
 	}
 }
 
@@ -485,13 +483,15 @@ func (c Config) tarDirectory(name, workspace string) (*bytes.Buffer, error) {
 }
 
 // Service is a service interface
+//
+//go:generate gowrap gen -g -p ./ -i Service -bt "ce_log:logging.go ce_trace:tracing.go"
 type Service interface {
 	// CreateJob 创建job
 	CreateJob(ctx context.Context, config Config) (jobName string, err error)
 	// CreateDeployment 创建deployment
 	CreateDeployment(ctx context.Context, config Config) (deploymentName string, err error)
 	// GetDeploymentLogs 获取部署的日志
-	GetDeploymentLogs(ctx context.Context, deploymentName string) (log string, err error)
+	GetDeploymentLogs(ctx context.Context, deploymentName, containerName string) (log string, err error)
 	// GetJobLogs 获取job的日志
 	GetJobLogs(ctx context.Context, jobName string) (log string, err error)
 	// GetJobStatus 获取job的状态
@@ -502,6 +502,10 @@ type Service interface {
 	RemoveJob(ctx context.Context, jobName string) (err error)
 	// RemoveDeployment 删除部署
 	RemoveDeployment(ctx context.Context, deploymentName string) (err error)
+	// WaitForTerminal 处理客户端发来的ws建立请求
+	WaitForTerminal(ctx context.Context, ts Session, config Config, container, cmd string)
+	// GetDeploymentContainerNames 获取部署的容器名
+	GetDeploymentContainerNames(ctx context.Context, deploymentName string) (containerNames []string, err error)
 }
 
 // Middleware is a service middleware

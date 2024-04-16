@@ -178,7 +178,7 @@ const (
 
 	DefaultCORSAllowOrigins     = "*"
 	DefaultCORSAllowMethods     = "GET,POST,PUT,DELETE,OPTIONS"
-	DefaultCORSAllowHeaders     = "Accept,Content-Type,Content-Length,Accept-Encoding,X-CSRF-Token,Authorization"
+	DefaultCORSAllowHeaders     = "Accept,Content-Type,Content-Length,Accept-Encoding,X-CSRF-Token,Authorization,X-Token,X-Tenant-Id"
 	DefaultCORSAllowCredentials = true
 	DefaultCORSExposeHeaders    = "Content-Length,Access-Control-Allow-Origin,Access-Control-Allow-Headers,Content-Type"
 

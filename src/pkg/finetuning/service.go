@@ -25,7 +25,6 @@ import (
 	"io"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"math"
-	"net/http"
 	"os"
 	"regexp"
 	"strconv"
@@ -262,7 +261,7 @@ func (s *service) _createJob(ctx context.Context, tenantId, channelId uint, trai
 
 func (s *service) uploadFileToOpenAi(ctx context.Context, fileInfo *types.Files) (fileId string, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
-	body, err := getHttpFileBody(fileInfo.S3Url)
+	body, err := util.GetHttpFileBody(fileInfo.S3Url)
 	if err != nil {
 		_ = level.Error(logger).Log("getHttpFileBody", "getHttpFileBody", "err", err.Error())
 		return "", err
@@ -819,7 +818,7 @@ func (s *service) CancelJob(ctx context.Context, tenantId uint, jobId string) (e
 func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url string) (newS3Url string, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 
-	sourceData, err := getHttpFileBody(sourceS3Url)
+	sourceData, err := util.GetHttpFileBody(sourceS3Url)
 	if err != nil {
 		_ = level.Error(logger).Log("convertAlpaca", "convertAlpaca", "err", err.Error())
 		return "", errors.Wrap(err, "convertAlpaca")
@@ -885,7 +884,7 @@ func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url
 			suffix = "json"
 		}*/
 	} else {
-		alpacaDada, err = getHttpFileBody(sourceS3Url)
+		alpacaDada, err = util.GetHttpFileBody(sourceS3Url)
 		if err != nil {
 			_ = level.Error(logger).Log("convertAlpaca", "convertAlpaca", "err", err.Error())
 			return "", errors.Wrap(err, "convertAlpaca")
@@ -947,7 +946,7 @@ type alpacaConversations struct {
 }
 
 func convertAlpaca(httpUrl string, logger log.Logger, modelName string) (alpaca []byte, err error) {
-	body, err := getHttpFileBody(httpUrl)
+	body, err := util.GetHttpFileBody(httpUrl)
 	if err != nil {
 		err = errors.Wrap(err, "getHttpFileBody")
 		return
@@ -986,24 +985,6 @@ func convertAlpaca(httpUrl string, logger log.Logger, modelName string) (alpaca 
 		})
 	}
 	return json.Marshal(alpacaDataList)
-}
-
-func getHttpFileBody(url string) (body []byte, err error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		err = errors.Wrap(err, "http.Get")
-		return
-	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
-
-	body, err = io.ReadAll(resp.Body)
-	if err != nil {
-		err = errors.Wrap(err, "io.ReadAll")
-		return
-	}
-	return
 }
 
 func convertJob(data *types.FineTuningTrainJob) JobResponse {
@@ -1119,7 +1100,7 @@ func GetTrainInfoFromLog(jobLog string) (logEntryList []LogEntry, err error) {
 }
 
 func convertQwenTrainData(httpUrl string) (alpaca []byte, err error) {
-	body, err := getHttpFileBody(httpUrl)
+	body, err := util.GetHttpFileBody(httpUrl)
 	if err != nil {
 		err = errors.Wrap(err, "getHttpFileBody")
 		return

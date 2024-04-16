@@ -5,36 +5,62 @@ import (
 	"github.com/IceBearAI/aigc/src/encode"
 	"github.com/IceBearAI/aigc/src/middleware"
 	"github.com/go-kit/kit/endpoint"
+	"github.com/sashabaranov/go-openai"
 	"time"
 )
 
 type (
+	// modelDeploymentResult 模型部署返回
+	modelDeploymentResult struct {
+		VLLM         bool   `json:"vllm"`
+		Status       string `json:"status"`
+		ModelPath    string `json:"modelPath"`
+		Replicas     int    `json:"replicas"`
+		InferredType string `json:"inferredType"`
+		GPU          int    `json:"gpu"`
+		Quantization string `json:"quantization"`
+	}
+
+	// modelFineTuneResult 模型微调返回
+	modelFineTuneResult struct {
+		JobId        string `json:"jobId"`
+		FileId       string `json:"fileId"`
+		FileName     string `json:"fileName"`
+		FileUrl      string `json:"fileUrl"`
+		FileLine     int    `json:"fileLine"`
+		FileTokens   int    `json:"fileTokens"`
+		SystemPrompt string `json:"systemPrompt"`
+	}
+
 	Model struct {
-		Id            uint   `json:"id"`
-		BaseModelName string `json:"baseModelName"`
-		ProviderName  string `json:"providerName"`
-		ModelName     string `json:"modelName"`
-		ModelType     string `json:"modelType"`
-		MaxTokens     int    `json:"maxTokens"`
-		//IsPrivate    bool      `json:"isPrivate"`
-		IsFineTuning bool      `json:"isFineTuning"`
-		Enabled      bool      `json:"enabled"`
-		Remark       string    `json:"remark"`
-		CreatedAt    time.Time `json:"createdAt"`
-		UpdatedAt    time.Time `json:"updatedAt"`
-		Tenants      []Tenant  `json:"tenants"`
-		DeployStatus string    `json:"deployStatus"`
-		Operation    []string  `json:"operation"`
-		JobId        string    `json:"jobId"`
-		LastOperator string    `json:"lastOperator"`
-		Parameters   float64   `json:"parameters"`
-		Replicas     int       `json:"replicas"`     //并行/实例数量
-		Label        string    `json:"label"`        //调度标签
-		K8sCluster   string    `json:"k8sCluster"`   //k8s集群
-		InferredType string    `json:"inferredType"` //推理类型cpu,gpu
-		Gpu          int       `json:"gpu"`          //GPU数
-		Cpu          int       `json:"cpu"`          //CPU核数
-		Memory       int       `json:"memory"`       //内存G
+		Id             uint                  `json:"id"`
+		BaseModelName  string                `json:"baseModelName"`
+		ProviderName   string                `json:"providerName"`
+		ModelName      string                `json:"modelName"`
+		ModelType      string                `json:"modelType"`
+		MaxTokens      int                   `json:"maxTokens"`
+		IsFineTuning   bool                  `json:"isFineTuning"`
+		Enabled        bool                  `json:"enabled"`
+		Remark         string                `json:"remark"`
+		CreatedAt      time.Time             `json:"createdAt"`
+		UpdatedAt      time.Time             `json:"updatedAt"`
+		Tenants        []Tenant              `json:"tenants"`
+		DeployStatus   string                `json:"deployStatus"`
+		Operation      []string              `json:"operation"`
+		JobId          string                `json:"jobId"`
+		LastOperator   string                `json:"lastOperator"`
+		Parameters     float64               `json:"parameters"`
+		Replicas       int                   `json:"replicas"`     //并行/实例数量
+		Label          string                `json:"label"`        //调度标签
+		K8sCluster     string                `json:"k8sCluster"`   //k8s集群
+		InferredType   string                `json:"inferredType"` //推理类型cpu,gpu
+		Gpu            int                   `json:"gpu"`          //GPU数
+		Cpu            int                   `json:"cpu"`          //CPU核数
+		Memory         int                   `json:"memory"`       //内存G
+		ServiceName    string                `json:"serviceName"`
+		ContainerNames []string              `json:"containerNames"`
+		Deployment     modelDeploymentResult `json:"deployment"`
+		FineTuned      *modelFineTuneResult  `json:"fineTuned"`
 	}
 
 	Tenant struct {
@@ -148,35 +174,66 @@ type (
 		MaxGpuMemory int    `json:"maxGpuMemory"`
 		K8sCluster   string `json:"k8sCluster"` //k8s集群
 	}
+
+	// modelLogRequest 模型日志请求
+	modelLogRequest struct {
+		ModelName     string
+		ContainerName string
+	}
+
+	ChatCompletionRequest struct {
+		Messages    []openai.ChatCompletionMessage `json:"messages"`
+		MaxTokens   int                            `json:"maxTokens"`
+		Temperature float32                        `json:"temperature"`
+		TopP        float32                        `json:"topP"`
+		Model       string                         `json:"model"`
+	}
+
+	CompletionsStreamResult struct {
+		FullContent  string    `json:"fullContent"`
+		Content      string    `json:"content"`
+		CreatedAt    time.Time `json:"createdAt"`
+		FinishReason string    `json:"finishReason"`
+		ContentType  string    `json:"contentType"`
+		MessageId    string    `json:"messageId"`
+		Model        string    `json:"model"`       // 模型唯一标识
+		TopP         float64   `json:"topP"`        // 生成文本的多样性
+		Temperature  float64   `json:"temperature"` // 生成文本的多样性
+		MaxTokens    int       `json:"maxTokens"`   // 生成文本的最大长度
+	}
 )
 
 type Endpoints struct {
-	ListModelsEndpoint    endpoint.Endpoint
-	CreateModelEndpoint   endpoint.Endpoint
-	UpdateModelEndpoint   endpoint.Endpoint
-	DeleteModelEndpoint   endpoint.Endpoint
-	GetModelEndpoint      endpoint.Endpoint
-	DeployModelEndpoint   endpoint.Endpoint
-	UndeployModelEndpoint endpoint.Endpoint
-	CreateEvalEndpoint    endpoint.Endpoint
-	ListEvalEndpoint      endpoint.Endpoint
-	CancelEvalEndpoint    endpoint.Endpoint
-	DeleteEvalEndpoint    endpoint.Endpoint
+	ListModelsEndpoint           endpoint.Endpoint
+	CreateModelEndpoint          endpoint.Endpoint
+	UpdateModelEndpoint          endpoint.Endpoint
+	DeleteModelEndpoint          endpoint.Endpoint
+	GetModelEndpoint             endpoint.Endpoint
+	DeployModelEndpoint          endpoint.Endpoint
+	UndeployModelEndpoint        endpoint.Endpoint
+	CreateEvalEndpoint           endpoint.Endpoint
+	ListEvalEndpoint             endpoint.Endpoint
+	CancelEvalEndpoint           endpoint.Endpoint
+	DeleteEvalEndpoint           endpoint.Endpoint
+	GetModelLogsEndpoint         endpoint.Endpoint
+	ChatCompletionStreamEndpoint endpoint.Endpoint
 }
 
 func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 	eps := Endpoints{
-		ListModelsEndpoint:    makeListModelsEndpoint(s),
-		CreateModelEndpoint:   makeCreateModelEndpoint(s),
-		UpdateModelEndpoint:   makeUpdateModelEndpoint(s),
-		DeleteModelEndpoint:   makeDeleteModelEndpoint(s),
-		GetModelEndpoint:      makeGetModelEndpoint(s),
-		DeployModelEndpoint:   makeDeployModelEndpoint(s),
-		UndeployModelEndpoint: makeUndeployModelEndpoint(s),
-		CreateEvalEndpoint:    makeCreateEvalEndpoint(s),
-		ListEvalEndpoint:      makeListEvalEndpoint(s),
-		CancelEvalEndpoint:    makeCancelEvalEndpoint(s),
-		DeleteEvalEndpoint:    makeDeleteEvalEndpoint(s),
+		ListModelsEndpoint:           makeListModelsEndpoint(s),
+		CreateModelEndpoint:          makeCreateModelEndpoint(s),
+		UpdateModelEndpoint:          makeUpdateModelEndpoint(s),
+		DeleteModelEndpoint:          makeDeleteModelEndpoint(s),
+		GetModelEndpoint:             makeGetModelEndpoint(s),
+		DeployModelEndpoint:          makeDeployModelEndpoint(s),
+		UndeployModelEndpoint:        makeUndeployModelEndpoint(s),
+		CreateEvalEndpoint:           makeCreateEvalEndpoint(s),
+		ListEvalEndpoint:             makeListEvalEndpoint(s),
+		CancelEvalEndpoint:           makeCancelEvalEndpoint(s),
+		DeleteEvalEndpoint:           makeDeleteEvalEndpoint(s),
+		GetModelLogsEndpoint:         makeGetModelLogsEndpoint(s),
+		ChatCompletionStreamEndpoint: makeChatCompletionStreamEndpoint(s),
 	}
 	for _, m := range dmw["Model"] {
 		eps.ListModelsEndpoint = m(eps.ListModelsEndpoint)
@@ -189,8 +246,23 @@ func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 		eps.CreateEvalEndpoint = m(eps.CreateEvalEndpoint)
 		eps.ListEvalEndpoint = m(eps.ListEvalEndpoint)
 		eps.CancelEvalEndpoint = m(eps.CancelEvalEndpoint)
+		eps.DeleteEvalEndpoint = m(eps.DeleteEvalEndpoint)
+		eps.GetModelLogsEndpoint = m(eps.GetModelLogsEndpoint)
+		eps.ChatCompletionStreamEndpoint = m(eps.ChatCompletionStreamEndpoint)
 	}
 	return eps
+}
+
+func makeGetModelLogsEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		modelName, _ := ctx.Value(contextKeyModelName).(string)
+		containerName, _ := ctx.Value(contextKeyModelContainerName).(string)
+		resp, err := s.GetModelLogs(ctx, modelName, containerName)
+		return encode.Response{
+			Data:  resp,
+			Error: err,
+		}, err
+	}
 }
 
 func makeListModelsEndpoint(s Service) endpoint.Endpoint {
@@ -315,6 +387,17 @@ func makeDeleteEvalEndpoint(s Service) endpoint.Endpoint {
 		req := request.(IdRequest)
 		err = s.DeleteEval(ctx, req.Id)
 		resp := struct{}{}
+		return encode.Response{
+			Data:  resp,
+			Error: err,
+		}, err
+	}
+}
+
+func makeChatCompletionStreamEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		req := request.(ChatCompletionRequest)
+		resp, err := s.ChatCompletionStream(ctx, req)
 		return encode.Response{
 			Data:  resp,
 			Error: err,

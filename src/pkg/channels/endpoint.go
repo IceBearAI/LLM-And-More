@@ -151,6 +151,42 @@ type (
 		Temperature  float64   `json:"temperature"` // 生成文本的多样性
 		MaxTokens    int       `json:"maxTokens"`   // 生成文本的最大长度
 	}
+
+	// modelDeploymentResult 模型部署返回
+	modelDeploymentResult struct {
+		VLLM         bool   `json:"vllm"`
+		Status       string `json:"status"`
+		ModelPath    string `json:"modelPath"`
+		Replicas     int    `json:"replicas"`
+		InferredType string `json:"inferredType"`
+		GPU          int    `json:"gpu"`
+		Quantization string `json:"quantization"`
+	}
+
+	// modelFineTuneResult 模型微调返回
+	modelFineTuneResult struct {
+		JobId      string `json:"jobId"`
+		FileId     string `json:"fileId"`
+		FileName   string `json:"fileName"`
+		FileUrl    string `json:"fileUrl"`
+		FileLine   int    `json:"fileLine"`
+		FileTokens int    `json:"fileTokens"`
+	}
+
+	// modelInfoResult 模型信息返回
+	modelInfoResult struct {
+		ModelName     string                `json:"modelName"`
+		ModelType     string                `json:"modelType"`
+		MaxTokens     int                   `json:"maxTokens"`
+		BaseModelName string                `json:"baseModelName"`
+		ProviderName  string                `json:"providerName"`
+		Deployment    modelDeploymentResult `json:"deployment"`
+		FineTuned     *modelFineTuneResult  `json:"fineTuned"`
+		Enabled       bool                  `json:"enabled"`
+		Remark        string                `json:"remark"`
+		CreatedAt     time.Time             `json:"createdAt"`
+		SystemPrompt  string                `json:"systemPrompt"`
+	}
 )
 
 type Endpoints struct {

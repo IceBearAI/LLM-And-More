@@ -3,14 +3,20 @@ package runtime
 import (
 	"context"
 	"fmt"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
-	"github.com/pkg/errors"
 	"io"
-	"k8s.io/apimachinery/pkg/api/resource"
+	"log"
+	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/docker/go-connections/nat"
+	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // WithWorkspace returns a CreationOption that sets the workspace.
@@ -31,6 +37,149 @@ type docker struct {
 	options       *CreationOptions
 	dockerCli     *client.Client
 	createOptions CreationOptions
+}
+
+func (s *docker) WaitForTerminal(ctx context.Context, ts Session, config Config, container, cmd string) {
+	execConfig := types.ExecConfig{
+		Cmd:          []string{cmd},
+		AttachStdout: true,
+		AttachStderr: true,
+		AttachStdin:  true,
+		Tty:          true,
+	}
+	cec, err := s.dockerCli.ContainerExecCreate(ctx, container, execConfig)
+	if err != nil {
+		log.Println("ContainerExecCreate err: ", err)
+		return
+	}
+
+	if cec.ID == "" {
+		log.Println("ContainerExecCreate ID is empty")
+		return
+	}
+
+	hijack, err := s.dockerCli.ContainerExecAttach(ctx, cec.ID, types.ExecStartCheck{})
+	if err != nil {
+		log.Println("ContainerExecAttach err: ", err)
+		return
+	}
+
+	defer hijack.Close()
+
+	buf1 := make([]byte, 1024)
+	go func() {
+		defer hijack.CloseWrite()
+		for {
+			var rint int
+			rint, err = ts.Read(buf1)
+			if err != nil {
+				log.Println("Read err: ", err)
+				if err == io.EOF {
+					return
+				}
+				log.Println("Read err: ", err)
+				break
+			}
+
+			if _, err = hijack.Conn.Write(buf1[:rint]); err != nil {
+				log.Println("Write err: ", err)
+				break
+			}
+		}
+	}()
+
+	buf2 := make([]byte, 1024)
+	for {
+		var rint int
+		rint, err = hijack.Reader.Read(buf2)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			log.Println("Read err: ", err)
+			break
+		}
+		_, err = ts.Write(buf2[:rint])
+		if err != nil {
+			log.Println("Write err: ", err)
+			break
+		}
+	}
+}
+
+func (s *docker) GetDeploymentContainerNames(ctx context.Context, deploymentName string) (containerNames []string, err error) {
+	newName := replacerServiceName(deploymentName)
+	list, err := s.dockerCli.ContainerList(ctx, container.ListOptions{})
+	if err != nil {
+		err = errors.Wrap(err, "ContainerList err")
+		return
+	}
+
+	for _, v := range list {
+		if strings.HasPrefix(v.Names[0], newName+"-") {
+			containerNames = append(containerNames, v.ID)
+		}
+	}
+
+	return
+}
+
+func (s *docker) HandleTerminalSession(ctx context.Context, config Config) {
+	// 连接到Docker container terminal
+	// Connect to Docker container
+	// 这里的代码是一个示例，实际上需要根据具体的业务逻辑来实现
+	// The code here is an example, and the actual implementation needs to be based on specific business logic
+	// 创建执行实例
+	execConfig := types.ExecConfig{
+		Cmd:          []string{"/bin/sh"},
+		AttachStdout: true,
+		AttachStderr: true,
+		AttachStdin:  true,
+		Tty:          true,
+	}
+	execIDResp, err := s.dockerCli.ContainerExecCreate(ctx, config.ServiceName, execConfig)
+	if err != nil {
+		err = errors.Wrap(err, "ContainerExecCreate err")
+		return
+	}
+
+	attach, err := s.dockerCli.ContainerExecAttach(ctx, execIDResp.ID, types.ExecStartCheck{})
+	if err != nil {
+		err = errors.Wrap(err, "ContainerExecAttach err")
+		return
+	}
+	defer attach.Close()
+	// 将容器的输出复制到标准输出
+	go func() {
+		if execConfig.Tty {
+			_, _ = io.Copy(os.Stdout, attach.Reader)
+		} else {
+			_, err := stdcopy.StdCopy(os.Stdout, os.Stderr, attach.Reader)
+			if err != nil {
+				log.Println("stdcopy.StdCopy err: ", err)
+			}
+		}
+	}()
+
+	// 发送命令到容器
+	_, err = attach.Conn.Write([]byte("ls\n"))
+	if err != nil {
+		panic(err)
+	}
+
+	// 等待命令执行完毕（这里简单地等待几秒）
+	// 实际应用中应该使用更合适的同步机制
+	select {
+	case <-ctx.Done():
+	case <-time.After(5 * time.Second):
+	}
+
+	// 读取执行实例的退出代码
+	inspectResp, err := s.dockerCli.ContainerExecInspect(ctx, execIDResp.ID)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Exit Code: %d\n", inspectResp.ExitCode)
 }
 
 func (s *docker) CreateJob(ctx context.Context, config Config) (jobName string, err error) {
@@ -182,11 +331,18 @@ func replacerServiceName(name string) string {
 }
 
 func (s *docker) CreateDeployment(ctx context.Context, config Config) (deploymentName string, err error) {
-	config.ServiceName = replacerServiceName(config.ServiceName)
-	return s.CreateJob(ctx, config)
+	serviceName := config.ServiceName
+	for i := 0; i < int(config.Replicas); i++ {
+		config.ServiceName = fmt.Sprintf("%s-%d", replacerServiceName(config.ServiceName), i)
+		if _, err = s.CreateJob(ctx, config); err != nil {
+			err = fmt.Errorf("createJob err: %s, job name: %s", err.Error(), config.ServiceName)
+			return serviceName, err
+		}
+	}
+	return serviceName, nil
 }
 
-func (s *docker) GetDeploymentLogs(ctx context.Context, id string) (log string, err error) {
+func (s *docker) GetDeploymentLogs(ctx context.Context, id, containerName string) (log string, err error) {
 	out, err := s.dockerCli.ContainerLogs(ctx, id, container.LogsOptions{
 		ShowStderr: true,
 		ShowStdout: true,
@@ -205,7 +361,7 @@ func (s *docker) GetDeploymentLogs(ctx context.Context, id string) (log string, 
 }
 
 func (s *docker) GetJobLogs(ctx context.Context, id string) (log string, err error) {
-	return s.GetDeploymentLogs(ctx, id)
+	return s.GetDeploymentLogs(ctx, id, "")
 }
 
 func (s *docker) GetJobStatus(ctx context.Context, jobName string) (status string, err error) {

@@ -27,7 +27,7 @@ type ArithmeticCustomClaims struct {
 }
 
 type ArithmeticTerminalClaims struct {
-	UserId    int64  `json:"userId"`
+	UserId    uint   `json:"userId"`
 	Cluster   string `json:"cluster"`
 	Namespace string `json:"namespace"`
 	PodName   string `json:"podName"`

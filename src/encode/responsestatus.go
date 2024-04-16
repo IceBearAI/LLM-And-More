@@ -26,6 +26,7 @@ var ResponseMessage = map[ResStatus]int{
 
 	ErrParamsNamespace: 1100,
 	ErrParamsService:   1101,
+	ErrAuthTimeout:     1102,
 
 	ErrConversationIdNotFound:        1200,
 	ErrMessageIdNotFound:             1201,
@@ -56,6 +57,7 @@ const (
 	ErrParamsService        ResStatus = "服务不能为空"
 	ErrLimiter              ResStatus = "请求过于频繁，请稍后再试"
 	ErrServerStartDbConnect ResStatus = "数据库连接失败"
+	ErrAuthTimeout          ResStatus = "授权已过期"
 
 	// 中间件错误信息
 	ErrSystem                  ResStatus = "系统错误"

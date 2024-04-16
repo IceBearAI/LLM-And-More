@@ -24,6 +24,7 @@ export interface ItfModel {
   cpu: number;
   gpu: number;
   memory: number;
+  containerNames?: string[] | null;
   // datasetType: string;
   // evalPercent: number;
 }

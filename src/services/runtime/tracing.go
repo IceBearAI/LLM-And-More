@@ -14,6 +14,37 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (s *tracing) WaitForTerminal(ctx context.Context, ts Session, config Config, container, cmd string) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "WaitForTerminal", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "module.runtime",
+	})
+	defer func() {
+		configByte, _ := json.Marshal(config)
+		configJson := string(configByte)
+		span.LogKV(
+			"config", configJson,
+			"container", container,
+			"cmd", cmd,
+		)
+		span.Finish()
+	}()
+	s.next.WaitForTerminal(ctx, ts, config, container, cmd)
+}
+
+func (s *tracing) GetDeploymentContainerNames(ctx context.Context, deploymentName string) (containerNames []string, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "GetDeploymentContainerNames", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "module.runtime",
+	})
+	defer func() {
+		span.LogKV("deploymentName", deploymentName, "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return s.next.GetDeploymentContainerNames(ctx, deploymentName)
+}
+
 func (s *tracing) CreateDeployment(ctx context.Context, config Config) (deploymentName string, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "CreateDeployment", opentracing.Tag{
 		Key:   string(ext.Component),
@@ -64,7 +95,7 @@ func (s *tracing) CreateJob(ctx context.Context, config Config) (jobName string,
 
 }
 
-func (s *tracing) GetDeploymentLogs(ctx context.Context, deploymentName string) (log string, err error) {
+func (s *tracing) GetDeploymentLogs(ctx context.Context, deploymentName, containerName string) (log string, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "GetDeploymentLogs", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "module.runtime",
@@ -73,6 +104,7 @@ func (s *tracing) GetDeploymentLogs(ctx context.Context, deploymentName string) 
 
 		span.LogKV(
 			"deploymentName", deploymentName,
+			"containerName", containerName,
 
 			"err", err,
 		)
@@ -82,7 +114,7 @@ func (s *tracing) GetDeploymentLogs(ctx context.Context, deploymentName string) 
 		span.Finish()
 	}()
 
-	return s.next.GetDeploymentLogs(ctx, deploymentName)
+	return s.next.GetDeploymentLogs(ctx, deploymentName, containerName)
 
 }
 

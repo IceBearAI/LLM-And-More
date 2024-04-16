@@ -1,6 +1,9 @@
 <template>
   <Dialog @update:modelValue="updateModelValue" ref="refDialogLog" max-width="1200px" min-height="400px" class="compo-dialogLog">
-    <template #title> {{ state.title }} </template>
+    <template #title>
+      <slot name="title" v-if="$slots.title"></slot>
+      <span v-else>{{ state.title }}</span>
+    </template>
     <TextLog v-model="state.content" :isDone="state.isDone" :resizeAble="false"> </TextLog>
   </Dialog>
 </template>

@@ -15,3 +15,5 @@ sentencepiece==0.1.99
 sentence-transformers==2.3.0
 fire==0.5.0
 xformers==0.0.24
+einops==0.7.0
+transformers_stream_generator==0.0.5

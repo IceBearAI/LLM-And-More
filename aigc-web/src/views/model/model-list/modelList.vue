@@ -116,6 +116,24 @@
                   </div>
                 </template>
               </el-table-column>
+              <el-table-column label="终端信息" min-width="90px">
+                <template #default="{ row }">
+                  <el-tooltip v-if="isShowTerminal(row)" content="点击查看" placement="top">
+                    <a class="link" href="javascript: void(0)" @click="onLog(row)">
+                      <IconFileDescription class="align-top" :size="20" />
+                    </a>
+                  </el-tooltip>
+                </template>
+              </el-table-column>
+              <el-table-column label="webshell" min-width="90px">
+                <template #default="{ row }">
+                  <el-tooltip v-if="isShowTerminal(row)" content="进入终端" placement="top">
+                    <router-link class="link" :to="{ path: '/model/terminal', query: { modelId: row.id } }" target="_blank">
+                      <IconTerminal2 class="align-top" :size="20" />
+                    </router-link>
+                  </el-tooltip>
+                </template>
+              </el-table-column>
               <el-table-column label="备注" min-width="200px" show-overflow-tooltip>
                 <template #default="{ row }"> {{ row.remark }} </template>
               </el-table-column>
@@ -149,6 +167,23 @@
   <ConfirmByClick ref="refConfirmByClick" @submit="onConfirmByClick">
     <template #text> <div v-html="state.confirmByClickInfo.html"></div></template>
   </ConfirmByClick>
+  <DialogLog ref="refDialogLog" :interval="30" @refresh="getLog">
+    <template #title>
+      <div class="d-flex align-center h-[50px]">
+        <span>日志</span>
+        <v-select
+          class="w-[350px] ml-5"
+          v-model="containerName"
+          @update:modelValue="getLog"
+          :clearable="false"
+          hide-details
+          :items="state.selectedInfo.containerNames || []"
+          label="请选择容器"
+        >
+        </v-select>
+      </div>
+    </template>
+  </DialogLog>
 </template>
 <script setup lang="ts">
 import { reactive, toRefs, ref, onMounted } from "vue";
@@ -165,12 +200,13 @@ import ConfirmByClick from "@/components/business/ConfirmByClick.vue";
 
 import { http, format } from "@/utils";
 import { useRouter, useRoute } from "vue-router";
-import { IconMessages } from "@tabler/icons-vue";
+import { IconMessages, IconTerminal2, IconFileDescription } from "@tabler/icons-vue";
 import _ from "lodash";
 
 import { type ItfModel } from "./types/modelList.ts";
 import { TypeButtonsInTable } from "@/components/types/components.ts";
 import { useMapRemoteStore } from "@/stores";
+import DialogLog from "@/components/ui/log/DialogLog.vue";
 
 const { loadDictTree, getLabels } = useMapRemoteStore();
 
@@ -192,7 +228,8 @@ const state = reactive<{
   },
   selectedInfo: {
     id: "",
-    modelName: ""
+    modelName: "",
+    containerNames: []
   },
   tableInfos: {
     list: [],
@@ -226,6 +263,8 @@ const breadcrumbs = ref([
     href: "#"
   }
 ]);
+const refDialogLog = ref();
+const containerName = ref(null);
 
 const onChat = ({ id, modelName }: ItfModel = {} as ItfModel) => {
   if (modelName) {
@@ -389,6 +428,30 @@ const onUndeploy = async (row, options) => {
     refConfirmByClick.value.hide();
     doQueryCurrentPage();
   }
+};
+
+const onLog = async row => {
+  const containerNames = row.containerNames || [];
+  state.selectedInfo = row;
+  containerName.value = containerNames[0];
+  refDialogLog.value.show();
+};
+
+const getLog = async () => {
+  let [err, res] = await http.get({
+    url: `/api/models/${state.selectedInfo.modelName}/container/${containerName.value}/logs`
+  });
+  if (res) {
+    const content = Object.keys(res).length === 0 ? "" : res;
+    refDialogLog.value.setContent(content);
+  }
+};
+
+const isShowTerminal = row => {
+  if (row.baseModelName) {
+    return false;
+  }
+  return (row.enabled && row.modelType === "text-generation") || row.operation.indexOf("undeploy") !== -1;
 };
 
 onMounted(() => {

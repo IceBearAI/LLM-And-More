@@ -16,6 +16,40 @@ type logging struct {
 	traceId string
 }
 
+func (s *logging) WaitForTerminal(ctx context.Context, ts Session, config Config, container, cmd string) {
+	defer func(begin time.Time) {
+
+		configByte, _ := json.Marshal(config)
+		configJson := string(configByte)
+
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "WaitForTerminal",
+			"config", configJson,
+			"container", container,
+			"cmd", cmd,
+			"took", time.Since(begin),
+		)
+	}(time.Now())
+
+	s.next.WaitForTerminal(ctx, ts, config, container, cmd)
+}
+
+func (s *logging) GetDeploymentContainerNames(ctx context.Context, deploymentName string) (containerNames []string, err error) {
+	defer func(begin time.Time) {
+
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "GetDeploymentContainerNames",
+			"deploymentName", deploymentName,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+
+	return s.next.GetDeploymentContainerNames(ctx, deploymentName)
+}
+
 func (s *logging) CreateDeployment(ctx context.Context, config Config) (deploymentName string, err error) {
 	defer func(begin time.Time) {
 
@@ -60,7 +94,7 @@ func (s *logging) CreateJob(ctx context.Context, config Config) (jobName string,
 
 }
 
-func (s *logging) GetDeploymentLogs(ctx context.Context, deploymentName string) (log string, err error) {
+func (s *logging) GetDeploymentLogs(ctx context.Context, deploymentName, containerName string) (log string, err error) {
 	defer func(begin time.Time) {
 
 		_ = s.logger.Log(
@@ -68,6 +102,7 @@ func (s *logging) GetDeploymentLogs(ctx context.Context, deploymentName string) 
 			"method", "GetDeploymentLogs",
 
 			"deploymentName", deploymentName,
+			"containerName", containerName,
 
 			"took", time.Since(begin),
 
@@ -75,7 +110,7 @@ func (s *logging) GetDeploymentLogs(ctx context.Context, deploymentName string) 
 		)
 	}(time.Now())
 
-	return s.next.GetDeploymentLogs(ctx, deploymentName)
+	return s.next.GetDeploymentLogs(ctx, deploymentName, containerName)
 
 }
 
