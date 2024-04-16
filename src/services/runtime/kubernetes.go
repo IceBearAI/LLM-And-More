@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 	"net/http"
+	"net/url"
 )
 
 // WithHttpClientOptions returns a CreationOption that sets the k8s config path.
@@ -47,6 +48,14 @@ func WithShmSize(shmSize string) CreationOption {
 	}
 }
 
+// WithLabelName returns a CreationOption that sets the label name.
+func WithLabelName(labelName string) CreationOption {
+	return func(co *CreationOptions) {
+		co.labelName = labelName
+	}
+}
+
+// WithNamespace returns a CreationOption that sets the namespace.
 func WithNamespace(namespace string) CreationOption {
 	return func(co *CreationOptions) {
 		co.namespace = namespace
@@ -70,6 +79,9 @@ func (s *k8s) GetDeploymentContainerNames(ctx context.Context, deploymentName st
 	config := Config{
 		ServiceName: deploymentName,
 		namespace:   s.createOptions.namespace,
+	}
+	if config.LabelName == "" {
+		config.LabelName = s.createOptions.labelName
 	}
 
 	pods, err := s.k8sClient.CoreV1().Pods(config.namespace).List(ctx, v1.ListOptions{
@@ -96,6 +108,13 @@ func (s *k8s) GetDeploymentContainerNames(ctx context.Context, deploymentName st
 func (s *k8s) WaitForTerminal(ctx context.Context, ts Session, config Config, container, cmd string) {
 	var err error
 	validShells := []string{"bash", "sh"}
+	if config.namespace == "" {
+		config.namespace = s.createOptions.namespace
+	}
+
+	if ts.SizeChan == nil {
+		ts.SizeChan = make(chan remotecommand.TerminalSize)
+	}
 
 	if isValidShell(validShells, cmd) {
 		cmds := []string{cmd}
@@ -121,6 +140,7 @@ func NewK8s(opts ...CreationOption) (Service, error) {
 	createOptions := CreationOptions{
 		namespace: "default",
 		shmSize:   "16Gi",
+		labelName: "paas.io/name",
 	}
 
 	for _, opt := range opts {
@@ -138,7 +158,7 @@ func NewK8s(opts ...CreationOption) (Service, error) {
 			&clientcmd.ConfigOverrides{},
 		)
 
-		k8sConfig, err := configLoad.ClientConfig()
+		k8sConfig, err = configLoad.ClientConfig()
 		if err != nil {
 			return nil, err
 		}
@@ -164,6 +184,10 @@ func NewK8s(opts ...CreationOption) (Service, error) {
 		}
 	}
 
+	k8sConfig.Proxy = func(request *http.Request) (*url.URL, error) {
+		return nil, nil
+	}
+
 	return &k8s{
 		k8sClient:     k8sClient,
 		k8sConfig:     k8sConfig,
@@ -175,6 +199,9 @@ func NewK8s(opts ...CreationOption) (Service, error) {
 func (s *k8s) CreateJob(ctx context.Context, config Config) (jobName string, err error) {
 	if config.ShmSize == "" {
 		config.ShmSize = s.createOptions.shmSize
+	}
+	if config.LabelName == "" {
+		config.LabelName = s.createOptions.labelName
 	}
 
 	config.namespace = s.createOptions.namespace
@@ -231,6 +258,9 @@ func (s *k8s) CreateDeployment(ctx context.Context, config Config) (deploymentNa
 
 	config.namespace = s.createOptions.namespace
 	config.restartPolicy = corev1.RestartPolicyAlways
+	if config.LabelName == "" {
+		config.LabelName = s.createOptions.labelName
+	}
 
 	if len(config.ConfigData) > 0 {
 		configmap := config.GenConfigMap()

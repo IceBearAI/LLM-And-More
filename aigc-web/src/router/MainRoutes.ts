@@ -157,6 +157,12 @@ const MainRoutes: RouteRecordRaw = {
     },
 
     {
+      name: "ModelTerminal",
+      path: "/model/terminal",
+      component: () => import("@/views/model/terminal/terminal.vue")
+    },
+
+    {
       path: "/model/fine-tuning",
       component: () => import("@/components/business/AspectPage.vue"),
       meta: {

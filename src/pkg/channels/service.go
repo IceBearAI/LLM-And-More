@@ -2,6 +2,8 @@ package channels
 
 import (
 	"context"
+	"github.com/IceBearAI/aigc/src/helpers/tokenizers"
+	"github.com/IceBearAI/aigc/src/pkg/files"
 	"github.com/IceBearAI/aigc/src/repository"
 	"github.com/IceBearAI/aigc/src/repository/channel"
 	"github.com/IceBearAI/aigc/src/repository/model"
@@ -25,6 +27,8 @@ type Service interface {
 	GetChannel(ctx context.Context, id uint) (resp Channel, err error)
 	ListChannelModels(ctx context.Context, request ListChannelModelsRequest) (resp ChannelModelList, err error)
 	ChatCompletionStream(ctx context.Context, request ChatCompletionRequest) (stream <-chan CompletionsStreamResult, err error)
+	// GetModel 获取模型基本信息
+	GetModel(ctx context.Context, modelName string) (res modelInfoResult, err error)
 }
 
 type service struct {
@@ -32,6 +36,51 @@ type service struct {
 	traceId string
 	store   repository.Repository
 	apiSvc  services.Service
+	fileSvc files.Service
+}
+
+func (s *service) GetModel(ctx context.Context, modelName string) (res modelInfoResult, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	modelInfo, err := s.store.Model().FindByModelId(ctx, modelName, "ModelDeploy", "FineTuningTrainJob")
+	if err != nil {
+		_ = level.Warn(logger).Log("store.Model", "FindByModelId", "err", err.Error())
+		return
+	}
+	res = modelInfoResult{
+		ModelName:     modelInfo.ModelName,
+		ModelType:     string(modelInfo.ModelType),
+		ProviderName:  string(modelInfo.ProviderName),
+		BaseModelName: modelInfo.BaseModelName,
+		MaxTokens:     modelInfo.MaxTokens,
+		Enabled:       modelInfo.Enabled,
+		Remark:        modelInfo.Remark,
+		CreatedAt:     modelInfo.CreatedAt,
+	}
+	if modelInfo.ModelDeploy.ModelID > 0 {
+		res.Deployment = modelDeploymentResult{
+			VLLM:         modelInfo.ModelDeploy.Vllm,
+			Status:       modelInfo.ModelDeploy.Status,
+			ModelPath:    modelInfo.ModelDeploy.ModelPath,
+			Replicas:     modelInfo.ModelDeploy.Replicas,
+			InferredType: modelInfo.ModelDeploy.InferredType,
+			GPU:          modelInfo.ModelDeploy.Gpu,
+			Quantization: modelInfo.ModelDeploy.Quantization,
+		}
+	}
+	if modelInfo.IsFineTuning {
+		res.FineTuned = &modelFineTuneResult{
+			JobId:   modelInfo.FineTuningTrainJob.JobId,
+			FileId:  modelInfo.FineTuningTrainJob.FileId,
+			FileUrl: modelInfo.FineTuningTrainJob.FileUrl,
+		}
+		if fileBody, err := util.GetHttpFileBody(modelInfo.FineTuningTrainJob.FileUrl); err == nil {
+			// 取body第一行数据解析成json
+			res.SystemPrompt = tokenizers.GetFirstLineSystemPrompt(fileBody)
+		} else {
+			_ = level.Warn(logger).Log("util.GetHttpFileBody", "err", err.Error())
+		}
+	}
+	return res, nil
 }
 
 func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompletionRequest) (stream <-chan CompletionsStreamResult, err error) {

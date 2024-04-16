@@ -17,25 +17,25 @@ Recorder.prototype.pcm=function(res,True,False){
 		var This=this,set=This.set
 			,size=res.length
 			,bitRate=set.bitRate==8?8:16;
-
+		
 		var buffer=new ArrayBuffer(size*(bitRate/8));
 		var data=new DataView(buffer);
 		var offset=0;
-
+		
 		// 写入采样数据
 		if(bitRate==8) {
 			for(var i=0;i<size;i++,offset++) {
 				//16转8据说是雷霄骅的 https://blog.csdn.net/sevennight1989/article/details/85376149 细节比blqw的按比例的算法清晰点，虽然都有明显杂音
 				var val=(res[i]>>8)+128;
 				data.setInt8(offset,val,true);
-			}
+			};
 		}else{
 			for (var i=0;i<size;i++,offset+=2){
 				data.setInt16(offset,res[i],true);
-			}
-		}
-
-
+			};
+		};
+		
+		
 		True(new Blob([data.buffer],{type:"audio/pcm"}));
 	};
 
@@ -56,16 +56,16 @@ False(msg)
 Recorder.pcm2wav=function(data,True,False){
 	if(data.slice && data.type!=null){//Blob 测试用
 		data={blob:data};
-	}
+	};
 	var sampleRate=data.sampleRate||16000,bitRate=data.bitRate||16;
 	if(!data.sampleRate || !data.bitRate){
 		console.warn("pcm2wav必须提供sampleRate和bitRate");
-	}
+	};
 	if(!Recorder.prototype.wav){
 		False("pcm2wav必须先加载wav编码器wav.js");
 		return;
-	}
-
+	};
+	
 	var reader=new FileReader();
 	reader.onloadend=function(){
 		var pcm;
@@ -75,11 +75,11 @@ Recorder.pcm2wav=function(data,True,False){
 			pcm=new Int16Array(u8arr.length);
 			for(var j=0;j<u8arr.length;j++){
 				pcm[j]=(u8arr[j]-128)<<8;
-			}
+			};
 		}else{
 			pcm=new Int16Array(reader.result);
-		}
-
+		};
+		
 		Recorder({
 			type:"wav"
 			,sampleRate:sampleRate

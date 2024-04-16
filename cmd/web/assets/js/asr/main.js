@@ -85,14 +85,14 @@ var readWavInfo=function(bytes){
 	//读取wav文件头，统一成44字节的头
 	if(bytes.byteLength<44){
 		return null;
-	}
+	};
 	var wavView=bytes;
 	var eq=function(p,s){
 		for(var i=0;i<s.length;i++){
 			if(wavView[p+i]!=s.charCodeAt(i)){
 				return false;
-			}
-		}
+			};
+		};
 		return true;
 	};
 	
@@ -131,9 +131,9 @@ var readWavInfo=function(bytes){
 					,wavHead44:wavHead
 					,dataPos:dataPos
 				};
-			}
-		}
-	}
+			};
+		};
+	};
 	return null;
 };
 
@@ -462,7 +462,7 @@ function start() {
 
  
 function stop() {
-		var chunk_size = [5, 10, 5];
+		var chunk_size = new Array( 5, 10, 5 );
 		var request = {
 			"chunk_size": chunk_size,
 			"wav_name":  "h5",

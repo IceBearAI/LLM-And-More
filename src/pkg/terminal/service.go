@@ -162,7 +162,7 @@ func (s *service) HandleTerminalSession(session sockjs.Session) {
 
 	go s.apiSvc.Runtime().WaitForTerminal(ctx, ts, runtime.Config{
 		ServiceName: tr.ServiceName,
-	}, tr.PodName, "bash")
+	}, tr.Container, "bash")
 	//terminalSession.sockJSSession = session
 	//terminalSessions.Set(msg.SessionID, terminalSession)
 	//terminalSession.bound <- nil

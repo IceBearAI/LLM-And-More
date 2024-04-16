@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/IceBearAI/aigc/src/encode"
+	"github.com/IceBearAI/aigc/src/helpers/tokenizers"
 	"github.com/IceBearAI/aigc/src/repository"
 	"github.com/IceBearAI/aigc/src/repository/model"
 	"github.com/IceBearAI/aigc/src/repository/types"
@@ -15,8 +16,10 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/sashabaranov/go-openai"
 	"gorm.io/gorm"
 	"gorm.io/gorm/utils"
+	"io"
 	"math/rand"
 	"os"
 	"strconv"
@@ -51,6 +54,9 @@ type Service interface {
 	DeleteEval(ctx context.Context, id uint) (err error)
 	// GetModelLogs 获取模型输出日志
 	GetModelLogs(ctx context.Context, modelName, containerName string) (res string, err error)
+	ChatCompletionStream(ctx context.Context, request ChatCompletionRequest) (stream <-chan CompletionsStreamResult, err error)
+	// GetModel 获取模型基本信息
+	//GetModel(ctx context.Context, modelName string) (res modelInfoResult, err error)
 }
 
 // CreationOptions is the options for the faceswap service.
@@ -106,6 +112,54 @@ type service struct {
 	store   repository.Repository
 	apiSvc  services.Service
 	options *CreationOptions
+}
+
+func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompletionRequest) (stream <-chan CompletionsStreamResult, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "ChatCompletionStream")
+	completionStream, err := s.apiSvc.FastChat().CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
+		Model:       request.Model,
+		Messages:    request.Messages,
+		MaxTokens:   request.MaxTokens,
+		Temperature: request.Temperature,
+		TopP:        request.TopP,
+	})
+	if err != nil {
+		_ = level.Error(logger).Log("apiSvc.PaasChat", "ChatCompletionStream", "err", err.Error())
+		return stream, err
+	}
+
+	dot := make(chan CompletionsStreamResult)
+	go func(completionStream *openai.ChatCompletionStream, dot chan CompletionsStreamResult) {
+		var fullContent string
+		defer func() {
+			completionStream.Close()
+			close(dot)
+		}()
+		for {
+			completion, err := completionStream.Recv()
+			if errors.Is(err, io.EOF) {
+				return
+			}
+			if err != nil {
+				_ = level.Error(logger).Log("completionStream", "Recv", "err", err.Error())
+				return
+			}
+			begin := time.Now()
+			fullContent += completion.Choices[0].Delta.Content
+			dot <- CompletionsStreamResult{
+				FullContent: fullContent,
+				Content:     completion.Choices[0].Delta.Content,
+				CreatedAt:   begin,
+				ContentType: "text",
+				MessageId:   "",
+				Model:       "",
+				TopP:        0,
+				Temperature: 0,
+				MaxTokens:   0,
+			}
+		}
+	}(completionStream, dot)
+	return dot, nil
 }
 
 func (s *service) GetModelLogs(ctx context.Context, modelName, containerName string) (res string, err error) {
@@ -447,7 +501,7 @@ func (s *service) ListModels(ctx context.Context, request ListModelRequest) (res
 	list := make([]Model, 0)
 	for _, v := range models {
 		var containerNames []string
-		if v.ModelDeploy.ModelID > 0 {
+		if v.ModelDeploy.ID > 0 {
 			containerNames, err = s.apiSvc.Runtime().GetDeploymentContainerNames(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(v.ModelName), v.ID))
 			if err != nil {
 				_ = level.Warn(logger).Log("api.PaasChat", "GetDeploymentContainerNames", "err", err.Error())
@@ -456,7 +510,7 @@ func (s *service) ListModels(ctx context.Context, request ListModelRequest) (res
 		}
 		c := convert(&v)
 		c.ContainerNames = containerNames
-		list = append(list, convert(&v))
+		list = append(list, c)
 	}
 	res = ListModelResponse{
 		Total:  total,
@@ -527,16 +581,40 @@ func (s *service) GetModel(ctx context.Context, id uint) (res Model, err error) 
 			return res, errors.New("别名模型不存在")
 		}
 	}
+	res = convert(&m)
 	var containerNames []string
 	if m.ModelDeploy.ModelID > 0 {
 		containerNames, err = s.apiSvc.Runtime().GetDeploymentContainerNames(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(m.ModelName), m.ID))
 		if err != nil {
 			_ = level.Warn(logger).Log("api.PaasChat", "GetDeploymentContainerNames", "err", err.Error())
 		}
+		res.Deployment = modelDeploymentResult{
+			VLLM:         m.ModelDeploy.Vllm,
+			Status:       m.ModelDeploy.Status,
+			ModelPath:    m.ModelDeploy.ModelPath,
+			Replicas:     m.ModelDeploy.Replicas,
+			InferredType: m.ModelDeploy.InferredType,
+			GPU:          m.ModelDeploy.Gpu,
+			Quantization: m.ModelDeploy.Quantization,
+		}
 	}
-	res = convert(&m)
+
+	if m.IsFineTuning {
+		res.FineTuned = &modelFineTuneResult{
+			JobId:   m.FineTuningTrainJob.JobId,
+			FileId:  m.FineTuningTrainJob.FileId,
+			FileUrl: m.FineTuningTrainJob.FileUrl,
+		}
+		if fileBody, err := util.GetHttpFileBody(m.FineTuningTrainJob.FileUrl); err == nil {
+			// 取body第一行数据解析成json
+			res.FineTuned.SystemPrompt = tokenizers.GetFirstLineSystemPrompt(fileBody)
+		} else {
+			_ = level.Warn(logger).Log("util.GetHttpFileBody", "err", err.Error())
+		}
+	}
+
 	res.ContainerNames = containerNames
-	return
+	return res, nil
 }
 
 func (s *service) UpdateModel(ctx context.Context, request UpdateModelRequest) (err error) {

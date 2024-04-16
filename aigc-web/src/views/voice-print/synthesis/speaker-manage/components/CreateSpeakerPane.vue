@@ -147,9 +147,8 @@ const initFormData = {
 
 const emits = defineEmits(["submit"]);
 
-const mapRemoteStore = useMapRemoteStore();
+const { options } = useMapRemoteStore(); // 主页面已经请求过speak_gender
 
-const genderOptions = mapRemoteStore.options["speak_gender"];
 const paneConfig = reactive({
   operateType: "add"
 });
@@ -169,6 +168,10 @@ const rules = reactive({
 
 const isEdit = computed(() => {
   return paneConfig.operateType === "edit";
+});
+
+const genderOptions = computed(() => {
+  return options["speak_gender"];
 });
 
 const headImgClose = () => {

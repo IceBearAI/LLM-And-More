@@ -31,6 +31,7 @@ type CreationOptions struct {
 	k8sConfigPath  string
 	k8sTokenModel  k8sTokenModel
 	k8sVolumeName  string
+	labelName      string
 }
 
 type k8sTokenModel struct {
@@ -77,6 +78,7 @@ type Config struct {
 	ShmSize string
 
 	restartPolicy v1.RestartPolicy
+	LabelName     string
 }
 
 func (c Config) FilePath2Key(filePath string) string {
@@ -125,7 +127,7 @@ func (c Config) GenVolumeAndVolumeMount() (volumes []v1.Volume, volumeMounts []v
 
 	if len(c.ConfigData) > 0 {
 		var items []v1.KeyToPath
-		for k := range c.ConfigData {
+		for k, _ := range c.ConfigData {
 			_, fileName := filepath.Split(k)
 			items = append(items, v1.KeyToPath{
 				Key:  c.FilePath2Key(k),
@@ -178,17 +180,13 @@ func (c Config) GenVolumeAndVolumeMount() (volumes []v1.Volume, volumeMounts []v
 
 func (c Config) GenDeploymentLabels() map[string]string {
 	return map[string]string{
-		"runtime.io/name":       c.ServiceName,
-		"runtime.io/namespace":  c.namespace,
-		"runtime.io/deployment": c.ServiceName,
+		c.LabelName: c.ServiceName,
 	}
 }
 
 func (c Config) GenJobLabels() map[string]string {
 	return map[string]string{
-		"runtime.io/name":      c.ServiceName,
-		"runtime.io/namespace": c.namespace,
-		"runtime.io/job":       c.ServiceName,
+		c.LabelName: c.ServiceName,
 	}
 }
 
@@ -485,6 +483,8 @@ func (c Config) tarDirectory(name, workspace string) (*bytes.Buffer, error) {
 }
 
 // Service is a service interface
+//
+//go:generate gowrap gen -g -p ./ -i Service -bt "ce_log:logging.go ce_trace:tracing.go"
 type Service interface {
 	// CreateJob 创建job
 	CreateJob(ctx context.Context, config Config) (jobName string, err error)

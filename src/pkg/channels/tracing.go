@@ -11,6 +11,16 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (t *tracing) GetModel(ctx context.Context, modelName string) (res modelInfoResult, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "GetModel")
+	defer func() {
+		span.LogKV("modelName", modelName, "err", err)
+		span.SetTag("err", err != nil)
+		span.Finish()
+	}()
+	return t.next.GetModel(ctx, modelName)
+}
+
 func (t *tracing) ChatCompletionStream(ctx context.Context, request ChatCompletionRequest) (stream <-chan CompletionsStreamResult, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "ChatCompletionStream")
 	defer func() {

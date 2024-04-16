@@ -67,6 +67,15 @@
               </div>
             </template>
           </el-table-column>
+          <el-table-column label="webshell" min-width="90px">
+            <template #default="{ row }">
+              <el-tooltip v-if="row.status === 'running'" content="进入终端" placement="top">
+                <router-link class="link" :to="{ path: '/model/terminal', query: { modelId: jobId } }" target="_blank">
+                  <IconTerminal2 class="align-top" :size="20" />
+                </router-link>
+              </el-tooltip>
+            </template>
+          </el-table-column>
           <el-table-column label="数据量" min-width="100px">
             <template #default="{ row }">{{ row.dataSize }}</template>
           </el-table-column>
@@ -124,6 +133,7 @@ import ConfirmByClick from "@/components/business/ConfirmByClick.vue";
 import { useMapRemoteStore } from "@/stores";
 import { useRoute } from "vue-router";
 import DialogLog from "@/components/ui/log/DialogLog.vue";
+import { IconTerminal2 } from "@tabler/icons-vue";
 interface Props {
   /** 音频地址 */
   showArrange: string;

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var validate = validator.New()
@@ -114,6 +115,11 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 		encode.JsonResponse,
 		kitopts...,
 	)).Methods(http.MethodGet)
+	r.Handle("/models/chat/completions", kithttp.NewServer(
+		eps.ChatCompletionStreamEndpoint,
+		decodeChatCompletionStreamRequest,
+		encodeChatCompletionsStreamResponse,
+		kitopts...))
 	return r
 }
 
@@ -247,4 +253,55 @@ func decodeModelDeployRequest(ctx context.Context, r *http.Request) (interface{}
 	}
 
 	return req, nil
+}
+
+func decodeChatCompletionStreamRequest(ctx context.Context, r *http.Request) (interface{}, error) {
+	req := ChatCompletionRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return nil, encode.InvalidParams.Wrap(err)
+	}
+	err := validate.Struct(req)
+	if err != nil {
+		return nil, encode.InvalidParams.Wrap(err)
+	}
+	return req, nil
+}
+
+func encodeChatCompletionsStreamResponse(ctx context.Context, writer http.ResponseWriter, res interface{}) error {
+	resp, ok := res.(encode.Response)
+	if !ok {
+		return encode.InvalidParams.Wrap(errors.New("invalid response type"))
+	}
+	stream, ok := resp.Data.(<-chan CompletionsStreamResult)
+	if !ok {
+		return encode.InvalidParams.Wrap(errors.New("invalid response type"))
+	}
+	flushWriter := writer.(http.Flusher)
+	writer.Header().Set("Content-Type", "application/octet-stream")
+	writer.Header().Set("Paas-model", "chat/stream")
+	//writer.Header().Set("Transfer-Encoding", "chunked")
+	writer.WriteHeader(http.StatusOK)
+	traceId, _ := ctx.Value("traceId").(string)
+	writer.Header().Set("TraceId", traceId)
+	for {
+		select {
+		case item, ok := <-stream:
+			if !ok {
+				return nil
+			}
+			if err := json.NewEncoder(writer).Encode(encode.Response{
+				Success: true,
+				Data:    item,
+				TraceId: traceId,
+			}); err != nil {
+				return errors.Wrap(err, "encode error")
+			}
+			flushWriter.Flush()
+			if item.FinishReason == "stop" {
+				return nil
+			}
+		case <-time.After(time.Minute * 10):
+			return nil
+		}
+	}
 }

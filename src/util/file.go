@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -239,4 +240,23 @@ func FileExists(filename string) bool {
 		return false
 	}
 	return !info.IsDir()
+}
+
+// GetHttpFileBody 获取http文件内容
+func GetHttpFileBody(url string) (body []byte, err error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		err = errors.Wrap(err, "http.Get")
+		return
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
+
+	body, err = io.ReadAll(resp.Body)
+	if err != nil {
+		err = errors.Wrap(err, "io.ReadAll")
+		return
+	}
+	return
 }

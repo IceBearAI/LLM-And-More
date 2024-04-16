@@ -13,6 +13,19 @@ type logging struct {
 	traceId string
 }
 
+func (l *logging) ChatCompletionStream(ctx context.Context, request ChatCompletionRequest) (stream <-chan CompletionsStreamResult, err error) {
+	defer func(begin time.Time) {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"method", "ChatCompletionStream",
+			"request", fmt.Sprintf("%+v", request),
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return l.next.ChatCompletionStream(ctx, request)
+}
+
 func (l *logging) GetModelLogs(ctx context.Context, modelName, containerName string) (res string, err error) {
 	defer func(begin time.Time) {
 		_ = l.logger.Log(

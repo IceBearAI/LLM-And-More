@@ -37,11 +37,12 @@ COPY pip.conf /root/.config/pip/
 
 RUN pip3 install packaging ninja torch==2.1.2 install numpy
 
+RUN pip3 install fschat vllm bitsandbytes
+
 COPY ./requirements.txt /app/requirements.txt
 
 RUN pip3 install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 # 要安装flash-attn必须在有gpu的机器上构建
-RUN pip3 install fschat vllm bitsandbytes
 RUN pip3 install flash-attn -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 COPY . /app/

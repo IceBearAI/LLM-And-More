@@ -327,10 +327,10 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 	// Model Evaluate模块
 	r.PathPrefix("/api/evaluate").Handler(http.StripPrefix("/api/evaluate", modelevaluate.MakeHTTPHandler(modelEvaluateSvc, authEms, opts)))
 	sockjsOptions := sockjs.DefaultOptions
-	http.Handle("/ws/terminal/console/exec/", sockjs.NewHandler("/ws/terminal/console/exec", sockjsOptions, func(session sockjs.Session) {
+	http.Handle("/api/ws/terminal/console/exec/", sockjs.NewHandler("/api/ws/terminal/console/exec", sockjsOptions, func(session sockjs.Session) {
 		terminalSvc.HandleTerminalSession(session)
 	}))
-	r.PathPrefix("/ws").Handler(http.StripPrefix("/ws", terminal.MakeHTTPHandler(terminalSvc, authEms, opts))).Name("ws")
+	r.PathPrefix("/api/ws").Handler(http.StripPrefix("/api/ws", terminal.MakeHTTPHandler(terminalSvc, authEms, opts))).Name("ws")
 
 	// 对外metrics
 	r.Handle("/metrics", promhttp.Handler())
