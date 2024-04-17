@@ -123,14 +123,17 @@ def evaluate_inference_ability(model, tokenizer, device, dataset_path="./eval_da
             **inputs,
             pad_token_id=tokenizer.pad_token_id,
             num_return_sequences=1,  # 每次生成一个答案
-            max_length=max_seq_len,
+            max_new_tokens=16,
         )
 
         # 解码生成的文本
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        ChatGLM_sop = "[gMASK]sop "
-        if generated_text.startswith(ChatGLM_sop):
-            generated_text = generated_text[len(ChatGLM_sop):]
+        generated_text = generated_text.strip()
+        ChatGLM_sop = ["[gMASK]sop ","[gMASK] sop "]
+        for sop in ChatGLM_sop:
+            if generated_text.startswith(sop):
+                generated_text = generated_text[len(sop):]
+                break
         generated_text = generated_text[len(prompt):]
         generated_text = generated_text.strip()
         # 基于生成的文本判断句子是否相似
@@ -176,9 +179,12 @@ def evaluate_reading_comprehension(model, tokenizer, device, dataset_path="./eva
                 # 解码生成的文本
                 generated_text = tokenizer.decode(
                     outputs[0], skip_special_tokens=True)
-                ChatGLM_sop = "[gMASK]sop "
-                if generated_text.startswith(ChatGLM_sop):
-                    generated_text = generated_text[len(ChatGLM_sop):]
+                generated_text = generated_text.strip()
+                ChatGLM_sop = ["[gMASK]sop ","[gMASK] sop "]
+                for sop in ChatGLM_sop:
+                    if generated_text.startswith(sop):
+                        generated_text = generated_text[len(sop):]
+                        break
                 generated_text = generated_text[len(input_text):]
                 generated_text = generated_text.strip()
 
@@ -206,7 +212,7 @@ def evaluate_chinese_language_skill(model, tokenizer, device,
         keywords = item.get('keywords', '')
 
         # 构造提示词，提示模型这是一个新闻分类任务
-        prompt = f"新闻标题：'{sentence}' 请总结新闻标题的关键词。请直接回答，禁止回答思考或无关的话。"
+        prompt = f"新闻标题：'{sentence}' 。按顺序总结新闻标题的关键词，并按英文逗号隔开。请直接中文回答，禁止回答思考或无关的话。"
 
         # 将提示词编码为模型所需的格式
         inputs = tokenizer(prompt, return_tensors="pt", padding=True,
@@ -222,16 +228,18 @@ def evaluate_chinese_language_skill(model, tokenizer, device,
 
         # 解码生成的文本
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        ChatGLM_sop = "[gMASK]sop "
-        if generated_text.startswith(ChatGLM_sop):
-            generated_text = generated_text[len(ChatGLM_sop):]
+        generated_text = generated_text.strip()
+        ChatGLM_sop = ["[gMASK]sop ","[gMASK] sop "]
+        for sop in ChatGLM_sop:
+            if generated_text.startswith(sop):
+                generated_text = generated_text[len(sop):]
+                break
         generated_text = generated_text[len(prompt):]
         generated_text = generated_text.strip()
-
+        
         # 计算BLEU得分
         bleu_score = calculate_bleu_chinese(keywords, generated_text)
         total_bleu_score += bleu_score
-
     # 计算平均BLEU得分
     average_bleu_score = total_bleu_score / \
                          total_examples if total_examples > 0 else 0
@@ -257,7 +265,7 @@ def evaluate_command_compliance(model, tokenizer, device, dataset_path="./eval_d
 
         # 将提示词编码为模型所需的格式
         inputs = tokenizer(prompt, return_tensors="pt", padding=True,
-                           truncation=True, max_length=max_seq_len).to(device)
+                           truncation=True, max_length=128+max_seq_len).to(device)
 
         # 使用模型生成答案
         outputs = model.generate(
@@ -270,12 +278,14 @@ def evaluate_command_compliance(model, tokenizer, device, dataset_path="./eval_d
         # 解码生成的文本
         generated_text = tokenizer.decode(
             outputs[0], skip_special_tokens=True)
-        ChatGLM_sop = "[gMASK]sop "
-        if generated_text.startswith(ChatGLM_sop):
-            generated_text = generated_text[len(ChatGLM_sop):]
+        generated_text = generated_text.strip()
+        ChatGLM_sop = ["[gMASK]sop ","[gMASK] sop "]
+        for sop in ChatGLM_sop:
+            if generated_text.startswith(sop):
+                generated_text = generated_text[len(sop):]
+                break
         generated_text = generated_text[len(prompt):]
         generated_text = generated_text.strip()
-
         # 对于每个真实问题，计算BLEU得分
         # 如果target_str以.结尾，去掉
         if target_str.endswith("."):
@@ -302,7 +312,7 @@ def evaluate_innovation_capacity(model, tokenizer, device, dataset_path="./eval_
         true_answer = item['answer']
 
         # 构造提示词，提示模型这是一个选择题答案生成任务
-        prompt = f"Question: '{question}' Options: {options}. Which option is correct? Please answer directly, thinking or irrelevant answers are not allowed."
+        prompt = f"问题是：'{question}' 选项是：{options}。请直接回答ABCD选项中的一个字母，禁止回答思考或无关的话。"
 
         # 将提示词编码为模型所需的格式
         inputs = tokenizer(prompt, return_tensors="pt", padding=True,
@@ -316,12 +326,15 @@ def evaluate_innovation_capacity(model, tokenizer, device, dataset_path="./eval_
             max_new_tokens=8,
         )
 
-        # 解码生成的文本
+        # 解码生成的文本   
         generated_text = tokenizer.decode(
             outputs[0], skip_special_tokens=True).strip()
-        ChatGLM_sop = "[gMASK]sop "
-        if generated_text.startswith(ChatGLM_sop):
-            generated_text = generated_text[len(ChatGLM_sop):]
+        generated_text = generated_text.strip()
+        ChatGLM_sop = ["[gMASK]sop ","[gMASK] sop "]
+        for sop in ChatGLM_sop:
+            if generated_text.startswith(sop):
+                generated_text = generated_text[len(sop):]
+                break
         generated_text = generated_text[len(prompt):]
         generated_text = generated_text.strip()
         # 基于生成的文本判断选择题答案
@@ -392,6 +405,7 @@ def main(model_name_or_path, evaluation_dimensions, output_file, options, gpu_nu
     with open(output_file, "w", encoding="utf-8") as f:
         f.write(json.dumps(result_dict, ensure_ascii=False))
     # return json.dumps(result_dict, ensure_ascii=False, indent=4)
+    # print(result_dict)
 
 
 if __name__ == '__main__':
