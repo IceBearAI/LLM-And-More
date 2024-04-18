@@ -14,7 +14,7 @@
       </v-col>
 
       <v-col style="height: calc(100vh - 160px)" cols="12">
-        <Terminal class="h-100" v-if="wsUrl" :ws-url="wsUrl" :start-data="startData" />
+        <Terminal class="h-100" v-if="wsUrl" :ws-url="wsUrl" :start-data="startData" :key="refreshTerminalKey" />
       </v-col>
     </v-row>
   </UiParentCard>
@@ -30,16 +30,14 @@ import { useCustomizerStore } from "@/stores/customizer";
 const customizer = useCustomizerStore();
 
 const route = useRoute();
-const { modelId } = route.query;
+const { resourceType, serviceName } = route.query;
 const searchData = reactive({
   containerName: null
 });
 const containerOptions = ref([]);
-const modelData = reactive({
-  serviceName: ""
-});
 const sessionId = ref("");
 const startData = ref({});
+const refreshTerminalKey = ref(0);
 
 const wsUrl = computed(() => {
   let domain = "";
@@ -57,36 +55,26 @@ const wsUrl = computed(() => {
 });
 
 const containerNameChange = () => {
-  sessionId.value = "";
-  getServiceWebsocketToken();
-};
-
-const getData = async () => {
-  let [err, res] = await http.get({
-    showLoading: true,
-    url: `/models/${modelId}`
-  });
-  if (res) {
-    containerOptions.value = res.containerNames || [];
-    searchData.containerName = containerOptions.value[0];
-    modelData.serviceName = res.serviceName;
-    getServiceWebsocketToken();
-  }
+  startData.value["container"] = searchData.containerName;
+  refreshTerminalKey.value += 1;
 };
 
 const getServiceWebsocketToken = async () => {
   const [err, res] = await http.get({
     showLoading: true,
-    url: `/ws/resource/deployment/service/${modelData.serviceName}/container/${searchData.containerName}/token`
+    url: `/ws/resource/${resourceType}/service/${serviceName}/token`
   });
   if (res) {
     startData.value = res;
+    containerOptions.value = res.containers || [];
+    searchData.containerName = containerOptions.value[0];
+    startData.value["container"] = searchData.containerName;
     sessionId.value = res.sessionId;
   }
 };
 
 onMounted(() => {
   customizer.SET_MINI_SIDEBAR(true);
-  getData();
+  getServiceWebsocketToken();
 });
 </script>

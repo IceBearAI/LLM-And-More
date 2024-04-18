@@ -71,6 +71,8 @@ type (
 		TestReport string `json:"testReport"`
 		// DetectionStatus 检测状态
 		DetectionStatus string `json:"detectionStatus"`
+		// JobName 任务名称
+		JobName string `json:"jobName"`
 	}
 
 	// taskSegmentDetail 任务样本详情返回结构

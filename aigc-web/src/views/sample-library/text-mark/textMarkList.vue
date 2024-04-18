@@ -112,6 +112,19 @@
                   <template v-else> -- </template>
                 </template>
               </el-table-column>
+              <el-table-column label="webshell" min-width="90px">
+                <template #default="{ row }">
+                  <el-tooltip v-if="row.detectionStatus === 'processing'" content="进入终端" placement="top">
+                    <router-link
+                      class="link"
+                      :to="{ path: '/model/terminal', query: { resourceType: 'datasets-eval', serviceName: row.jobName } }"
+                      target="_blank"
+                    >
+                      <IconTerminal2 class="align-top" :size="20" />
+                    </router-link>
+                  </el-tooltip>
+                </template>
+              </el-table-column>
               <el-table-column label="完成时间" min-width="180px">
                 <template #default="{ row }">
                   {{ format.dateFormat(row.completedAt, "YYYY-MM-DD HH:mm:ss") }}
@@ -214,7 +227,7 @@
     </template>
   </ConfirmByClick>
 
-  <DialogLog ref="refDialogLog" :interval="30" @refresh="getLog" />
+  <DialogLog ref="refDialogLog" :interval="20" @refresh="getLog" />
 
   <Dialog ref="refReport" style="width: 80%; max-width: 800px">
     <template #title>标注数据检测报告</template>
@@ -239,6 +252,7 @@ import { TypeButtonsInTable } from "@/components/types/components.ts";
 import { IconCircleCheckFilled, IconLoader, IconAlarm } from "@tabler/icons-vue";
 import { ItfAspectPageState } from "@/types/AspectPageTypes.ts";
 import DialogLog from "@/components/ui/log/DialogLog.vue";
+import { IconTerminal2 } from "@tabler/icons-vue";
 
 const provideAspectPage = inject("provideAspectPage") as ItfAspectPageState;
 const { getLabels, loadDictTree } = useMapRemoteStore();

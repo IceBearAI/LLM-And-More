@@ -62,6 +62,19 @@
               <TableTrainStatus :item="row" @open:log="onLog(row)" />
             </template>
           </el-table-column>
+          <el-table-column label="webshell" min-width="90px">
+            <template #default="{ row }">
+              <el-tooltip v-if="row.trainStatus === 'running'" content="进入终端" placement="top">
+                <router-link
+                  class="link"
+                  :to="{ path: '/model/terminal', query: { resourceType: 'ft-job', serviceName: row.fineTunedModel } }"
+                  target="_blank"
+                >
+                  <IconTerminal2 class="align-top" :size="20" />
+                </router-link>
+              </el-tooltip>
+            </template>
+          </el-table-column>
           <el-table-column label="训练时长" prop="trainDuration" min-width="120px"></el-table-column>
           <el-table-column label="训练进度" min-width="90px">
             <template #default="{ row }">
@@ -101,7 +114,7 @@
       </v-col>
     </v-row>
   </UiParentCard>
-  <DialogLog ref="refDialogLog" :interval="30" @refresh="getLog" />
+  <DialogLog ref="refDialogLog" :interval="20" @refresh="getLog" />
   <ConfirmByInput ref="refConfirmAbort" @submit="doAbort">
     <template #text>
       此操作将会<span class="text-primary">取消</span>正在进行的训练任务<br />
@@ -129,6 +142,7 @@ import TaskOverview from "@/components/business/TaskOverview.vue";
 import TableTrainStatus from "./components/TableTrainStatus.vue";
 import DialogLog from "@/components/ui/log/DialogLog.vue";
 import { useRouter } from "vue-router";
+import { IconTerminal2 } from "@tabler/icons-vue";
 
 import { http, format } from "@/utils";
 

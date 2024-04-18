@@ -55,7 +55,7 @@ func makeTokenEndpoint(s Service) endpoint.Endpoint {
 		tenantId, _ := middleware.GetTenantId(ctx)
 		userId, _ := ctx.Value(middleware.ContextUserId).(uint)
 		req := request.(tokenRequest)
-		res, err := s.Token(ctx, tenantId, userId, req.ResourceType, req.ServiceName, req.ContainerName)
+		res, err := s.Token(ctx, tenantId, userId, req.ResourceType, req.ServiceName)
 		return encode.Response{
 			Data:  res,
 			Error: err,

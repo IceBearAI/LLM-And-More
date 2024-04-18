@@ -68,6 +68,8 @@ status=$?
 
 output=$(<"$temp_file")
 
+sleep 30
+
 # 根据退出状态判断执行是否异常
 if [ $status -eq 0 ]; then
     # 没有发生异常，正常输出内容

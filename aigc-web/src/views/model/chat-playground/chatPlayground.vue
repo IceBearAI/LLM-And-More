@@ -4,17 +4,28 @@
     <div class="chat-playground d-flex">
       <div class="left-part pa-4 d-none d-md-block">
         <h4 class="text-h6 mb-6">助理设置</h4>
-        <v-alert class="mb-3 text-body-2" color="textPrimary" variant="tonal"
-          >给模型提供指令，告诉它在生成响应时应该如何行为以及需要参考的上下文。你可以描述助手的个性，告诉它应该回答什么和不应该回答什么，并告诉它如何格式化响应。此部分没有令牌限制，但将包含在每个API调用中，因此会计入总令牌限制。<br />比如："你是一个
-          AI 助手，可帮助人们查找信息并以押韵的方式作出回应。如果用户问了你不知道答案的问题，就说出来。"</v-alert
-        >
+        <v-alert class="mb-3 text-body-2" color="textPrimary" variant="tonal">
+          系统消息包含在提示的开头，用于为模型提供上下文、说明或与用例相关的其他信息。
+          可以使用系统消息来描述助手的个性，定义模型应回答和不应回答的内容，以及定义模型响应的格式。
+        </v-alert>
         <v-sheet>
+          <v-select
+            v-if="systemPrompts.length > 1"
+            class="mb-3 pt-2"
+            v-model="systemPrompt"
+            @update:modelValue="systemPromptChange"
+            :clearable="false"
+            hide-details
+            :items="systemPrompts"
+            label="请选择系统提示词"
+          >
+          </v-select>
           <v-label class="mb-2 font-weight-medium">系统消息</v-label>
           <v-textarea
             v-model="systemMessage"
             variant="outlined"
             placeholder="可以给定助理角色及相关要求，不要超过2000个字"
-            rows="3"
+            rows="5"
             no-resize
             color="primary"
             row-height="25"
@@ -36,7 +47,7 @@
       </div>
       <div class="right-part pa-4">
         <h4 class="text-h6 mb-6">配置</h4>
-        <Config ref="configRef" />
+        <Config ref="configRef" @change:model="modelChange" />
       </div>
     </div>
   </v-card>
@@ -65,6 +76,8 @@ const question = ref("");
 const sendLoading = ref(false);
 const configRef = ref();
 const refConfirmDelete = ref();
+const systemPrompt = ref("");
+const systemPrompts = ref([]);
 
 const handleTextSend = () => {
   const message = question.value;
@@ -204,6 +217,27 @@ const handleChatClear = () => {
 const doChatClear = () => {
   chatList.value = [];
   refConfirmDelete.value.hide();
+};
+const modelChange = async data => {
+  const [err, res] = await http.get({
+    url: `/api/models/${data.modelName}/info`
+  });
+  if (res) {
+    if (res.fineTuned) {
+      const prompts = res.fineTuned.systemPrompts || [];
+      systemPrompts.value = prompts;
+      systemPrompt.value = prompts[0];
+      systemMessage.value = prompts[0];
+    } else {
+      systemPrompts.value = [];
+      systemPrompt.value = "";
+      systemMessage.value = "";
+    }
+  }
+};
+
+const systemPromptChange = value => {
+  systemMessage.value = value;
 };
 </script>
 <style lang="scss" scoped>

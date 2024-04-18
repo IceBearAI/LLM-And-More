@@ -66,15 +66,14 @@ aigc-server start -p :8080
 				return err
 			}
 
+			_ = generateTable()
 			// 判断是否需要初始化数据，如果没有则初始化数据
 			if !gormDB.Migrator().HasTable(types.Accounts{}) {
-				_ = generateTable()
 				if err = initData(); err != nil {
 					_ = level.Error(logger).Log("cmd.start.PreRunE", "initData", "err", err.Error())
 					return err
 				}
 			}
-			_ = generateTable()
 
 			//aigc-server channelID
 			channelRes, err := store.Chat().FindChannelByApiKey(cmd.Context(), serverChannelKey)

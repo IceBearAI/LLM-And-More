@@ -115,6 +115,12 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 		encode.JsonResponse,
 		kitopts...,
 	)).Methods(http.MethodGet)
+	r.Handle("/models/{modelName}/info", kithttp.NewServer(
+		eps.ModelInfoEndpoint,
+		kithttp.NopRequestDecoder,
+		encode.JsonResponse,
+		kitopts...,
+	)).Methods(http.MethodGet)
 	r.Handle("/models/chat/completions", kithttp.NewServer(
 		eps.ChatCompletionStreamEndpoint,
 		decodeChatCompletionStreamRequest,

@@ -70,7 +70,11 @@
           <el-table-column label="webshell" min-width="90px">
             <template #default="{ row }">
               <el-tooltip v-if="row.status === 'running'" content="进入终端" placement="top">
-                <router-link class="link" :to="{ path: '/model/terminal', query: { modelId: jobId } }" target="_blank">
+                <router-link
+                  class="link"
+                  :to="{ path: '/model/terminal', query: { resourceType: 'eval-job', serviceName: row.jobName } }"
+                  target="_blank"
+                >
                   <IconTerminal2 class="align-top" :size="20" />
                 </router-link>
               </el-tooltip>
@@ -107,7 +111,7 @@
       </v-col>
     </v-row>
   </div>
-  <DialogLog ref="refDialogLog" :interval="30" @refresh="getLog" />
+  <DialogLog ref="refDialogLog" :interval="20" @refresh="getLog" />
   <ConfirmByInput ref="refConfirmAbort" @submit="doAbort">
     <template #text>
       此操作将会<span class="text-primary">取消</span>正在进行的模型评估<br />

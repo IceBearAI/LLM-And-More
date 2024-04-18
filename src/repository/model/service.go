@@ -81,7 +81,11 @@ type service struct {
 func (s *service) FindByModelId(ctx context.Context, modelId string, preloads ...string) (model types.Models, err error) {
 	db := s.db.WithContext(ctx)
 	for _, preload := range preloads {
-		db = db.Preload(preload)
+		if preload == "ModelDeploy" {
+			db = db.Preload(preload, "status = ? AND deleted_at IS NULL", types.ModelDeployStatusRunning.String())
+		} else {
+			db = db.Preload(preload)
+		}
 	}
 	err = db.Where("model_name = ?", modelId).First(&model).Error
 	return

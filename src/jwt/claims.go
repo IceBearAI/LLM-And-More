@@ -27,11 +27,12 @@ type ArithmeticCustomClaims struct {
 }
 
 type ArithmeticTerminalClaims struct {
-	UserId    uint   `json:"userId"`
-	Cluster   string `json:"cluster"`
-	Namespace string `json:"namespace"`
-	PodName   string `json:"podName"`
-	Container string `json:"container"`
+	UserId      uint   `json:"userId"`
+	Cluster     string `json:"cluster"`
+	Namespace   string `json:"namespace"`
+	ServiceName string `json:"serviceName"`
+	PodName     string `json:"podName"`
+	Container   string `json:"container"`
 	//jwt.StandardClaims
 	jwt.RegisteredClaims
 }

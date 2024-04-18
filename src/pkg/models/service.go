@@ -29,6 +29,9 @@ import (
 
 type Middleware func(Service) Service
 
+// Service is the interface for the model service.
+// Service 模型服务接口
+// 应该从中间件去判断该租户是否有权限访问相关模型，后续多租户的时候再处理
 type Service interface {
 	// ListModels 模型分页列表
 	ListModels(ctx context.Context, request ListModelRequest) (res ListModelResponse, err error)
@@ -54,9 +57,10 @@ type Service interface {
 	DeleteEval(ctx context.Context, id uint) (err error)
 	// GetModelLogs 获取模型输出日志
 	GetModelLogs(ctx context.Context, modelName, containerName string) (res string, err error)
+	// ChatCompletionStream 聊天补全流
 	ChatCompletionStream(ctx context.Context, request ChatCompletionRequest) (stream <-chan CompletionsStreamResult, err error)
-	// GetModel 获取模型基本信息
-	//GetModel(ctx context.Context, modelName string) (res modelInfoResult, err error)
+	// ModelInfo 获取模型信息
+	ModelInfo(ctx context.Context, modelName string) (res modelInfoResult, err error)
 }
 
 // CreationOptions is the options for the faceswap service.
@@ -66,6 +70,7 @@ type CreationOptions struct {
 	gpuTolerationValue string
 	controllerAddress  string
 	runtimePlatform    string
+	convertUrlFun      func(fileUrl string) string
 }
 
 // CreationOption is a creation option for the faceswap service.
@@ -106,12 +111,72 @@ func WithRuntimePlatform(platform string) CreationOption {
 	}
 }
 
+// WithConvertUrlFun returns a CreationOption that sets the convert url function.
+func WithConvertUrlFun(fun func(fileUrl string) string) CreationOption {
+	return func(co *CreationOptions) {
+		co.convertUrlFun = fun
+	}
+}
+
 type service struct {
 	logger  log.Logger
 	traceId string
 	store   repository.Repository
 	apiSvc  services.Service
 	options *CreationOptions
+}
+
+func (s *service) ModelInfo(ctx context.Context, modelName string) (res modelInfoResult, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	m, err := s.store.Model().FindByModelId(ctx, modelName, "ModelDeploy", "FineTuningTrainJob")
+	if err != nil {
+		_ = level.Error(logger).Log("store.Model", "GetModelByModelName", "err", err.Error(), "modelName", modelName)
+		return res, encode.ErrSystem.Wrap(errors.New("查询模型失败"))
+	}
+	res = modelInfoResult{
+		ModelName:    m.ModelName,
+		ProviderName: m.ProviderName.String(),
+		ModelType:    m.ModelType.String(),
+		MaxTokens:    m.MaxTokens,
+		Remark:       m.Remark,
+		Enabled:      m.Enabled,
+		CreatedAt:    m.CreatedAt,
+		UpdatedAt:    m.UpdatedAt,
+	}
+	if m.ModelDeploy.ID > 0 {
+		res.Deployment = &modelDeploymentResult{
+			Status:       m.ModelDeploy.Status,
+			Replicas:     m.ModelDeploy.Replicas,
+			InferredType: m.ModelDeploy.InferredType,
+			GPU:          m.ModelDeploy.Gpu,
+			Quantization: m.ModelDeploy.Quantization,
+			VLLM:         m.ModelDeploy.Vllm,
+			ModelPath:    m.ModelDeploy.ModelPath,
+		}
+	}
+
+	if m.FineTuningTrainJob.ID > 0 {
+		res.FineTuned = &modelFineTuneResult{
+			FileId:   m.FineTuningTrainJob.FileId,
+			JobId:    m.FineTuningTrainJob.JobId,
+			FileUrl:  m.FineTuningTrainJob.FileUrl,
+			Scenario: string(m.FineTuningTrainJob.Scenario),
+		}
+		// todo: 如果是标注的内容则直接从标注表中获取，否则读取文件解析
+		// 暂时默认从训练文件中获取
+		if fileBody, err := util.GetHttpFileBody(s.options.convertUrlFun(m.FineTuningTrainJob.FileUrl)); err == nil {
+			// 取body第一行数据解析成json
+			prompts, err := tokenizers.GetSystemContent(fileBody)
+			if err != nil {
+				_ = level.Warn(logger).Log("tokenizers.GetSystemContent", "err", err.Error())
+			}
+			res.FineTuned.SystemPrompts = prompts
+		} else {
+			_ = level.Warn(logger).Log("util.GetHttpFileBody", "err", err.Error())
+		}
+	}
+
+	return res, nil
 }
 
 func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompletionRequest) (stream <-chan CompletionsStreamResult, err error) {
@@ -599,19 +664,19 @@ func (s *service) GetModel(ctx context.Context, id uint) (res Model, err error) 
 		}
 	}
 
-	if m.IsFineTuning {
-		res.FineTuned = &modelFineTuneResult{
-			JobId:   m.FineTuningTrainJob.JobId,
-			FileId:  m.FineTuningTrainJob.FileId,
-			FileUrl: m.FineTuningTrainJob.FileUrl,
-		}
-		if fileBody, err := util.GetHttpFileBody(m.FineTuningTrainJob.FileUrl); err == nil {
-			// 取body第一行数据解析成json
-			res.FineTuned.SystemPrompt = tokenizers.GetFirstLineSystemPrompt(fileBody)
-		} else {
-			_ = level.Warn(logger).Log("util.GetHttpFileBody", "err", err.Error())
-		}
-	}
+	//if m.IsFineTuning {
+	//	res.FineTuned = &modelFineTuneResult{
+	//		JobId:   m.FineTuningTrainJob.JobId,
+	//		FileId:  m.FineTuningTrainJob.FileId,
+	//		FileUrl: m.FineTuningTrainJob.FileUrl,
+	//	}
+	//	if fileBody, err := util.GetHttpFileBody(m.FineTuningTrainJob.FileUrl); err == nil {
+	//		// 取body第一行数据解析成json
+	//		res.FineTuned.SystemPrompt = tokenizers.GetFirstLineSystemPrompt(fileBody)
+	//	} else {
+	//		_ = level.Warn(logger).Log("util.GetHttpFileBody", "err", err.Error())
+	//	}
+	//}
 
 	res.ContainerNames = containerNames
 	return res, nil
@@ -748,7 +813,10 @@ func providerName(m string) types.ModelProvider {
 func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc services.Service, opts ...CreationOption) Service {
 	logger = log.With(logger, "service", "models")
 	options := &CreationOptions{
-		volumeName: "aigc-data-cfs",
+		volumeName: "aigc-data",
+		convertUrlFun: func(fileUrl string) string {
+			return fileUrl
+		},
 	}
 	for _, opt := range opts {
 		opt(options)
