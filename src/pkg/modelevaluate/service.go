@@ -410,6 +410,8 @@ func (s *service) getFiveGraphData(ctx context.Context, modelId, evaluateId int)
 	}
 
 	var lastLoss float64
+	var riskOver, riskUnder, riskDisaster bool
+	var remind string
 
 	// 如果是微调模型，获取损失率
 	if data.Models.IsFineTuning == true {
@@ -443,30 +445,29 @@ func (s *service) getFiveGraphData(ctx context.Context, modelId, evaluateId int)
 			lastLine := logEntryList[len(logEntryList)-1]
 			lastLoss = lastLine.Loss
 		}
-	}
 
-	var riskOver, riskUnder, riskDisaster bool
-	// 过拟合 <0.02 过拟合  建议降低训练轮次/ >0.5  欠拟合  建议提高训练轮次
-	if lastLoss < 0.02 {
-		riskOver = true
-	} else if lastLoss > 0.5 {
-		riskUnder = true
+		// 过拟合 <0.02 过拟合  建议降低训练轮次/ >0.5  欠拟合  建议提高训练轮次
+		if lastLoss < 0.02 {
+			riskOver = true
+		} else if lastLoss > 0.5 {
+			riskUnder = true
+		}
+
+		// 建议
+		remind = "建议"
+		if data.RiskOver == true {
+			remind += "降低训练轮次，"
+		}
+		if data.RiskUnder == true {
+			remind += "提高训练轮次，"
+		}
+		if data.RiskDisaster == true {
+
+		}
+		remind += "并重新训练"
 	}
 
 	_ = level.Info(logger).Log("modelEvaluate", "getFiveGraphData", "IsFineTuning", data.Models.IsFineTuning, "lastLoss", lastLoss)
-
-	var remind string
-	remind = "建议"
-	if data.RiskOver == true {
-		remind += "降低训练轮次，"
-	}
-	if data.RiskUnder == true {
-		remind += "提高训练轮次，"
-	}
-	if data.RiskDisaster == true {
-
-	}
-	remind += "并重新训练"
 
 	score, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", data.Five1+data.Five2+data.Five3+data.Five4+data.Five5), 64)
 
