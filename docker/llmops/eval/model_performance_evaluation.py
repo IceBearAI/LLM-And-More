@@ -171,9 +171,9 @@ def evaluate_model(model_name_or_path, dataset_path, evaluation_metrics, max_seq
 
     # 分批处理问题
     candidates = []
-    for i in tqdm(range(0, len(questions), per_device_batch_size), desc="Evaluating", unit="batch"):
-        batch_questions = questions[i:i + per_device_batch_size]
-        batch_references = references[i:i + per_device_batch_size]
+    for i in tqdm(range(0, len(modified_dataset), per_device_batch_size), desc="Evaluating", unit="batch"):
+        batch_questions = [item["question"] for item in modified_dataset[i:i + per_device_batch_size]]
+        batch_references = [item["reference"] for item in modified_dataset[i:i + per_device_batch_size]]
         batch_answers = generate_answers_batch(
             model, tokenizer, batch_questions, max_seq_len, device)
 
