@@ -39,6 +39,14 @@ def get_value_based_on_key(map_dict, model_name_or_path):
 
     # 如果没有找到匹配项，返回None
     return None
+def log_info(rank, epoch, step, loss, learning_rate):
+    return {
+        'rank': rank,
+        'epoch': epoch,
+        'step': step,
+        'loss': loss,
+        'learning_rate': learning_rate
+    }
 
 
 def parse_args():
@@ -227,7 +235,13 @@ def main():
             model.backward(loss)
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             model.step()
+            # 更新学习率调度器
+            lr_scheduler.step()
             if (step + 1) % args.gradient_accumulation_steps == 0:
+                log_data = log_info(args.global_rank, epoch + 1, step + 1,
+                                    (tr_loss - logging_loss) / (args.show_loss_step * args.gradient_accumulation_steps),
+                                    lr_scheduler.get_last_lr()[0])
+                print_rank_0(log_data, args.global_rank)
                 global_step += 1
                 # write loss
                 if global_step % args.show_loss_step == 0:
