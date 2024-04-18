@@ -9,6 +9,9 @@
     文件说明：
             
 """
+from glm3_32k.modeling_chatglm import ChatGLMForConditionalGeneration as ChatGLM3_32kForConditionalGeneration
+from glm3_32k.tokenization_chatglm import ChatGLMTokenizer as ChatGLM3_32kTokenizer
+from glm3_32k.configuration_chatglm import ChatGLMConfig as ChatGLM3_32kConfig
 from glm3.modeling_chatglm import ChatGLMForConditionalGeneration as ChatGLM3ForConditionalGeneration
 from glm3.tokenization_chatglm import ChatGLMTokenizer as ChatGLM3Tokenizer
 from glm3.configuration_chatglm import ChatGLMConfig as ChatGLM3Config
@@ -27,6 +30,7 @@ from utils import GLMPromptDataSet, GLM2PromptDataSet, GLM3PromptDataSet, Baichu
 MODE = {"glm": {"model": ChatGLMForConditionalGeneration, "tokenizer": ChatGLMTokenizer, "config": ChatGLMConfig, "dataset": GLMPromptDataSet},
         "glm2": {"model": ChatGLM2ForConditionalGeneration, "tokenizer": ChatGLM2Tokenizer, "config": ChatGLM2Config, "dataset": GLM2PromptDataSet},
         "glm3": {"model": ChatGLM3ForConditionalGeneration, "tokenizer": ChatGLM3Tokenizer, "config": ChatGLM3Config, "dataset": GLM3PromptDataSet},
+        "glm3_32k": {"model": ChatGLM3_32kForConditionalGeneration, "tokenizer": ChatGLM3_32kTokenizer, "config": ChatGLM3_32kConfig, "dataset": GLM3PromptDataSet},
         "baichuan2_13b": {"model": AutoModelForCausalLM, "tokenizer": AutoTokenizer, "config": AutoConfig, "dataset": Baichuan2For13bSupervisedDataset},
         "qwen1.5": {"model": AutoModelForCausalLM, "tokenizer": AutoTokenizer, "config": AutoConfig, "dataset": SupervisedDataset},
         "auto": {"model": AutoModelForCausalLM, "tokenizer": AutoTokenizer, "config": AutoConfig, "dataset": SupervisedDataset}

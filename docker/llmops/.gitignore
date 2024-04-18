@@ -1,5 +1,7 @@
 data
 output
+faq/output_model
+runs
 
 # MacOS忽略文件
 .DS_Store
