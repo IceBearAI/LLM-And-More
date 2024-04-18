@@ -297,19 +297,19 @@ let sidebarItem: menu[] = [
       }
     ]
   },
-  {
-    title: "sceneManagement",
-    icon: IconBrandBinance,
-    to: "/",
-    children: [
-      {
-        title: "sceneList",
-        icon: IconCircleDot,
-        iconSize: "small",
-        to: "/scene/scene-list"
-      }
-    ]
-  },
+  // {
+  //   title: "sceneManagement",
+  //   icon: IconBrandBinance,
+  //   to: "/",
+  //   children: [
+  //     {
+  //       title: "sceneList",
+  //       icon: IconCircleDot,
+  //       iconSize: "small",
+  //       to: "/scene/scene-list"
+  //     }
+  //   ]
+  // },
   { header: "systemManagement" },
   {
     title: "systemManagement",

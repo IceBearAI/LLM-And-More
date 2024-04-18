@@ -475,6 +475,7 @@ func (s *service) ListTasks(ctx context.Context, tenantId uint, name string, pag
 			TestReport:      task.TestReport,
 			DatasetName:     task.DatasetDocument.Name,
 			DetectionStatus: string(task.DetectionStatus),
+			JobName:         task.JobName,
 		})
 	}
 	return

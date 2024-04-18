@@ -28,6 +28,7 @@ type (
 		Complete       string    `json:"complete"`
 		Score          float64   `json:"score"`
 		DataType       string    `json:"dataType"`
+		JobName        string    `json:"jobName"`
 		CreatedAt      time.Time `json:"createdAt"`
 		UpdatedAt      time.Time `json:"updatedAt"`
 	}

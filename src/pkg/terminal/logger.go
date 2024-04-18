@@ -19,7 +19,7 @@ func (s *logging) HandleTerminalSession(session sockjs.Session) {
 	s.next.HandleTerminalSession(session)
 }
 
-func (s *logging) Token(ctx context.Context, tenantId, userId uint, resourceType string, serviceName, containerName string) (res tokenResult, err error) {
+func (s *logging) Token(ctx context.Context, tenantId, userId uint, resourceType string, name string) (res tokenResult, err error) {
 	defer func(begin time.Time) {
 		_ = s.logger.Log(
 			s.traceId, ctx.Value(s.traceId),
@@ -27,14 +27,13 @@ func (s *logging) Token(ctx context.Context, tenantId, userId uint, resourceType
 			"tenantId", tenantId,
 			"userId", userId,
 			"resourceType", resourceType,
-			"serviceName", serviceName,
-			"containerName", containerName,
+			"name", name,
 			"took", time.Since(begin),
 			"err", err,
 		)
 	}(time.Now())
 
-	return s.next.Token(ctx, tenantId, userId, resourceType, serviceName, containerName)
+	return s.next.Token(ctx, tenantId, userId, resourceType, name)
 
 }
 

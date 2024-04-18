@@ -416,10 +416,14 @@ func initData() (err error) {
 
 	var templateModels []string
 	templateModels = append(templateModels, "qwen1.5-0.5b", "qwen1.5-1.8b", "qwen1.5-1.8b-chat", "qwen1.5-4b", "qwen1.5-4b-chat",
-		"qwen1.5-7b", "qwen1.5-7b-chat", "qwen1.5-14b", "qwen1.5-14b-chat", "qwen1.5-32b", "qwen1.5-32b-chat", "qwen1.5-72b", "qwen1.5-72b-chat")
+		"qwen1.5-7b", "qwen1.5-7b-chat", "qwen1.5-14b", "qwen1.5-14b-chat", "qwen1.5-32b", "qwen1.5-32b-chat", "qwen1.5-72b", "qwen1.5-72b-chat",
+		"chatglm3-6b", "chatglm3-6b-32k",
+		"llama-2-13b-chat", "llama-2-13b", "llama-2-7b-chat", "llama-2-7b-chat",
+		"baichuan2-7b-base", "baichuan2-7b-chat", "baichuan2-13b-base", "baichuan2-13b-chat",
+	)
 	replacer := strings.NewReplacer(
-		":", "-",
 		"::", "-", // 这个可能不需要，因为前一个已经将单个冒号替换了
+		":", "-",
 	)
 	for _, model := range templateModels {
 		_ = logger.Log("init", "data", "models-template-inference", gormDB.Create(&types.FineTuningTemplate{
@@ -428,7 +432,7 @@ func initData() (err error) {
 			MaxTokens:     32768,
 			Content:       shellStart,
 			TrainImage:    "dudulu/llmops:latest",
-			BaseModelPath: "/data/base-model/" + replacer.Replace(model),
+			BaseModelPath: "/data/base-model/" + strings.ToLower(replacer.Replace(model)),
 			TemplateType:  "inference",
 			ScriptFile:    "/app/start.sh",
 			Enabled:       true,
@@ -440,9 +444,9 @@ func initData() (err error) {
 			MaxTokens:     32768,
 			Content:       shellTrain,
 			TrainImage:    "dudulu/llmops:latest",
-			BaseModelPath: "/data/base-model/" + replacer.Replace(model),
+			BaseModelPath: "/data/base-model/" + strings.ToLower(replacer.Replace(model)),
 			TemplateType:  "train",
-			ScriptFile:    "/app/finetune.py",
+			ScriptFile:    "/app/train.sh",
 			Enabled:       true,
 			OutputDir:     "/data/ft-model",
 		}).Error)
@@ -456,22 +460,26 @@ func initData() (err error) {
 }
 
 var (
-	modelSql = `INSERT INTO models (id, created_at, updated_at, deleted_at, provider_name, model_type, model_name, max_tokens, is_private, is_fine_tuning, enabled, remark, parameters, last_operator, base_model_name, replicas, label, k8s_cluster, inferred_type, gpu, cpu, memory)
+	modelSql = `INSERT INTO models (created_at, updated_at, deleted_at, provider_name, model_type, model_name, max_tokens, is_private, is_fine_tuning, enabled, remark, parameters, last_operator, base_model_name, replicas, label, k8s_cluster, inferred_type, gpu, cpu, memory)
 VALUES
-	(2, '2024-02-04 13:02:48.112', '2024-03-19 14:08:35.667', NULL, 'OpenAI', 'text-generation', 'gpt-3.5-turbo', 4096, 0, 0, 1, 'OpenAI GPT-3.5-turbo', 20.00, '', NULL, 1, NULL, NULL, NULL, 0, 0, 1),
-	(3, '2024-03-18 17:34:59.542', '2024-03-19 14:51:35.630', NULL, 'LocalAI', 'text-generation', 'qwen1.5-0.5b', 32768, 1, 0, 0, '', 0.50, 'admin', '', 1, '', '', '', 0, 0, 1),
-	(4, '2024-03-19 14:03:11.073', '2024-03-19 14:41:08.194', NULL, 'LocalAI', 'text-generation', 'qwen1.5-1.8b', 32768, 0, 0, 0, '', 1.80, 'admin', '', 1, '', '', '', 0, 0, 1),
-	(5, '2024-03-19 14:03:34.619', '2024-03-19 14:41:41.709', NULL, 'LocalAI', 'text-generation', 'qwen1.5-1.8b-chat', 32768, 0, 0, 0, '', 1.80, 'admin', '', 1, '', '', '', 0, 0, 1),
-	(6, '2024-03-19 14:03:51.375', '2024-03-19 14:41:36.354', NULL, 'LocalAI', 'text-generation', 'qwen1.5-4b', 32768, 0, 0, 0, '', 3.98, 'admin', '', 1, '', '', '', 0, 0, 1),
-	(7, '2024-03-19 14:04:11.425', '2024-03-19 14:41:11.423', NULL, 'LocalAI', 'text-generation', 'qwen1.5-4b-chat', 32768, 0, 0, 0, '', 3.98, 'admin', '', 1, '', '', '', 0, 0, 1),
-	(8, '2024-03-19 14:04:29.257', '2024-03-19 14:41:18.790', NULL, 'LocalAI', 'text-generation', 'qwen1.5-7b', 32768, 0, 0, 0, '', 7.20, 'admin', '', 1, '', '', '', 0, 0, 1),
-	(9, '2024-03-19 14:04:45.241', '2024-03-19 14:41:24.050', NULL, 'LocalAI', 'text-generation', 'qwen1.5-7b-chat', 32768, 0, 0, 0, '', 7.20, 'admin', '', 1, '', '', '', 0, 0, 1),
-	(10, '2024-03-19 14:05:04.519', '2024-03-19 14:41:27.394', NULL, 'LocalAI', 'text-generation', 'qwen1.5-14b', 32768, 0, 0, 0, '', 14.20, 'admin', '', 1, '', '', '', 0, 0, 1),
-	(11, '2024-03-19 14:05:27.624', '2024-03-19 14:41:47.741', NULL, 'LocalAI', 'text-generation', 'qwen1.5-14b-chat', 32768, 0, 0, 0, '', 14.20, 'admin', '', 1, '', '', '', 0, 0, 1),
-	(12, '2024-03-19 14:06:26.666', '2024-03-19 14:41:33.633', NULL, 'LocalAI', 'text-generation', 'qwen1.5-72b', 32768, 0, 0, 0, '', 72.30, 'admin', '', 1, '', '', '', 0, 0, 1),
-	(13, '2024-03-19 14:06:43.121', '2024-03-19 14:41:30.391', NULL, 'LocalAI', 'text-generation', 'qwen1.5-72b-chat', 32768, 0, 0, 0, '', 72.30, 'admin', '', 1, '', '', '', 0, 0, 1),
-	(14, '2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'qwen1.5-32b', 32768, 0, 0, 0, '', 32.40, 'admin', '', 1, '', '', '', 0, 0, 1),
-	(14, '2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'qwen1.5-32b-chat', 32768, 0, 0, 0, '', 32.40, 'admin', '', 1, '', '', '', 0, 0, 1);
+	('2024-02-04 13:02:48.112', '2024-03-19 14:08:35.667', NULL, 'OpenAI', 'text-generation', 'gpt-3.5-turbo', 4096, 0, 0, 1, 'OpenAI GPT-3.5-turbo', 20.00, '', NULL, 1, NULL, NULL, NULL, 0, 0, 1),
+	('2024-03-18 17:34:59.542', '2024-03-19 14:51:35.630', NULL, 'LocalAI', 'text-generation', 'qwen1.5-0.5b', 32768, 1, 0, 0, '', 0.50, 'admin', '', 1, '', '', '', 0, 0, 1),
+	('2024-03-19 14:03:11.073', '2024-03-19 14:41:08.194', NULL, 'LocalAI', 'text-generation', 'qwen1.5-1.8b', 32768, 0, 0, 0, '', 1.80, 'admin', '', 1, '', '', '', 0, 0, 1),
+	('2024-03-19 14:03:34.619', '2024-03-19 14:41:41.709', NULL, 'LocalAI', 'text-generation', 'qwen1.5-1.8b-chat', 32768, 0, 0, 0, '', 1.80, 'admin', '', 1, '', '', '', 0, 0, 1),
+	('2024-03-19 14:03:51.375', '2024-03-19 14:41:36.354', NULL, 'LocalAI', 'text-generation', 'qwen1.5-4b', 32768, 0, 0, 0, '', 3.98, 'admin', '', 1, '', '', '', 0, 0, 1),
+	('2024-03-19 14:04:11.425', '2024-03-19 14:41:11.423', NULL, 'LocalAI', 'text-generation', 'qwen1.5-4b-chat', 32768, 0, 0, 0, '', 3.98, 'admin', '', 1, '', '', '', 0, 0, 1),
+	('2024-03-19 14:04:29.257', '2024-03-19 14:41:18.790', NULL, 'LocalAI', 'text-generation', 'qwen1.5-7b', 32768, 0, 0, 0, '', 7.20, 'admin', '', 1, '', '', '', 0, 0, 1),
+	('2024-03-19 14:04:45.241', '2024-03-19 14:41:24.050', NULL, 'LocalAI', 'text-generation', 'qwen1.5-7b-chat', 32768, 0, 0, 0, '', 7.20, 'admin', '', 1, '', '', '', 0, 0, 1),
+	('2024-03-19 14:05:04.519', '2024-03-19 14:41:27.394', NULL, 'LocalAI', 'text-generation', 'qwen1.5-14b', 32768, 0, 0, 0, '', 14.20, 'admin', '', 1, '', '', '', 0, 0, 1),
+	('2024-03-19 14:05:27.624', '2024-03-19 14:41:47.741', NULL, 'LocalAI', 'text-generation', 'qwen1.5-14b-chat', 32768, 0, 0, 0, '', 14.20, 'admin', '', 1, '', '', '', 0, 0, 1),
+	('2024-03-19 14:06:26.666', '2024-03-19 14:41:33.633', NULL, 'LocalAI', 'text-generation', 'qwen1.5-72b', 32768, 0, 0, 0, '', 72.30, 'admin', '', 1, '', '', '', 0, 0, 1),
+	('2024-03-19 14:06:43.121', '2024-03-19 14:41:30.391', NULL, 'LocalAI', 'text-generation', 'qwen1.5-72b-chat', 32768, 0, 0, 0, '', 72.30, 'admin', '', 1, '', '', '', 0, 0, 1),
+	('2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'qwen1.5-32b', 32768, 0, 0, 0, '', 32.40, 'admin', '', 1, '', '', '', 0, 0, 1),
+	('2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'qwen1.5-32b-chat', 32768, 0, 0, 0, '', 32.40, 'admin', '', 1, '', '', '', 0, 0, 1),
+	('2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'chatglm3-6b-32k', 32768, 0, 0, 0, '', 6.40, 'admin', '', 1, '', '', '', 0, 0, 1),
+	'2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'chatglm3-6b', 8192, 0, 0, 0, '', 6.40, 'admin', '', 1, '', '', '', 0, 0, 1),
+	('2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'baichuan2-7b-base', 4096, 0, 0, 0, '', 6.8, 'admin', '', 1, '', '', '', 0, 0, 1),
+	('2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'baichuan2-7b-chat', 4096, 0, 0, 0, '', 6.8, 'admin', '', 1, '', '', '', 0, 0, 1);
 `
 
 	initSysDictSql = `INSERT INTO sys_dict (id, created_at, updated_at, deleted_at, parent_id, code, dict_value, dict_label, dict_type, sort, remark)

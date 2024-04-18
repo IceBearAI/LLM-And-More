@@ -23,13 +23,16 @@ type (
 
 	// modelFineTuneResult 模型微调返回
 	modelFineTuneResult struct {
-		JobId        string `json:"jobId"`
-		FileId       string `json:"fileId"`
-		FileName     string `json:"fileName"`
-		FileUrl      string `json:"fileUrl"`
-		FileLine     int    `json:"fileLine"`
-		FileTokens   int    `json:"fileTokens"`
-		SystemPrompt string `json:"systemPrompt"`
+		JobId         string   `json:"jobId"`
+		FileId        string   `json:"fileId"`
+		FileName      string   `json:"fileName"`
+		FileUrl       string   `json:"fileUrl"`
+		FileLine      int      `json:"fileLine"`
+		FileTokens    int      `json:"fileTokens"`
+		SystemPrompt  string   `json:"systemPrompt"`
+		SystemPrompts []string `json:"systemPrompts"`
+		// 场景
+		Scenario string `json:"scenario"`
 	}
 
 	Model struct {
@@ -201,6 +204,34 @@ type (
 		Temperature  float64   `json:"temperature"` // 生成文本的多样性
 		MaxTokens    int       `json:"maxTokens"`   // 生成文本的最大长度
 	}
+
+	// modelInfoResult 模型信息返回
+	modelInfoResult struct {
+		// ProviderName 供应商
+		ProviderName string `json:"providerName"`
+		// ModelName 模型名称
+		ModelName string `json:"modelName"`
+		// ModelType 模型类型
+		ModelType string `json:"modelType"`
+		// MaxTokens 最大生成长度
+		MaxTokens int `json:"maxTokens"`
+		// IsFineTuning 是否微调
+		IsFineTuning bool `json:"isFineTuning"`
+		// Enabled 是否启用
+		Enabled bool `json:"enabled"`
+		// Remark 备注
+		Remark string `json:"remark"`
+		// CreatedAt 创建时间
+		BaseModelName string `json:"baseModelName"`
+		// UpdatedAt 更新时间
+		CreatedAt time.Time `json:"createdAt"`
+		// UpdatedAt 更新时间
+		UpdatedAt time.Time `json:"updatedAt"`
+		// Deployment 部署信息
+		Deployment *modelDeploymentResult `json:"deployment"`
+		// FineTuned 微调信息
+		FineTuned *modelFineTuneResult `json:"fineTuned"`
+	}
 )
 
 type Endpoints struct {
@@ -217,6 +248,7 @@ type Endpoints struct {
 	DeleteEvalEndpoint           endpoint.Endpoint
 	GetModelLogsEndpoint         endpoint.Endpoint
 	ChatCompletionStreamEndpoint endpoint.Endpoint
+	ModelInfoEndpoint            endpoint.Endpoint
 }
 
 func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
@@ -234,6 +266,7 @@ func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 		DeleteEvalEndpoint:           makeDeleteEvalEndpoint(s),
 		GetModelLogsEndpoint:         makeGetModelLogsEndpoint(s),
 		ChatCompletionStreamEndpoint: makeChatCompletionStreamEndpoint(s),
+		ModelInfoEndpoint:            makeModelInfoEndpoint(s),
 	}
 	for _, m := range dmw["Model"] {
 		eps.ListModelsEndpoint = m(eps.ListModelsEndpoint)
@@ -249,8 +282,20 @@ func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 		eps.DeleteEvalEndpoint = m(eps.DeleteEvalEndpoint)
 		eps.GetModelLogsEndpoint = m(eps.GetModelLogsEndpoint)
 		eps.ChatCompletionStreamEndpoint = m(eps.ChatCompletionStreamEndpoint)
+		eps.ModelInfoEndpoint = m(eps.ModelInfoEndpoint)
 	}
 	return eps
+}
+
+func makeModelInfoEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		modelName, _ := ctx.Value(contextKeyModelName).(string)
+		resp, err := s.ModelInfo(ctx, modelName)
+		return encode.Response{
+			Data:  resp,
+			Error: err,
+		}, err
+	}
 }
 
 func makeGetModelLogsEndpoint(s Service) endpoint.Endpoint {

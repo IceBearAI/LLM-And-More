@@ -53,6 +53,12 @@ import { computed, reactive, ref } from "vue";
 import ModelSelect from "@/components/business/ModelSelect.vue";
 import { useRoute } from "vue-router";
 
+interface IEmits {
+  (e: "change:model", val: string): void;
+}
+
+const emit = defineEmits<IEmits>();
+
 const route = useRoute();
 
 const { modelName } = route.query;
@@ -93,6 +99,7 @@ const paramsConfig = computed(() => {
 });
 
 const modelUpdate = val => {
+  emit("change:model", val);
   const maxTokens = val.maxTokens;
   config.maxTokens = config.maxTokens > maxTokens ? maxTokens : 512;
 };

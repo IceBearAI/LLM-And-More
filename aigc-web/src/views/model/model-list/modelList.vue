@@ -128,7 +128,11 @@
               <el-table-column label="webshell" min-width="90px">
                 <template #default="{ row }">
                   <el-tooltip v-if="isShowTerminal(row)" content="进入终端" placement="top">
-                    <router-link class="link" :to="{ path: '/model/terminal', query: { modelId: row.id } }" target="_blank">
+                    <router-link
+                      class="link"
+                      :to="{ path: '/model/terminal', query: { resourceType: 'deployment', serviceName: row.modelName } }"
+                      target="_blank"
+                    >
                       <IconTerminal2 class="align-top" :size="20" />
                     </router-link>
                   </el-tooltip>
@@ -167,7 +171,7 @@
   <ConfirmByClick ref="refConfirmByClick" @submit="onConfirmByClick">
     <template #text> <div v-html="state.confirmByClickInfo.html"></div></template>
   </ConfirmByClick>
-  <DialogLog ref="refDialogLog" :interval="30" @refresh="getLog">
+  <DialogLog ref="refDialogLog" :interval="20" @refresh="getLog">
     <template #title>
       <div class="d-flex align-center h-[50px]">
         <span>日志</span>
@@ -448,7 +452,7 @@ const getLog = async () => {
 };
 
 const isShowTerminal = row => {
-  if (row.baseModelName) {
+  if (row.baseModelName || row.providerName !== "LocalAI") {
     return false;
   }
   return (row.enabled && row.modelType === "text-generation") || row.operation.indexOf("undeploy") !== -1;
@@ -462,5 +466,3 @@ onMounted(() => {
   doQueryFirstPage();
 });
 </script>
-<style lang="scss"></style>
-./types/modelList.type.ts ./types/modelList.ts

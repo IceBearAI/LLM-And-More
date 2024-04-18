@@ -323,6 +323,9 @@ func (s *k8s) GetJobLogs(ctx context.Context, jobName string) (log string, err e
 		ServiceName: jobName,
 		namespace:   s.createOptions.namespace,
 	}
+	if config.LabelName == "" {
+		config.LabelName = s.createOptions.labelName
+	}
 	pods, err := s.k8sClient.CoreV1().Pods(s.createOptions.namespace).List(ctx, v1.ListOptions{
 		LabelSelector: v1.FormatLabelSelector(&v1.LabelSelector{
 			MatchLabels: config.GenJobLabels(),

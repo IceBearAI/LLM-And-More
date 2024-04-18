@@ -21,7 +21,7 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 
 	r := mux.NewRouter()
 
-	r.Handle("/resource/{resourceType}/service/{serviceName}/container/{containerName}/token", kithttp.NewServer(
+	r.Handle("/resource/{resourceType}/service/{serviceName}/token", kithttp.NewServer(
 		eps.TokenEndpoint,
 		decodeTokenRequest,
 		encode.JsonResponse,
@@ -43,14 +43,14 @@ func decodeTokenRequest(_ context.Context, r *http.Request) (interface{}, error)
 	if !ok {
 		return nil, encode.InvalidParams.Wrap(errors.New("serviceName is required"))
 	}
-	containerName, ok := vars["containerName"]
-	if !ok {
-		return nil, encode.InvalidParams.Wrap(errors.New("containerName is required"))
-	}
+	//containerName, ok := vars["containerName"]
+	//if !ok {
+	//	return nil, encode.InvalidParams.Wrap(errors.New("containerName is required"))
+	//}
 
 	req.ResourceType = resourceType
 	req.ServiceName = serviceName
-	req.ContainerName = containerName
+	//req.ContainerName = containerName
 
 	return req, nil
 }

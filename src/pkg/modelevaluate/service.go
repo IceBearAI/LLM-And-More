@@ -124,6 +124,7 @@ func (s *service) List(ctx context.Context, req listRequest) (res []listResult, 
 			Remark:         v.Remark,
 			CreatedAt:      v.CreatedAt,
 			UpdatedAt:      v.UpdatedAt,
+			JobName:        v.JobName,
 		}
 
 		res = append(res, dd)

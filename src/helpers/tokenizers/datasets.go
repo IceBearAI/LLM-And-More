@@ -59,6 +59,52 @@ func GetFirstLineSystemPrompt(fileBody []byte) (content string) {
 
 }
 
+// GetSystemContent 获取文件的所有system content
+func GetSystemContent(fileBody []byte) (content []string, err error) {
+	lines := bytes.Split(fileBody, []byte("\n"))
+	if len(lines) == 0 {
+		return
+	}
+	if json.Unmarshal(lines[0], &MessagesWrapper{}) == nil {
+		for _, line := range lines {
+			line = bytes.TrimSpace(line)
+			if len(line) == 0 {
+				continue
+			}
+			var msg MessagesWrapper
+			if json.Unmarshal(line, &msg) == nil {
+				for _, v := range msg.Messages {
+					if v.Role == "system" {
+						if InArrayString(content, v.Content) {
+							break
+						}
+						content = append(content, v.Content)
+						break
+					}
+				}
+			}
+		}
+		return content, nil
+	}
+	if json.Unmarshal(lines[0], &DataAnnotationSegment{}) == nil {
+		for _, line := range lines {
+			line = bytes.TrimSpace(line)
+			if len(line) == 0 {
+				continue
+			}
+			var das DataAnnotationSegment
+			if json.Unmarshal(line, &das) == nil {
+				if InArrayString(content, das.Instruction) {
+					break
+				}
+				content = append(content, das.Instruction)
+			}
+		}
+		return content, nil
+	}
+	return
+}
+
 // ConvertToMessages 将文件内容转换为消息
 func ConvertToMessages(fileBody []byte) (messages []MessagesWrapper, err error) {
 	lines := bytes.Split(fileBody, []byte("\n"))
@@ -110,4 +156,14 @@ func ConvertToMessages(fileBody []byte) (messages []MessagesWrapper, err error) 
 // ConvertToDatasets 根据模型名称将消息转换为训练的数据集
 func ConvertToDatasets(messages []MessagesWrapper, modelName string) (datasets []string) {
 	return
+}
+
+// InArrayString 判断字符串是否在数组中
+func InArrayString(array []string, item string) bool {
+	for _, v := range array {
+		if v == item {
+			return true
+		}
+	}
+	return false
 }

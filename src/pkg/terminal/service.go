@@ -3,17 +3,20 @@ package terminal
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/IceBearAI/aigc/src/encode"
 	aigcjwt "github.com/IceBearAI/aigc/src/jwt"
 	"github.com/IceBearAI/aigc/src/repository"
 	"github.com/IceBearAI/aigc/src/services"
 	"github.com/IceBearAI/aigc/src/services/runtime"
+	"github.com/IceBearAI/aigc/src/util"
 	kitjwt "github.com/go-kit/kit/auth/jwt"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	jwt2 "github.com/golang-jwt/jwt/v4"
 	"github.com/igm/sockjs-go/v3/sockjs"
+	"github.com/pkg/errors"
 	"net/http"
 	"strings"
 	"time"
@@ -57,7 +60,9 @@ type Service interface {
 	// HandleTerminalSession handles terminal session
 	HandleTerminalSession(session sockjs.Session)
 	// Token 获取访问Terminal的token
-	Token(ctx context.Context, tenantId, userId uint, resourceType string, serviceName, containerName string) (res tokenResult, err error)
+	// resourceType: deployment, ft-job, pod
+	// name: deployment name, ft-job name, pod name
+	Token(ctx context.Context, tenantId, userId uint, resourceType string, name string) (res tokenResult, err error)
 }
 
 type service struct {
@@ -68,9 +73,10 @@ type service struct {
 	options    *CreationOptions
 }
 
-func (s *service) Token(ctx context.Context, tenantId, userId uint, resourceType, serviceName, containerName string) (res tokenResult, err error) {
+func (s *service) Token(ctx context.Context, tenantId, userId uint, resourceType, name string) (res tokenResult, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
-
+	var serviceName = ""
+	var containerName = util.ReplacerServiceName(name)
 	timeout := time.Duration(s.options.sessionTimeout) * time.Second
 	// 创建声明
 	claims := aigcjwt.ArithmeticTerminalClaims{
@@ -96,12 +102,25 @@ func (s *service) Token(ctx context.Context, tenantId, userId uint, resourceType
 	}
 	var containers []string
 	if resourceType == "deployment" {
-		containers, err = s.apiSvc.Runtime().GetDeploymentContainerNames(ctx, serviceName)
+		modelInfo, err := s.repository.Model().GetModelByModelName(ctx, name)
 		if err != nil {
-			_ = level.Warn(logger).Log("apiSvc.Runtime", "GetDeploymentContainerNames", "err", err.Error())
+			_ = level.Warn(logger).Log("repository.Model", "GetModelByModelName", "err", err.Error())
+			return tokenResult{}, errors.Wrap(err, "repository.Model.GetModelByModelName")
 		}
+		serviceName = fmt.Sprintf("%s-%d", util.ReplacerServiceName(modelInfo.ModelName), modelInfo.ID)
+	} else if resourceType == "ft-job" {
+		ftJob, err := s.repository.FineTuning().GetFineTuningJobByModelName(ctx, name)
+		if err != nil {
+			_ = level.Warn(logger).Log("repository.FineTuning", "GetFineTuningJobByModelName", "err", err.Error())
+			return tokenResult{}, errors.Wrap(err, "repository.FineTuning.GetFineTuningJobByModelName")
+		}
+		serviceName = util.ReplacerServiceName(ftJob.FineTunedModel)
 	} else {
-		containers = []string{containerName}
+		serviceName = name
+	}
+	containers, err = s.apiSvc.Runtime().GetDeploymentContainerNames(ctx, serviceName)
+	if err != nil {
+		_ = level.Warn(logger).Log("apiSvc.Runtime", "GetDeploymentContainerNames", "err", err.Error())
 	}
 
 	res.SessionId = tk
@@ -196,10 +215,10 @@ func (s *service) checkShellToken(cluster, namespace, podName, container, token 
 		err = encode.ErrAccountASD.Error()
 		return
 	}
-	if !strings.EqualFold(claim.PodName, podName) {
-		err = encode.ErrAccountASD.Error()
-		return
-	}
+	//if !strings.EqualFold(claim.PodName, podName) {
+	//	err = encode.ErrAccountASD.Error()
+	//	return
+	//}
 	//if !strings.EqualFold(claim.Container, container) {
 	//	return encode.ErrAccountASD.Error()
 	//}

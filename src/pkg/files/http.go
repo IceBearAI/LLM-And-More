@@ -62,8 +62,8 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 
 func decodeCreateFileRequest(ctx context.Context, r *http.Request) (interface{}, error) {
 	// 限制上传文件大小 1000M
-	if err := r.ParseMultipartForm(1000 << 20); err != nil {
-		return nil, encode.InvalidParams.Wrap(errors.New("文件大小超过1000MB限制"))
+	if err := r.ParseMultipartForm(4000 << 20); err != nil {
+		return nil, encode.InvalidParams.Wrap(errors.New("文件大小超过4000MB限制"))
 	}
 	file, header, err := r.FormFile("file")
 	if err != nil {
