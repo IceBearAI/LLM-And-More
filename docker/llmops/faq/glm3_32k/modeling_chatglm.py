@@ -96,13 +96,11 @@ def split_tensor_along_last_dim(
         contiguous_split_chunks: bool = False,
 ) -> List[torch.Tensor]:
     """Split a tensor along its last dimension.
-
     Arguments:
         tensor: input tensor.
         num_partitions: number of partitions to split the tensor
         contiguous_split_chunks: If True, make each chunk contiguous
                                  in memory.
-
     Returns:
         A list of Tensors
     """
@@ -130,7 +128,6 @@ class RotaryEmbedding(nn.Module):
             self, seq_len: int, n_elem: int, dtype: torch.dtype, device: torch.device, base: int = 10000
     ):
         """Enhanced Transformer with Rotary Position Embedding.
-
         Derived from: https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/labml_nn/
         transformers/rope/__init__.py. MIT License:
         https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/license.
@@ -312,7 +309,6 @@ class CoreAttention(torch.nn.Module):
 
 class SelfAttention(torch.nn.Module):
     """Parallel self-attention layer abstract class.
-
     Self-attention layer takes input with size [s, b, h]
     and returns output of the same size.
     """
@@ -458,7 +454,6 @@ def _config_to_kwargs(args):
 
 class MLP(torch.nn.Module):
     """MLP.
-
     MLP will take the input with h hidden state, project it to 4*h
     hidden dimension, perform nonlinear transformation, and project the
     state back into h hidden dimension.
@@ -504,7 +499,6 @@ class MLP(torch.nn.Module):
 
 class GLMBlock(torch.nn.Module):
     """A single transformer layer.
-
     Transformer layer takes input with size [s, b, h] and returns an
     output of the same size.
     """
@@ -634,8 +628,7 @@ class GLMTransformer(torch.nn.Module):
                     attention_mask,
                     rotary_pos_emb,
                     kv_caches[index],
-                    use_cache,
-                    use_reentrant=False
+                    use_cache
                 )
             else:
                 layer_ret = layer(
@@ -698,9 +691,9 @@ class ChatGLMPreTrainedModel(PreTrainedModel):
         position_ids = torch.arange(seq_length, dtype=torch.long, device=device).unsqueeze(0).repeat(batch_size, 1)
         return position_ids
 
-    def gradient_checkpointing_enable(self, gradient_checkpointing_kwargs=None):
-        if not self.supports_gradient_checkpointing:
-            raise ValueError(f"{self.__class__.__name__} does not support gradient checkpointing.")
+    def _set_gradient_checkpointing(self, module, value=False):
+        if isinstance(module, GLMTransformer):
+            module.gradient_checkpointing = value
 
 
 class Embedding(torch.nn.Module):
@@ -768,9 +761,6 @@ class ChatGLMModel(ChatGLMPreTrainedModel):
 
     def get_input_embeddings(self):
         return self.embedding.word_embeddings
-
-    def set_input_embeddings(self, value):
-        self.embedding.word_embeddings = value
 
     def get_prompt(self, batch_size, device, dtype=torch.half):
         prefix_tokens = self.prefix_tokens.unsqueeze(0).expand(batch_size, -1).to(device)
@@ -954,7 +944,6 @@ class ChatGLMForConditionalGeneration(ChatGLMPreTrainedModel):
             hidden_states = hidden_states[-1:]
         lm_logits = self.transformer.output_layer(hidden_states)
         lm_logits = lm_logits.transpose(0, 1).contiguous()
-
         loss = None
         if labels is not None:
             lm_logits = lm_logits.to(torch.float32)
@@ -989,7 +978,6 @@ class ChatGLMForConditionalGeneration(ChatGLMPreTrainedModel):
         This function is used to re-order the `past_key_values` cache if [`~PreTrainedModel.beam_search`] or
         [`~PreTrainedModel.beam_sample`] is called. This is required to match `past_key_values` with the correct
         beam_idx at every generation step.
-
         Output shares the same memory storage as `past`.
         """
         return tuple(

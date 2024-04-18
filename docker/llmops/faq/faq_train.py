@@ -266,6 +266,15 @@ def main():
             if args.global_rank <= 0:
                 save_model(model, tokenizer, args.output_dir,
                            f"epoch-{epoch + 1}-step-{global_step}")
+    # 若zero3训练，模型参数需要合并保存
+    if ds_config["zero_optimization"]["stage"] == 3:
+        state_dict = model._zero3_consolidated_16bit_state_dict()
+        if args.global_rank <= 0:
+            save_model(model, tokenizer, args.output_dir,"")
+    else:
+        if args.global_rank <= 0:
+            save_model(model, tokenizer, args.output_dir,"")
+    print_rank_0(f"model saved to {args.output_dir}", args.global_rank)
     print_rank_0("train end", args.global_rank)
 
 if __name__ == "__main__":
