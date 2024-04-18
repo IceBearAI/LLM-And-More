@@ -31,3 +31,4 @@ if __name__ == '__main__':
     lora_model.to("cpu")
     model = lora_model.merge_and_unload()
     model.save_pretrained(args.model_dir, max_shard_size="2GB")
+    print(f"Merged model saved to {args.model_dir}")
