@@ -18,6 +18,19 @@
 # - MODEL_NAME: 模型名称
 # - MODEL_PATH: 模型路径
 
+# shellcheck disable=SC2153
+if [ "$HTTP_PROXY" != "" ]; then
+    export http_proxy=$HTTP_PROXY
+fi
+
+if [ "$HTTPS_PROXY" != "" ]; then
+    export https_proxy=$HTTPS_PROXY
+fi
+
+if [ "$NO_PROXY" != "" ]; then
+    export no_proxy=$NO_PROXY
+fi
+
 DATASET_FILE="/app/dataset-${JOB_ID}-eval.jsonl"
 OUTPUT_PATH="/app/eval"
 DATASET_OUTPUT_FILE="${OUTPUT_PATH}/eval_results.json"

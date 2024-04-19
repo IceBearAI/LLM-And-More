@@ -14,10 +14,21 @@ type Service interface {
 	FindTenant(ctx context.Context, id uint, preloads ...string) (res types.Tenants, err error)
 	// AddModel 添加模型
 	AddModel(ctx context.Context, id uint, models ...*types.Models) (err error)
+	// FindTenantByTenantId 通过租户ID获取租户信息
+	FindTenantByTenantId(ctx context.Context, tenantId string, preloads ...string) (res types.Tenants, err error)
 }
 
 type service struct {
 	db *gorm.DB
+}
+
+func (s service) FindTenantByTenantId(ctx context.Context, tenantId string, preloads ...string) (res types.Tenants, err error) {
+	db := s.db.WithContext(ctx)
+	for _, preload := range preloads {
+		db = db.Preload(preload)
+	}
+	err = db.Where("tenant_id = ?", tenantId).First(&res).Error
+	return
 }
 
 func (s service) AddModel(ctx context.Context, id uint, models ...*types.Models) (err error) {

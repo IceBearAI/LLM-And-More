@@ -432,7 +432,7 @@ Platform: ` + goOS + "/" + goArch + `
 	cronJobCmd.AddCommand(cronJobStartCmd)
 
 	addFlags(rootCmd)
-	rootCmd.AddCommand(startCmd, generateCmd, jobCmd, cronJobCmd)
+	rootCmd.AddCommand(startCmd, generateCmd, jobCmd, cronJobCmd, accountCmd)
 
 }
 

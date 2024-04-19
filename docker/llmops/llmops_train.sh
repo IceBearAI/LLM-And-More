@@ -29,6 +29,23 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 JOB_STATUS="success"
 JOB_MESSAGE=""
 
+if [ "$MASTER_PORT" == "" ]; then
+    MASTER_PORT=29500
+fi
+
+# shellcheck disable=SC2153
+if [ "$HTTP_PROXY" != "" ]; then
+    export http_proxy=$HTTP_PROXY
+fi
+
+if [ "$HTTPS_PROXY" != "" ]; then
+    export https_proxy=$HTTPS_PROXY
+fi
+
+if [ "$NO_PROXY" != "" ]; then
+    export no_proxy=$NO_PROXY
+fi
+
 function callback() {
   # 根据退出状态判断执行是否异常
   if [ $JOB_STATUS -eq 0 ]; then
