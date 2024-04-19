@@ -1,7 +1,7 @@
 import argparse
 import json
 from collections import defaultdict
-from typing import List
+from typing import List, Dict
 import requests
 
 import numpy as np
@@ -70,10 +70,12 @@ class DatasetsModel:
         all_answers = []
         indices = []
         for i, item in enumerate(data):
-            questions = item.question[0:].split(',')
+            #questions = item.question[0:].split(',')
+            questions = item.input[0:].split(',')
             questions = [q.strip() for q in questions]
             intents = item.intent
             answers = item.output
+            #print(f"Item {i}: Question - {questions}, Intent - {intents}, Answer - {answers}")
             for q in questions:
                 all_query.append(q)
             for _ in range(len(questions)):
@@ -82,8 +84,11 @@ class DatasetsModel:
                 indices.append(i)
             i += 1
         sentence_embeddings = self.model.encode(all_query)
+        #print(f"Sentence embeddings shape: {sentence_embeddings.shape}")
         cosine_score = cosine_similarity(sentence_embeddings)
+        #print(f"Cosine score matrix shape: {cosine_score.shape}")
         similar_indices = np.argwhere(cosine_score >= similarity_threshold)
+        #print(f"Similar indices found: {similar_indices}")
         intent_question = defaultdict(list)
 
         similar_intents: List[SimilarIntents] = []
@@ -124,10 +129,35 @@ class DatasetsModel:
                         answer2=question_info["answer2"],
                         lineNumbers=question_info["lineNumbers"]
                     ))
+        print(f"Similar intents found: {similar_intents}")
+        print(f"Mismatched intents found: {mismatched_intents}")
 
         return SimilarQuestionIntent(similarIntents=similar_intents,
                                      mismatchedIntents=mismatched_intents)
 
+def transform_data(data_list: List[str]) -> List[Dict]:
+    transformed_data = []
+    
+    for line in data_list:
+        if not line.strip():
+            continue
+        
+        data = json.loads(line)
+        instruction = data["messages"][0]["content"]
+        user_content = data["messages"][1]["content"].split('\n')
+        question = user_content[0]
+        intent = user_content[1] if len(user_content) > 1 else ""
+        output = data["messages"][2]["content"]
+        
+        transformed_item = {
+            "instruction": instruction,
+            "output": output,
+            "intent": intent,
+            "question": question
+        }
+        transformed_data.append(transformed_item)
+    
+    return transformed_data
 
 def analyze_similar(params) -> SimilarQuestionIntent:
     """Analyze similar questions and intents."""
@@ -143,14 +173,19 @@ def analyze_similar(params) -> SimilarQuestionIntent:
     else:
         with open(params.dataset, "r", encoding="utf-8") as f:
             data_list = f.readlines()
-
+    data = []
     if params.dataset_type == "faq":
-        data = []
         for line in data_list:
             if not line.strip():
                 continue
-            item = json.loads(line)
-            data.append(QuestionIntent(input=item['question'], intent=item['intent'], output=item['output']))
+            try:
+                item = json.loads(line)
+                data.append(QuestionIntent(input=item['question'], intent=item['intent'], output=item['output']))
+            except KeyError:
+                transformed = transform_data(data_list)
+                for item in transformed:
+                    data.append(QuestionIntent(input=item['question'], intent=item['intent'], output=item['output']))
+                break 
         return DatasetsModel(params.model_name).analyze_similar_questions_and_intents(
             data, params.similarity_threshold, params.intent_similarity_threshold)
 
@@ -171,7 +206,10 @@ if __name__ == "__main__":
     parser.add_argument("--output_file", type=str, default="/tmp/result.json", help="output file path.")
 
     args = parser.parse_args()
-
     result = analyze_similar(params=args)
-    with open(args.output_file, "w", encoding="utf-8") as f:
-        f.write(result.json())
+    try:
+
+      with open(args.output_file, "w", encoding="utf-8") as f:
+          f.write(result.json())
+    except Exception as e:
+      print(f"An error occurred: {e}")
