@@ -159,7 +159,6 @@ func (s *docker) WaitForTerminal(ctx context.Context, ts Session, config Config,
 }
 
 func (s *docker) GetDeploymentContainerNames(ctx context.Context, deploymentName string) (containerNames []string, err error) {
-	fmt.Println("GetDeploymentContainerNames", deploymentName)
 	list, err := s.dockerCli.ContainerList(ctx, container.ListOptions{})
 	if err != nil {
 		err = errors.Wrap(err, "ContainerList err")
@@ -168,7 +167,6 @@ func (s *docker) GetDeploymentContainerNames(ctx context.Context, deploymentName
 
 	for _, v := range list {
 		for _, vv := range v.Names {
-			fmt.Println("vv", vv, deploymentName+"-")
 			if strings.HasPrefix(strings.TrimPrefix(vv, "/"), deploymentName+"-") {
 				containerNames = append(containerNames, v.ID)
 				break
