@@ -184,7 +184,7 @@ if [ "$SCENARIO" == "general" ]; then
       --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
       --lr_scheduler_type cosine \
       --num_warmup_steps 0 \
-      --seed 42 \
+      --seed 1234 \
       --gradient_checkpointing \
       --zero_stage $ZERO_STAGE \
       --offload \
@@ -211,7 +211,7 @@ elif [ "$SCENARIO" == "faq" ]; then
       --max_src_len 128 \
       --learning_rate $LEARNING_RATE \
       --weight_decay 0.1 \
-      --num_train_epochs 2 \
+      --num_train_epochs $NUM_TRAIN_EPOCHS \
       --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
       --warmup_ratio 0.1 \
       --mode $MODENAME \
@@ -227,8 +227,37 @@ elif [ "$SCENARIO" == "faq" ]; then
       --output_dir $OUTPUT_DIR  > >(tee "$temp_file") 2>&1
 
 elif [ "$SCENARIO" == "rag" ]; then
+	RAG_TRAIN_PATH="./rag/data/mini_finance_train.json"
+	RAG_ENHANCEMENT=False
+    RETRIEVAL_METHOD="bm25"
+    ST="shibing624/text2vec-base-chinese"
 
-  pass
+    deepspeed /app/rag/rag_train.py \
+        --train_path $RAG_TRAIN_PATH \
+        --enhancement $RAG_ENHANCEMENT \
+        --retrieval_method $RETRIEVAL_METHOD \
+        --top_k 1 \
+        --st $ST \
+        --model_name_or_path $MODEL_NAME_OR_PATH \
+        --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
+        --max_len $MODEL_MAX_LENGTH \
+        --max_src_len 1024 \
+        --learning_rate $LEARNING_RATE \
+        --weight_decay 0.1 \
+        --num_train_epochs $NUM_TRAIN_EPOCHS \
+        --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
+        --warmup_ratio 0.1 \
+        --mode $MODENAME \
+		--train_type $TRAIN_TYPE \
+		--lora_module_name  $LORA_MODULE_NAME \
+        --lora_dim 4 \
+        --lora_alpha 64 \
+        --lora_dropout 0.1 \
+        --seed 1234 \
+        --ds_file $DS_FILE \
+        --gradient_checkpointing \
+        --show_loss_step 10 \
+        --output_dir $OUTPUT_DIR  > >(tee "$temp_file") 2>&1
 
 else
   echo "Invalid scenario selection!"
