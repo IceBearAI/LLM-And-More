@@ -380,7 +380,7 @@ func replacerServiceName(name string) string {
 		"::", "-", // 这个可能不需要，因为前一个已经将单个冒号替换了
 		":", "-",
 	)
-	return replacer.Replace(name)
+	return strings.ToLower(replacer.Replace(name))
 }
 
 func (s *docker) CreateDeployment(ctx context.Context, config Config) (deploymentName string, err error) {
