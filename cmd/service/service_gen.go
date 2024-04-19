@@ -32,6 +32,19 @@ var (
 # - HTTPS_PROXY: HTTPS代理
 # - NO_PROXY: 不代理的地址
 
+# shellcheck disable=SC2153
+if [ "$HTTP_PROXY" != "" ]; then
+    export http_proxy=$HTTP_PROXY
+fi
+
+if [ "$HTTPS_PROXY" != "" ]; then
+    export https_proxy=$HTTPS_PROXY
+fi
+
+if [ "$NO_PROXY" != "" ]; then
+    export no_proxy=$NO_PROXY
+fi
+
 MODEL_WORKER=fastchat.serve.model_worker
 OS_TYPE=$(uname)
 
@@ -117,6 +130,23 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 JOB_STATUS="success"
 JOB_MESSAGE=""
 
+if [ "$MASTER_PORT" == "" ]; then
+    MASTER_PORT=29500
+fi
+
+# shellcheck disable=SC2153
+if [ "$HTTP_PROXY" != "" ]; then
+    export http_proxy=$HTTP_PROXY
+fi
+
+if [ "$HTTPS_PROXY" != "" ]; then
+    export https_proxy=$HTTPS_PROXY
+fi
+
+if [ "$NO_PROXY" != "" ]; then
+    export no_proxy=$NO_PROXY
+fi
+
 function callback() {
   # 根据退出状态判断执行是否异常
   if [ $JOB_STATUS -eq 0 ]; then
@@ -126,10 +156,10 @@ function callback() {
       # 调用API并传递输出内容
       curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "{\"status\": \"success\"}"
   else
-      sleep 40
       # 发生异常
       echo "执行失败!"
       # 调用API并传递错误信息
+      sleep 40
       JOB_MESSAGE=$(jq -n --arg content "$JOB_MESSAGE" '{"status": "failed", "message": $content}')
       curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "$JOB_MESSAGE"
   fi
@@ -222,13 +252,19 @@ fi
 temp_file=$(mktemp)
 
 if [ "$SCENARIO" == "general" ]; then
-  GENERAL_DATA_PATH=/data/train-data/formatted_datasets
+  GENERAL_DATA_PATH=/data/train-data/formatted_datasets/${JOB_ID}
   mkdir -p $GENERAL_DATA_PATH
+  if [ -n "$EVAL_FILE" ]; then
+    python3 jsonl_to_arrow_format.py \
+        --train_path "$TRAIN_LOCAL_FILE" \
+        --test_path "$EVAL_LOCAL_FILE" \
+        --output_path "$GENERAL_DATA_PATH"
+  else
+    python3 jsonl_to_arrow_format.py \
+        --train_path "$TRAIN_LOCAL_FILE" \
+        --output_path "$GENERAL_DATA_PATH"
+  fi
 
-  python3 jsonl_to_arrow_format.py \
-    --train_path "$TRAIN_LOCAL_FILE" \
-    --test_path "$EVAL_LOCAL_FILE" \
-    --output_path "$GENERAL_DATA_PATH"
 
 #  output=$(torchrun $DISTRIBUTED_ARGS {{.ScriptFile}} \
 #  output=$(deepspeed --include localhost:$CUDA_VISIBLE_DEVICES {{.ScriptFile}} \
@@ -252,8 +288,9 @@ if [ "$SCENARIO" == "general" ]; then
       --seed 42 \
       --gradient_checkpointing \
       --zero_stage $ZERO_STAGE \
+      --offload \
+      --only_optimize_lora \
       --deepspeed \
-      --print_loss \
       --output_dir $OUTPUT_DIR \
       --start_from_step -1 \
       --save_per_steps 100  > >(tee "$temp_file") 2>&1

@@ -16,6 +16,19 @@
 # - MAX_SEQ_LEN: 最大长度
 # - PER_DEVICE_BATCH_SIZE: 评估批次
 
+# shellcheck disable=SC2153
+if [ "$HTTP_PROXY" != "" ]; then
+    export http_proxy=$HTTP_PROXY
+fi
+
+if [ "$HTTPS_PROXY" != "" ]; then
+    export https_proxy=$HTTPS_PROXY
+fi
+
+if [ "$NO_PROXY" != "" ]; then
+    export no_proxy=$NO_PROXY
+fi
+
 # Python脚本执行的参数
 EVAL_DIMENSIONS='["inference_ability", "reading_comprehension", "chinese_language_skill", "command_compliance", "innovation_capacity"]'
 OPTIONS='{"additional_parameters": {"max_seq_len": 512}}'

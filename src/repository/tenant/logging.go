@@ -13,6 +13,19 @@ type logging struct {
 	traceId string
 }
 
+func (s *logging) FindTenantByTenantId(ctx context.Context, tenantId string, preloads ...string) (res types.Tenants, err error) {
+	defer func(begin time.Time) {
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "FindTenantByTenantId",
+			"tenantId", tenantId,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next.FindTenantByTenantId(ctx, tenantId, preloads...)
+}
+
 func (s *logging) AddModel(ctx context.Context, id uint, models ...*types.Models) (err error) {
 	defer func(begin time.Time) {
 		_ = s.logger.Log(

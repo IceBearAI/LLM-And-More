@@ -1,5 +1,18 @@
 #!/bin/bash
 
+# shellcheck disable=SC2153
+if [ "$HTTP_PROXY" != "" ]; then
+    export http_proxy=$HTTP_PROXY
+fi
+
+if [ "$HTTPS_PROXY" != "" ]; then
+    export https_proxy=$HTTPS_PROXY
+fi
+
+if [ "$NO_PROXY" != "" ]; then
+    export no_proxy=$NO_PROXY
+fi
+
 #API_URL="${API_HOST}/api/mgr/annotation/task/${DATA_TASK_JOB_ID}/detect/finish"
 DATASET_FILE="/app/dataset.json"
 DATASET_OUTPUT_FILE="/app/${DATA_TASK_JOB_ID}-result.json"

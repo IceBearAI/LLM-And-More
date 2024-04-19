@@ -35,3 +35,6 @@ job-finetuning-running-log:
 
 cronjob-start:
 	GOPROXY=$(GOPROXY) GO111MODULE=on $(GORUN) ./cmd/main.go cronjob start $(filter-out $@,$(MAKECMDGOALS))
+
+user:
+	GOPROXY=$(GOPROXY) GO111MODULE=on $(GORUN) ./cmd/main.go user $(filter-out $@,$(MAKECMDGOALS))
