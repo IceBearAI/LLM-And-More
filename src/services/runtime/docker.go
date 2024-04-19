@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/tools/remotecommand"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -39,76 +41,124 @@ type docker struct {
 	createOptions CreationOptions
 }
 
-func (s *docker) WaitForTerminal(ctx context.Context, ts Session, config Config, container, cmd string) {
-	execConfig := types.ExecConfig{
-		Cmd:          []string{cmd},
-		AttachStdout: true,
-		AttachStderr: true,
-		AttachStdin:  true,
-		Tty:          true,
+func (s *docker) WaitForTerminal(ctx context.Context, ts Session, config Config, containerID, cmd string) {
+	if ts.SizeChan == nil {
+		ts.SizeChan = make(chan remotecommand.TerminalSize)
 	}
-	cec, err := s.dockerCli.ContainerExecCreate(ctx, container, execConfig)
-	if err != nil {
-		log.Println("ContainerExecCreate err: ", err)
-		return
-	}
-
-	if cec.ID == "" {
-		log.Println("ContainerExecCreate ID is empty")
-		return
-	}
-
-	hijack, err := s.dockerCli.ContainerExecAttach(ctx, cec.ID, types.ExecStartCheck{})
-	if err != nil {
-		log.Println("ContainerExecAttach err: ", err)
-		return
-	}
-
-	defer hijack.Close()
-
-	buf1 := make([]byte, 1024)
-	go func() {
-		defer hijack.CloseWrite()
-		for {
-			var rint int
-			rint, err = ts.Read(buf1)
+	cmds := []string{"bash", "sh"}
+	for _, v := range cmds {
+		execConfig := types.ExecConfig{
+			Cmd:          []string{v},
+			AttachStdout: true,
+			AttachStderr: true,
+			AttachStdin:  true,
+			Tty:          true,
+		}
+		cec, err := s.dockerCli.ContainerExecCreate(ctx, containerID, execConfig)
+		if err != nil {
+			err = errors.Wrap(err, "ContainerExecCreate err")
+			_, err = ts.Write([]byte(err.Error()))
 			if err != nil {
-				log.Println("Read err: ", err)
-				if err == io.EOF {
+				log.Println("Write err: ", err)
+				return
+			}
+			return
+		}
+
+		if cec.ID == "" {
+			err = errors.New("cec.ID is empty")
+			_, err = ts.Write([]byte(err.Error()))
+			if err != nil {
+				log.Println("Write err: ", err)
+				return
+			}
+			return
+		}
+
+		hijack, err := s.dockerCli.ContainerExecAttach(ctx, cec.ID, types.ExecStartCheck{Detach: false, Tty: true})
+		if err != nil {
+			err = errors.Wrap(err, "ContainerExecAttach err")
+			_, err = ts.Write([]byte(err.Error()))
+			if err != nil {
+				log.Println("Write err: ", err)
+				return
+			}
+			return
+		}
+
+		defer hijack.Close()
+
+		// go func() {
+		// 	defer hijack.CloseWrite()
+		// 	for {
+
+		// 		_, err = stdcopy.StdCopy(hijack.Conn, hijack.Conn, ts)
+		// 		if err != nil {
+		// 			if err == io.EOF {
+		// 				return
+		// 			}
+		// 			err = errors.Wrap(err, "CopyBuffer err")
+		// 			_, err = ts.Write([]byte(err.Error()))
+		// 			if err != nil {
+		// 				log.Println("Write err: ", err)
+		// 				return
+		// 			}
+		// 			return
+		// 		}
+		// 	}
+		// }()
+
+		go func() {
+			for {
+				size := ts.Next()
+
+				if size == nil {
 					return
 				}
-				log.Println("Read err: ", err)
-				break
+
+				err = s.dockerCli.ContainerExecResize(ctx, cec.ID, container.ResizeOptions{
+					Height: uint(size.Height),
+					Width:  uint(size.Width),
+				})
+				if err != nil {
+					log.Println("ContainerExecResize err: ", err)
+				}
+			}
+		}()
+
+		go func() {
+			for {
+				_, err = io.Copy(ts, hijack.Reader)
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+					err = errors.Wrap(err, "CopyBuffer err")
+					log.Println("CopyBuffer err: ", err)
+					_, err = ts.Write([]byte(err.Error()))
+					return
+				}
+			}
+		}()
+
+		for {
+
+			_, err = io.Copy(hijack.Conn, ts)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				err = errors.Wrap(err, "CopyBuffer err")
+				log.Println("CopyBuffer err: ", err)
+				_, err = ts.Write([]byte(err.Error()))
+				return
 			}
 
-			if _, err = hijack.Conn.Write(buf1[:rint]); err != nil {
-				log.Println("Write err: ", err)
-				break
-			}
-		}
-	}()
-
-	buf2 := make([]byte, 1024)
-	for {
-		var rint int
-		rint, err = hijack.Reader.Read(buf2)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			log.Println("Read err: ", err)
-			break
-		}
-		_, err = ts.Write(buf2[:rint])
-		if err != nil {
-			log.Println("Write err: ", err)
-			break
 		}
 	}
 }
 
 func (s *docker) GetDeploymentContainerNames(ctx context.Context, deploymentName string) (containerNames []string, err error) {
-	newName := replacerServiceName(deploymentName)
 	list, err := s.dockerCli.ContainerList(ctx, container.ListOptions{})
 	if err != nil {
 		err = errors.Wrap(err, "ContainerList err")
@@ -116,8 +166,11 @@ func (s *docker) GetDeploymentContainerNames(ctx context.Context, deploymentName
 	}
 
 	for _, v := range list {
-		if strings.HasPrefix(v.Names[0], newName+"-") {
-			containerNames = append(containerNames, v.ID)
+		for _, vv := range v.Names {
+			if strings.HasPrefix(strings.TrimPrefix(vv, "/"), deploymentName+"-") {
+				containerNames = append(containerNames, v.ID)
+				break
+			}
 		}
 	}
 
