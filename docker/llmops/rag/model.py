@@ -9,18 +9,21 @@
     文件说明：
             
 """
-from docker.llmops.faq.glm3_32k.modeling_chatglm import ChatGLMForConditionalGeneration as ChatGLM3_32kForConditionalGeneration
-from docker.llmops.faq.glm3_32k.tokenization_chatglm import ChatGLMTokenizer as ChatGLM3_32kTokenizer
-from docker.llmops.faq.glm3_32k.configuration_chatglm import ChatGLMConfig as ChatGLM3_32kConfig
-from docker.llmops.faq.glm3.modeling_chatglm import ChatGLMForConditionalGeneration as ChatGLM3ForConditionalGeneration
-from docker.llmops.faq.glm3.tokenization_chatglm import ChatGLMTokenizer as ChatGLM3Tokenizer
-from docker.llmops.faq.glm3.configuration_chatglm import ChatGLMConfig as ChatGLM3Config
-from docker.llmops.faq.glm2.modeling_chatglm import ChatGLMForConditionalGeneration as ChatGLM2ForConditionalGeneration
-from docker.llmops.faq.glm2.tokenization_chatglm import ChatGLMTokenizer as ChatGLM2Tokenizer
-from docker.llmops.faq.glm2.configuration_chatglm import ChatGLMConfig as ChatGLM2Config
-from docker.llmops.faq.glm1.modeling_chatglm import ChatGLMForConditionalGeneration
-from docker.llmops.faq.glm1.tokenization_chatglm import ChatGLMTokenizer
-from docker.llmops.faq.glm1.configuration_chatglm import ChatGLMConfig
+import sys,os
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE)
+from faq.glm3_32k.modeling_chatglm import ChatGLMForConditionalGeneration as ChatGLM3_32kForConditionalGeneration
+from faq.glm3_32k.tokenization_chatglm import ChatGLMTokenizer as ChatGLM3_32kTokenizer
+from faq.glm3_32k.configuration_chatglm import ChatGLMConfig as ChatGLM3_32kConfig
+from faq.glm3.modeling_chatglm import ChatGLMForConditionalGeneration as ChatGLM3ForConditionalGeneration
+from faq.glm3.tokenization_chatglm import ChatGLMTokenizer as ChatGLM3Tokenizer
+from faq.glm3.configuration_chatglm import ChatGLMConfig as ChatGLM3Config
+from faq.glm2.modeling_chatglm import ChatGLMForConditionalGeneration as ChatGLM2ForConditionalGeneration
+from faq.glm2.tokenization_chatglm import ChatGLMTokenizer as ChatGLM2Tokenizer
+from faq.glm2.configuration_chatglm import ChatGLMConfig as ChatGLM2Config
+from faq.glm1.modeling_chatglm import ChatGLMForConditionalGeneration
+from faq.glm1.tokenization_chatglm import ChatGLMTokenizer
+from faq.glm1.configuration_chatglm import ChatGLMConfig
 # 自动选择模型
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 

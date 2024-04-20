@@ -16,7 +16,7 @@ def parse_args():
     parser.add_argument("--do_sample", type=bool, default=True, help="")
     parser.add_argument("--top_p", type=float, default=0.8, help="")
     parser.add_argument("--temperature", type=float, default=0.0, help="")
-    parser.add_argument("--doc_path", type=str, default='./data/enhancement_data.json', help="Retrieved documents")
+    parser.add_argument("--doc_path", type=str, default='./data/enhancement_data.jsonl', help="Retrieved documents")
     parser.add_argument("--rag_history_path", type=str, default='./data/rag_history.txt', help="Dialogue with History")
     parser.add_argument("--retrieval_method", type=str, default="sentence_transformers", choices=["bm25", "sentence_transformers"],
                         help="Method for document retrieval")

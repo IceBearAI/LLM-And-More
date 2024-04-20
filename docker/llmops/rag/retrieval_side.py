@@ -117,7 +117,7 @@ def retrieval(train_path, retrieval_method, sentence_asymmetrical_path):
         ret_model = SentenceTransformer(sentence_asymmetrical_path)
         embeddings = ret_model.encode(corpus2, convert_to_tensor=True)
 
-    return corpus, meta, ret_model, embeddings
+    return corpus2, meta2, ret_model, embeddings
 
 
 if __name__ == '__main__':

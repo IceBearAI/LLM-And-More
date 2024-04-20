@@ -95,6 +95,10 @@ case $MODENAME in
         LORA_MODULE_NAME='W_pack'
         MODENAME='baichuan2_13b'
         ;;
+    *'glm3_32k'*)
+        LORA_MODULE_NAME='query_key_value,dense_h_to_4h,dense_4h_to_h,dense'
+        MODENAME='glm3_32k'
+        ;;
     *'glm3'*)
         LORA_MODULE_NAME='query_key_value,dense_h_to_4h,dense_4h_to_h,dense'
         MODENAME='glm3'
@@ -227,18 +231,17 @@ elif [ "$SCENARIO" == "faq" ]; then
       --output_dir $OUTPUT_DIR  > >(tee "$temp_file") 2>&1
 
 elif [ "$SCENARIO" == "rag" ]; then
-	RAG_TRAIN_PATH="./rag/data/mini_finance_train.json"
 	RAG_ENHANCEMENT=False
     RETRIEVAL_METHOD="bm25"
     ST="shibing624/text2vec-base-chinese"
 
     deepspeed /app/rag/rag_train.py \
-        --train_path $RAG_TRAIN_PATH \
+        --train_path $TRAIN_LOCAL_FILE \
         --enhancement $RAG_ENHANCEMENT \
         --retrieval_method $RETRIEVAL_METHOD \
         --top_k 1 \
         --st $ST \
-        --model_name_or_path $MODEL_NAME_OR_PATH \
+        --model_name_or_path $BASE_MODEL_PATH \
         --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
         --max_len $MODEL_MAX_LENGTH \
         --max_src_len 1024 \

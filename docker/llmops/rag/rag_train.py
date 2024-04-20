@@ -35,7 +35,7 @@ def parse_args():
                         type=str, help="", required=True)
     # DataSet
     parser.add_argument("--train_path", default="", type=str, help="")
-    parser.add_argument("--enhancement", default=False, type=bool, help="")
+    parser.add_argument("--enhancement", default="false",type=str, help="")
     parser.add_argument("--retrieval_method", type=str, default="bm25", choices=["bm25", "sentence_transformers"],
                         help="Method for document retrieval")
     parser.add_argument("--st", type=str, default='shibing624/text2vec-base-chinese')
@@ -149,9 +149,10 @@ def main():
     else:
         raise Exception("train_type无效")
     # load data
-    if args.enhancement:
+    if args.enhancement.lower() == "true":
+        print("use enhancement data")
         output_dir=os.path.dirname(args.train_path)
-        enhancement_data_path = os.path.join(output_dir, 'enhancement_data.jsonl')
+        enhancement_data_path = os.path.join(output_dir, 'enhancement.jsonl')
         data_enhancement(args.train_path, enhancement_data_path)
         args.train_path=enhancement_data_path
 

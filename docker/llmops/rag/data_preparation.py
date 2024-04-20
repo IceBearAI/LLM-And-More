@@ -57,8 +57,3 @@ def prepare_rag_dataset(input_path, output_path):
             }
             json.dump(modified_item, f_output, ensure_ascii=False)
             f_output.write('\n')
-
-
-# 示例调用
-# prepare_rag_dataset('./data/annotation-a0033f9f-321b-4c9b-8686-528257b12f38-train.jsonl', './data/output.json')
-data_enhancement('./data/output.json', './data/enhancement_data.json')

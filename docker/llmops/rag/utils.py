@@ -159,6 +159,8 @@ class Baichuan2For13bSupervisedDataset(Dataset):
         with open(data_path, "r", encoding="utf-8") as f:
             self.data.extend([json.loads(line) for line in f])
         self.corpus, self.meta, self.ret_model, self.embeddings = retrieval(data_path, retrieval_method, st)
+        self.top_k=top_k
+        self.retrieval_method = retrieval_method
         self.tokenizer = tokenizer
         self.model_max_length = max_len
         self.max_src_len = max_src_len
@@ -243,6 +245,7 @@ class SupervisedDataset(Dataset):
         with open(data_path, "r", encoding="utf-8") as f:
             self.data.extend([json.loads(line) for line in f])
         self.corpus, self.meta, self.ret_model, self.embeddings = retrieval(data_path, retrieval_method, st)
+        self.retrieval_method = retrieval_method
         self.top_k=top_k
         self.tokenizer = tokenizer
         self.model_max_length = max_len
