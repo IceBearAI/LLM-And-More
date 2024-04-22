@@ -17,3 +17,11 @@ fire==0.5.0
 xformers==0.0.24
 einops==0.7.0
 transformers_stream_generator==0.0.5
+#rag
+langchain
+rank_bm25
+pypdf
+python-doc
+python-docx
+unstructured
+jq
