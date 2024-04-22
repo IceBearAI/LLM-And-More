@@ -84,6 +84,31 @@ function set_cuda_devices {
 set_cuda_devices $GPUS_PER_NODE
 
 
+IS_MERGE_LORA=true
+merge_lora_models() {
+    # 参数检查
+    if [ "$#" -ne 4 ]; then
+        echo "Usage: merge_lora_models <merge_lora_script> <base_model_path> <output_dir> <modename>"
+        return 1
+    fi
+
+    merge_lora_script="$1"
+    base_model_path="$2"
+    output_dir="$3"
+    modename="$4"
+    # 执行 merge_lora.py 脚本
+    python "$merge_lora_script" --ori_model_dir "$base_model_path" --model_dir "$output_dir" --mode "$modename"
+    # 复制 token 文件和 config.json 到输出目录
+    cp  "$base_model_path/config"* "./$output_dir/"
+    cp  "$base_model_path/config.json" "./$output_dir/"
+    cp  "$base_model_path/token"* "./$output_dir/"
+
+    if [[ $modename == *"glm3"* ]]; then
+        cp  "$base_model_path/modeling_chatglm.py" "./$output_dir/"
+        cp  "$base_model_path/quantization.py" "./$output_dir/"
+    fi
+}
+
 LORA_MODULE_NAME=''
 MODENAME=$(echo "$BASE_MODEL_NAME" | tr '[:upper:]' '[:lower:]')
 case $MODENAME in
@@ -94,6 +119,10 @@ case $MODENAME in
     *'baichuan2'*)
         LORA_MODULE_NAME='W_pack'
         MODENAME='baichuan2_13b'
+        ;;
+    *'glm3_32k'*)
+        LORA_MODULE_NAME='query_key_value,dense_h_to_4h,dense_4h_to_h,dense'
+        MODENAME='glm3_32k'
         ;;
     *'glm3'*)
         LORA_MODULE_NAME='query_key_value,dense_h_to_4h,dense_4h_to_h,dense'
@@ -129,16 +158,28 @@ fi
 
 URL_REGEX="^(http|https)://"
 mkdir -p /data/train-data/
-TRAIN_LOCAL_FILE=/data/train-data/train-${JOB_ID}.jsonl
+if [[ -f "$TRAIN_FILE" ]]; then
+    TRAIN_LOCAL_FILE=/data/train-data/train-${JOB_ID}.jsonl
+else
+    TRAIN_LOCAL_FILE=/data/train-data/train_dir_${JOB_ID}
+    mkdir -p $TRAIN_LOCAL_FILE
 EVAL_LOCAL_FILE=/data/train-data/eval-${JOB_ID}.jsonl
 
 function download_file {
-    if [[ "$1" =~ $URL_REGEX ]]; then
-        echo "The path is a URL. Starting download..."
-        wget -O $2 "$1"
+    local SOURCE="$1"
+    local DEST="$2"
+    if [[ -d "$SOURCE" ]]; then
+        echo "Source is a directory. Copying files..."
+        cp -r "$SOURCE"/* "$DEST"
+    elif [[ -f "$SOURCE" ]]; then
+        echo "Source is a file. Copying file..."
+        cp "$SOURCE" "$DEST"
+    elif [[ "$SOURCE" =~ $URL_REGEX ]]; then
+        echo "Source is a URL. Starting download..."
+        wget -O "$DEST" "$SOURCE"
     else
-        echo "File path is local. No download needed."
-        cp "$1" "$2"
+        echo "Invalid source provided."
+        return 1
     fi
 }
 
@@ -164,9 +205,6 @@ if [ "$SCENARIO" == "general" ]; then
         --output_path "$GENERAL_DATA_PATH"
   fi
 
-
-#  output=$(torchrun $DISTRIBUTED_ARGS {{.ScriptFile}} \
-#  output=$(deepspeed --include localhost:$CUDA_VISIBLE_DEVICES {{.ScriptFile}} \
   deepspeed /app/llmops_deepspeed_main.py \
       --data_path $GENERAL_DATA_PATH \
       --data_output_path $OUTPUT_DIR/data_output \
@@ -184,7 +222,7 @@ if [ "$SCENARIO" == "general" ]; then
       --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
       --lr_scheduler_type cosine \
       --num_warmup_steps 0 \
-      --seed 42 \
+      --seed 1234 \
       --gradient_checkpointing \
       --zero_stage $ZERO_STAGE \
       --offload \
@@ -202,7 +240,6 @@ elif [ "$SCENARIO" == "faq" ]; then
       --test_path $EVAL_LOCAL_FILE \
       --output_path "$formatted_datasets_path"
 
-#  output=$(deepspeed {{.ScriptFile}}  \
   deepspeed /app/faq/faq_train.py \
       --train_path "$formatted_datasets_path/train_dataset.jsonl" \
       --model_name_or_path $BASE_MODEL_PATH \
@@ -211,7 +248,7 @@ elif [ "$SCENARIO" == "faq" ]; then
       --max_src_len 128 \
       --learning_rate $LEARNING_RATE \
       --weight_decay 0.1 \
-      --num_train_epochs 2 \
+      --num_train_epochs $NUM_TRAIN_EPOCHS \
       --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
       --warmup_ratio 0.1 \
       --mode $MODENAME \
@@ -226,10 +263,46 @@ elif [ "$SCENARIO" == "faq" ]; then
       --show_loss_step 10 \
       --output_dir $OUTPUT_DIR  > >(tee "$temp_file") 2>&1
 
+  if [ "$USE_LORA" = true ] && [ "$IS_MERGE_LORA" = true ]; then
+    merge_lora_models "./faq/merge_lora.py" "$BASE_MODEL_PATH" "$OUTPUT_DIR" "$MODENAME"
+  fi
+
 elif [ "$SCENARIO" == "rag" ]; then
+	RAG_ENHANCEMENT=False
+    RETRIEVAL_METHOD="bm25"
+    ST="BAAI/bge-base-zh-v1.5"
 
-  pass
-
+    deepspeed /app/rag/rag_train.py \
+        --train_path $TRAIN_LOCAL_FILE \
+        --enhancement $RAG_ENHANCEMENT \
+        --merge_lora $IS_MERGE_LORA \
+        --retrieval_method $RETRIEVAL_METHOD \
+        --top_k 1 \
+        --st $ST \
+        --model_name_or_path $MODENAME \
+        --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
+        --max_len $MODEL_MAX_LENGTH \
+        --max_src_len 1024 \
+        --learning_rate $LEARNING_RATE \
+        --weight_decay 0.1 \
+        --num_train_epochs $NUM_TRAIN_EPOCHS \
+        --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
+        --warmup_ratio 0.1 \
+        --mode $MODENAME \
+		--train_type $TRAIN_TYPE \
+		--lora_module_name  $LORA_MODULE_NAME \
+        --lora_dim 4 \
+        --lora_alpha 64 \
+        --lora_dropout 0.1 \
+        --seed 1234 \
+        --ds_file $DS_FILE \
+        --gradient_checkpointing \
+        --show_loss_step 10 \
+        --output_dir $OUTPUT_DIR  > >(tee "$temp_file") 2>&1
+    if [[ $MODENAME == *"glm3"* ]]; then
+        cp  "$BASE_MODEL_PATH/modeling_chatglm.py" "./$OUTPUT_DIR /"
+        cp  "$BASE_MODEL_PATH/quantization.py" "./$OUTPUT_DIR /"
+    fi
 else
   echo "Invalid scenario selection!"
 fi

@@ -1,0 +1,25 @@
+#!/bin/bash
+deepspeed --include localhost:7 rag_train.py \
+                --train_path ./data/enhancement_data.json \
+                --enhancement False \
+                --retrieval_method 'sentence_transformers' \
+                --top_k 1 \
+                --st $ST \
+                --model_name_or_path "/home/calf/ssd/models/Baichuan2-13B-Base" \
+                --per_device_train_batch_size 30 \
+                --max_len 3000 \
+                --max_src_len 2400 \
+                --learning_rate 1e-4 \
+                --weight_decay 0.1 \
+                --num_train_epochs 1 \
+                --gradient_accumulation_steps 16 \
+                --warmup_ratio 0.1 \
+                --mode auto \
+                --lora_dim 16 \
+                --lora_alpha 64 \
+                --lora_dropout 0.1 \
+                --seed 1234 \
+                --ds_file ds_zero2_no_offload.json \
+                --gradient_checkpointing \
+                --show_loss_step 10 \
+                --output_dir ./output_model
