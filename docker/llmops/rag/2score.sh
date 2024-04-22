@@ -1,5 +1,5 @@
 python score.py \
-	--device "0" \
+	--gpu_nums 2 \
 	--test_path './data/test.josn' \
 	--output_test './data/test_result.txt' \
 	--model_path "./output_model" \

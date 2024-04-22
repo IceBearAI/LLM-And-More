@@ -8,105 +8,129 @@ import torch
 from torch.utils.data import Dataset
 from transformers import set_seed
 
-from retrieval_side import retrieval, retrieve_documents
+from retrieval_side import retrieval_json, retrieve_documents, is_supported_format
 
 
-def glm_load_data(data_path, tokenizer, max_len, max_src_len, is_skip, model_type,retrieval_method,st,top_k):
+def glm_load_data(data_path, tokenizer, max_len, max_src_len, is_skip, model_type, retrieval_method, st, top_k):
     all_data = []
     skip_data_number = 0
-    corpus, meta, ret_model, embeddings = retrieval(data_path,retrieval_method,st)
-    with open(data_path, "r", encoding="utf-8") as fh:
-        for i, line in enumerate(fh):
-            sample = json.loads(line.strip())
-            skip_flag = False
+    corpus, meta, ret_model, embeddings = retrieval_json(data_path, retrieval_method, st)
 
-            instruction = sample["instruction"]
-            question = sample["question"]
-            doc=retrieve_documents(question, corpus, meta, embeddings, ret_model, retrieval_method,top_k=top_k)
-            if doc[0]['score']<0.5:
-                document = sample["documents"]
-                print("the score of doc is too low")
+    def process_sample(sample, max_len, max_src_len):
+        skip_flag = False
 
+        instruction = sample["instruction"]
+        question = sample["question"]
+        doc = retrieve_documents(question, corpus, meta, embeddings, ret_model, retrieval_method, top_k)
+        if doc[0]['score'] < 0.5:
+            document = sample["document"]
+            print("the score of doc is too low")
+
+        else:
+            if top_k > 1:
+                docs = [f"片段{i}:{s['doc']}" for i, s in enumerate(doc)]
+                document = "\n".join(docs)
             else:
-                if top_k>1:
-                    docs = [f"片段{i}:{s['doc']}" for i, s in enumerate(doc)]
-                    document = "\n".join(docs)
-                else:
-                    document = doc[0]['doc']
-                    # meta=doc[0]['meta']
-                    # document=f"{document}\n数据来源：{meta}"
+                document = doc[0]['doc']
+                # meta=doc[0]['meta']
+                # document=f"{document}\n数据来源：{meta}"
 
+        encoded_doc = tokenizer.encode(document, add_special_tokens=False)
+        src = ""
+        if max_len < max_src_len:
+            max_src_len = max_len
 
-            encoded_doc = tokenizer.encode(document, add_special_tokens=False)
-            src=""
-            if max_len<max_src_len:
-                max_len=max_len
+        if model_type == "GLM3PromptDataSet":
+            src = [tokenizer.get_command("<|user|>")] + tokenizer.encode("\n", add_special_tokens=False)
+        max_doc_len = max_src_len - len(
+            tokenizer.tokenize("{}\n背景知识：\n问题：{}\n".format(instruction, question))) - len(src)
+        if len(encoded_doc) > max_doc_len:
+            skip_flag = True
+            encoded_doc = encoded_doc[:max_doc_len]
+            document = tokenizer.decode(encoded_doc)
 
-            if model_type == "GLM3PromptDataSet":
-                src = [tokenizer.get_command("<|user|>")] + tokenizer.encode("\n", add_special_tokens=False)
-            max_doc_len = max_src_len - len(
-                tokenizer.tokenize("{}\n背景知识：\n问题：{}\n".format(1, instruction, question)))-len(src)
-            if len(encoded_doc) > max_doc_len:
-                skip_flag = True
-                encoded_doc = encoded_doc[:max_doc_len]
-                document = tokenizer.decode(encoded_doc)
+        # Common processing steps
+        if model_type == "GLMPromptDataSet":
+            src_tokens = tokenizer.tokenize(
+                "{}\n背景知识：{}\n问题：{}\n".format(instruction, document, question))
+            tgt_tokens = tokenizer.tokenize(sample["output"])
+            max_tgt_len = max_len - 3 - len(src_tokens)
+        elif model_type == "GLM2PromptDataSet":
+            src_tokens = tokenizer.tokenize(
+                "{}\n背景知识：{}\n问题：{}\n".format(instruction, document, question))
+            tgt_tokens = tokenizer.tokenize(sample["output"])
+            max_tgt_len = max_len - 3 - len(src_tokens)
+        elif model_type == "GLM3PromptDataSet":
+            src_tokens = src + tokenizer.encode(f'{instruction}\n背景知识：{document}\n问题：{question}\n',
+                                                add_special_tokens=False)
+            tgt_tokens = [tokenizer.get_command("<|assistant|>")] + tokenizer.encode("\n",
+                                                                                     add_special_tokens=False) + \
+                         tokenizer.encode(sample["output"], add_special_tokens=False)
+            max_tgt_len = max_len - 6 - len(src_tokens)
 
-            # Common processing steps
-            if model_type == "GLMPromptDataSet":
-                src_tokens = tokenizer.tokenize(
-                    "{}\n背景知识：{}\n问题：{}\n".format(instruction, document, question))
-                tgt_tokens = tokenizer.tokenize(sample["output"])
-                max_tgt_len = max_len - 3 - len(src_tokens)
-            elif model_type == "GLM2PromptDataSet":
-                src_tokens = tokenizer.tokenize(
-                    "{}\n背景知识：{}\n问题：{}\n".format(instruction, document, question))
-                tgt_tokens = tokenizer.tokenize(sample["output"])
-                max_tgt_len = max_len - 3 - len(src_tokens)
-            elif model_type == "GLM3PromptDataSet":
-                src_tokens = src + tokenizer.encode(f'{instruction}\n背景知识：{document}\n问题：{question}\n',
-                                                    add_special_tokens=False)
-                tgt_tokens = [tokenizer.get_command("<|assistant|>")] + tokenizer.encode("\n",
-                                                                                         add_special_tokens=False) + \
-                             tokenizer.encode(sample["output"], add_special_tokens=False)
-                max_tgt_len = max_len - 6 - len(src_tokens)
+        if len(tgt_tokens) > max_tgt_len:
+            tgt_tokens = tgt_tokens[:max_tgt_len]
+            skip_flag = True
 
-            if len(tgt_tokens) > max_tgt_len:
-                tgt_tokens = tgt_tokens[:max_tgt_len]
-                skip_flag = True
+        # Specific processing steps
+        if model_type == "GLMPromptDataSet":
+            tokens = src_tokens + ["[gMASK]", "<sop>"] + tgt_tokens + ["<eop>"]
+            input_ids = tokenizer.convert_tokens_to_ids(tokens)
+            context_length = input_ids.index(tokenizer.bos_token_id)
+            mask_position = context_length - 1
+            labels = [-100] * context_length + input_ids[mask_position + 1:]
+        elif model_type == "GLM2PromptDataSet":
+            tokens = src_tokens + tgt_tokens + ["</s>"]
+            assert len(tokens) <= max_len
+            input_ids = [tokenizer.get_command("[gMASK]"),
+                         tokenizer.get_command("sop")] + tokenizer.convert_tokens_to_ids(tokens)
+            context_length = len(src_tokens) + 2
+            labels = [-100] * context_length + input_ids[context_length:]
+        elif model_type == "GLM3PromptDataSet":
+            input_ids = [tokenizer.get_command("[gMASK]"),
+                         tokenizer.get_command("sop")] + src_tokens + tgt_tokens + [tokenizer.eos_token_id]
+            context_length = len(src_tokens) + 2
+            labels = [-100] * context_length + input_ids[context_length:]
 
-            # Specific processing steps
-            if model_type == "GLMPromptDataSet":
-                tokens = src_tokens + ["[gMASK]", "<sop>"] + tgt_tokens + ["<eop>"]
-                input_ids = tokenizer.convert_tokens_to_ids(tokens)
-                context_length = input_ids.index(tokenizer.bos_token_id)
-                mask_position = context_length - 1
-                labels = [-100] * context_length + input_ids[mask_position + 1:]
-            elif model_type == "GLM2PromptDataSet":
-                tokens = src_tokens + tgt_tokens + ["</s>"]
-                assert len(tokens) <= max_len
-                input_ids = [tokenizer.get_command("[gMASK]"),
-                             tokenizer.get_command("sop")] + tokenizer.convert_tokens_to_ids(tokens)
-                context_length = len(src_tokens) + 2
-                labels = [-100] * context_length + input_ids[context_length:]
-            elif model_type == "GLM3PromptDataSet":
-                input_ids = [tokenizer.get_command("[gMASK]"),
-                             tokenizer.get_command("sop")] + src_tokens + tgt_tokens + [tokenizer.eos_token_id]
-                context_length = len(src_tokens) + 2
-                labels = [-100] * context_length + input_ids[context_length:]
+        assert len(input_ids) == len(labels)
+        assert len(input_ids) <= max_len
+        if is_skip and skip_flag:
+            nonlocal skip_data_number
+            skip_data_number += 1
+            return None
+        return {"input_ids": input_ids, "labels": labels}
 
-            assert len(input_ids) == len(labels)
-            assert len(input_ids) <= max_len
-            if is_skip and skip_flag:
-                skip_data_number += 1
-                continue
-            all_data.append({"input_ids": input_ids, "labels": labels})
+    if os.path.isdir(data_path):
+        for filename in os.listdir(data_path):
+            if is_supported_format(filename):
+                with open(os.path.join(data_path, filename), "r", encoding="utf-8") as fh:
+                    for line in fh:
+                        sample = json.loads(line.strip())
+                        processed_sample = process_sample(sample, max_len, max_src_len)
+                        if processed_sample:
+                            all_data.append(processed_sample)
+        if len(all_data) == 0:
+            print("目录中不包含json或jsonl文件")
+            return None
+    else:
+        if is_supported_format(data_path):
+            with open(data_path, "r", encoding="utf-8") as fh:
+                for line in fh:
+                    sample = json.loads(line.strip())
+                    processed_sample = process_sample(sample, max_len, max_src_len)
+                    if processed_sample:
+                        all_data.append(processed_sample)
+        else:
+            print("文件格式错误，请传入json或jsonl文件")
+            return None
     print("the number of skipping data is {}".format(skip_data_number))
     return all_data
 
 
 class GLMPromptDataSet(Dataset):
-    def __init__(self, data_path, tokenizer, max_len, max_src_len, is_skip,retrieval_method,st,top_k):
-        self.all_data = glm_load_data(data_path, tokenizer, max_len, max_src_len, is_skip, "GLMPromptDataSet",retrieval_method,st,top_k)
+    def __init__(self, data_path, tokenizer, max_len, max_src_len, is_skip, retrieval_method, st, top_k):
+        self.all_data = glm_load_data(data_path, tokenizer, max_len, max_src_len, is_skip, "GLMPromptDataSet",
+                                      retrieval_method, st, top_k)
 
     def __len__(self):
         return len(self.all_data)
@@ -116,8 +140,9 @@ class GLMPromptDataSet(Dataset):
 
 
 class GLM2PromptDataSet(Dataset):
-    def __init__(self, data_path, tokenizer, max_len, max_src_len, is_skip,retrieval_method,st,top_k):
-        self.all_data = glm_load_data(data_path, tokenizer, max_len, max_src_len, is_skip, "GLM2PromptDataSet",retrieval_method,st,top_k)
+    def __init__(self, data_path, tokenizer, max_len, max_src_len, is_skip, retrieval_method, st, top_k):
+        self.all_data = glm_load_data(data_path, tokenizer, max_len, max_src_len, is_skip, "GLM2PromptDataSet",
+                                      retrieval_method, st, top_k)
 
     def __len__(self):
         return len(self.all_data)
@@ -127,8 +152,9 @@ class GLM2PromptDataSet(Dataset):
 
 
 class GLM3PromptDataSet(Dataset):
-    def __init__(self, data_path, tokenizer, max_len, max_src_len, is_skip,retrieval_method,st,top_k):
-        self.all_data = glm_load_data(data_path, tokenizer, max_len, max_src_len, is_skip, "GLM3PromptDataSet",retrieval_method,st,top_k)
+    def __init__(self, data_path, tokenizer, max_len, max_src_len, is_skip, retrieval_method, st, top_k):
+        self.all_data = glm_load_data(data_path, tokenizer, max_len, max_src_len, is_skip, "GLM3PromptDataSet",
+                                      retrieval_method, st, top_k)
 
     def __len__(self):
         return len(self.all_data)
@@ -156,10 +182,22 @@ class Baichuan2For13bSupervisedDataset(Dataset):
         super(Baichuan2For13bSupervisedDataset, self).__init__()
         self.data = []
 
-        with open(data_path, "r", encoding="utf-8") as f:
-            self.data.extend([json.loads(line) for line in f])
-        self.corpus, self.meta, self.ret_model, self.embeddings = retrieval(data_path, retrieval_method, st)
-        self.top_k=top_k
+        if os.path.isdir(data_path):
+            for filename in os.listdir(data_path):
+                if is_supported_format(filename):
+                    with open(os.path.join(data_path, filename), "r", encoding="utf-8") as f:
+                        self.data.extend([json.loads(line) for line in f])
+            if len(self.data) == 0:
+                print("目录中不包含json或jsonl文件")
+        else:
+            if is_supported_format(data_path):
+                with open(data_path, "r", encoding="utf-8") as f:
+                    self.data.extend([json.loads(line) for line in f])
+            else:
+                print("文件格式错误，请传入json或jsonl文件")
+
+        self.corpus, self.meta, self.ret_model, self.embeddings = retrieval_json(data_path, retrieval_method, st)
+        self.top_k = top_k
         self.retrieval_method = retrieval_method
         self.tokenizer = tokenizer
         self.model_max_length = max_len
@@ -168,8 +206,8 @@ class Baichuan2For13bSupervisedDataset(Dataset):
         self.user_tokens = user_tokens
         self.assistant_tokens = assistant_tokens
         self.ignore_index = -100
-        item = self.preprocessing(self.data[0])
-        print(f"item['input_ids']: {item['input_ids']}")
+        # item = self.preprocessing(self.data[0])
+        # print(f"item['input_ids']: {item['input_ids']}")
 
     def __len__(self):
         return len(self.data)
@@ -181,7 +219,8 @@ class Baichuan2For13bSupervisedDataset(Dataset):
         question = f'问题：{example["question"]}\n'
         output = example["output"]
 
-        doc = retrieve_documents(question, self.corpus, self.meta, self.embeddings, self.ret_model, self.retrieval_method, top_k=self.top_k)
+        doc = retrieve_documents(question, self.corpus, self.meta, self.embeddings, self.ret_model,
+                                 self.retrieval_method, top_k=self.top_k)
         if doc[0]['score'] < 0.5:
             document = f'背景知识：{example["document"]}\n'
 
@@ -242,26 +281,38 @@ class SupervisedDataset(Dataset):
         # self.data = json.load(open(data_path))
         self.data = []
 
-        with open(data_path, "r", encoding="utf-8") as f:
-            self.data.extend([json.loads(line) for line in f])
-        self.corpus, self.meta, self.ret_model, self.embeddings = retrieval(data_path, retrieval_method, st)
+        if os.path.isdir(data_path):
+            for filename in os.listdir(data_path):
+                if is_supported_format(filename):
+                    with open(os.path.join(data_path, filename), "r", encoding="utf-8") as f:
+                        self.data.extend([json.loads(line) for line in f])
+            if len(self.data) == 0:
+                print("目录中不包含json或jsonl文件")
+        else:
+            if is_supported_format(data_path):
+                with open(data_path, "r", encoding="utf-8") as f:
+                    self.data.extend([json.loads(line) for line in f])
+            else:
+                print("文件格式错误，请传入json或jsonl文件")
+
+        self.corpus, self.meta, self.ret_model, self.embeddings = retrieval_json(data_path, retrieval_method, st)
         self.retrieval_method = retrieval_method
-        self.top_k=top_k
+        self.top_k = top_k
         self.tokenizer = tokenizer
         self.model_max_length = max_len
         self.max_src_len = max_src_len
         self.is_skip = is_skip
         self.ignore_index = -100
-        item = self.preprocessing(self.data[0])
-        print(f"item['input_ids']: {item['input_ids']}")
-        print("input:", self.tokenizer.decode(item["input_ids"]))
-        labels = []
-        for id_ in item["labels"]:
-            if id_ == -100:
-                continue
-
-            labels.append(id_)
-        print("label:", self.tokenizer.decode(labels))
+        # item = self.preprocessing(self.data[0])
+        # print(f"item['input_ids']: {item['input_ids']}")
+        # print("input:", self.tokenizer.decode(item["input_ids"]))
+        # labels = []
+        # for id_ in item["labels"]:
+        #     if id_ == -100:
+        #         continue
+        #
+        #     labels.append(id_)
+        # print("label:", self.tokenizer.decode(labels))
 
     def __len__(self):
         return len(self.data)
@@ -272,7 +323,8 @@ class SupervisedDataset(Dataset):
         instruction = f'{example["instruction"]}\n'
         question = f'问题：{example["question"]}\n'
         output = example["output"]
-        doc = retrieve_documents(question, self.corpus, self.meta, self.embeddings, self.ret_model, self.retrieval_method, top_k=self.top_k)
+        doc = retrieve_documents(question, self.corpus, self.meta, self.embeddings, self.ret_model,
+                                 self.retrieval_method, top_k=self.top_k)
         if doc[0]['score'] < 0.5:
             document = f'背景知识：{example["document"]}\n'
 
