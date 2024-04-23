@@ -281,7 +281,7 @@ elif [ "$SCENARIO" == "rag" ]; then
         --retrieval_method $RETRIEVAL_METHOD \
         --top_k 1 \
         --st $ST \
-        --model_name_or_path $MODENAME \
+        --model_name_or_path $BASE_MODEL_PATH \
         --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
         --max_len $MODEL_MAX_LENGTH \
         --max_src_len 1024 \
