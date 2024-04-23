@@ -25,6 +25,7 @@ def parse_args():
     parser.add_argument("--temperature", type=float, default=0.0, help="")
     parser.add_argument("--output_test", type=str, default='./data/test_result.txt', help="")
     parser.add_argument("--test_path", type=str, default='./data/test.json', help="")
+    parser.add_argument("--local_rank", type=int)
     return parser.parse_args()
 
 

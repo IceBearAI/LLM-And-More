@@ -1,5 +1,10 @@
-python score.py \
-	--gpu_nums 2 \
+function set_cuda_devices {
+    devices=$(printf ",%d" $(seq 0 $(($1-1)) | sed 's/ //g'))
+    export CUDA_VISIBLE_DEVICES=${devices:1}
+}
+set_cuda_devices $GPUS_PER_NODE
+deepspeed score.py \
+	--gpu_nums $GPUS_PER_NODE \
 	--test_path './data/test.josn' \
 	--output_test './data/test_result.txt' \
 	--model_path "./output_model" \
