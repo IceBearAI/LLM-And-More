@@ -102,11 +102,12 @@ merge_lora_models() {
     cp  "$base_model_path/config"* "./$output_dir/"
     cp  "$base_model_path/config.json" "./$output_dir/"
     cp  "$base_model_path/token"* "./$output_dir/"
-
+    set +e
     if [[ $modename == *"glm3"* ]]; then
         cp  "$base_model_path/modeling_chatglm.py" "./$output_dir/"
         cp  "$base_model_path/quantization.py" "./$output_dir/"
     fi
+    set -e
 }
 
 LORA_MODULE_NAME=''
@@ -157,15 +158,15 @@ else
 fi
 
 URL_REGEX="^(http|https)://"
-mkdir -p /data/train-data/
-if [[ -f "$TRAIN_FILE" ]]; then
-    TRAIN_LOCAL_FILE=/data/train-data/train-${JOB_ID}.jsonl
+DATA_DIR="/data/train-data/"
+mkdir -p "$DATA_DIR"
+if [[ -f "$TRAIN_FILE" || "$TRAIN_FILE" =~ $URL_REGEX ]]; then
+    TRAIN_LOCAL_FILE="${DATA_DIR}train-${JOB_ID}.jsonl"
 else
-    TRAIN_LOCAL_FILE=/data/train-data/train_dir_${JOB_ID}
-    mkdir -p $TRAIN_LOCAL_FILE
+    TRAIN_LOCAL_FILE="${DATA_DIR}train_dir_${JOB_ID}"
+    mkdir -p "$TRAIN_LOCAL_FILE"
 fi
-
-EVAL_LOCAL_FILE=/data/train-data/eval-${JOB_ID}.jsonl
+EVAL_LOCAL_FILE="${DATA_DIR}eval-${JOB_ID}.jsonl"
 
 function download_file {
     local SOURCE="$1"
@@ -270,9 +271,10 @@ elif [ "$SCENARIO" == "faq" ]; then
   fi
 
 elif [ "$SCENARIO" == "rag" ]; then
-	RAG_ENHANCEMENT=False
-    RETRIEVAL_METHOD="bm25"
-    ST="BAAI/bge-base-zh-v1.5"
+    RAG_ENHANCEMENT=False
+#     RETRIEVAL_METHOD="bm25"
+    RETRIEVAL_METHOD="st"
+    ST="BAAI/bge-large-zh-v1.5"
 
     deepspeed /app/rag/rag_train.py \
         --train_path $TRAIN_LOCAL_FILE \
@@ -281,7 +283,7 @@ elif [ "$SCENARIO" == "rag" ]; then
         --retrieval_method $RETRIEVAL_METHOD \
         --top_k 1 \
         --st $ST \
-        --model_name_or_path $MODENAME \
+        --model_name_or_path $BASE_MODEL_PATH \
         --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
         --max_len $MODEL_MAX_LENGTH \
         --max_src_len 1024 \
@@ -291,8 +293,8 @@ elif [ "$SCENARIO" == "rag" ]; then
         --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
         --warmup_ratio 0.1 \
         --mode $MODENAME \
-		--train_type $TRAIN_TYPE \
-		--lora_module_name  $LORA_MODULE_NAME \
+        --train_type $TRAIN_TYPE \
+        --lora_module_name  $LORA_MODULE_NAME \
         --lora_dim 4 \
         --lora_alpha 64 \
         --lora_dropout 0.1 \
@@ -301,10 +303,11 @@ elif [ "$SCENARIO" == "rag" ]; then
         --gradient_checkpointing \
         --show_loss_step 10 \
         --output_dir $OUTPUT_DIR  > >(tee "$temp_file") 2>&1
+    set +e
     if [[ $MODENAME == *"glm3"* ]]; then
-        cp  "$BASE_MODEL_PATH/modeling_chatglm.py" "./$OUTPUT_DIR /"
-        cp  "$BASE_MODEL_PATH/quantization.py" "./$OUTPUT_DIR /"
+        cp "$BASE_MODEL_PATH/modeling_chatglm.py" "./$OUTPUT_DIR/" || cp "$BASE_MODEL_PATH/quantization.py" "./$OUTPUT_DIR/"
     fi
+    set -e
 else
   echo "Invalid scenario selection!"
 fi
