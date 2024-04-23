@@ -15,6 +15,8 @@ ifneq (,$(wildcard ./.env))
     export
 endif
 
+.PHONY: account tenant cronjob-start
+
 build-linux:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on GOPROXY=$(GOPROXY) go build -v -o $(BINARY_UNIX) $(GO_LDFLAGS) ./cmd/main.go
 
@@ -36,5 +38,14 @@ job-finetuning-running-log:
 cronjob-start:
 	GOPROXY=$(GOPROXY) GO111MODULE=on $(GORUN) ./cmd/main.go cronjob start $(filter-out $@,$(MAKECMDGOALS))
 
-user:
-	GOPROXY=$(GOPROXY) GO111MODULE=on $(GORUN) ./cmd/main.go user $(filter-out $@,$(MAKECMDGOALS))
+account:
+	GOPROXY=$(GOPROXY) GO111MODULE=on $(GORUN) ./cmd/main.go account $(filter-out $@,$(MAKECMDGOALS))
+
+# 定义 'tenant' 目标
+tenant:
+	GOPROXY=$(GOPROXY) GO111MODULE=on $(GORUN) ./cmd/main.go tenant $(filter-out $@,$(MAKECMDGOALS))
+
+# 这个规则匹配任何目标，并且什么也不做
+# 它防止了 make 因为找不到目标规则而失败
+%:
+	@:

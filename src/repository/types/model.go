@@ -81,16 +81,17 @@ func (m *Models) CanUndeploy() bool {
 // ModelDeploy 模型部署
 type ModelDeploy struct {
 	gorm.Model
-	ModelID      uint64 `gorm:"column:model_id;type:bigint(20);NOT NULL"`     // 模型表主键 models.id
-	ModelPath    string `gorm:"column:model_path;type:varchar(255);NOT NULL"` // 模型部署路径
-	Status       string `gorm:"column:status;type:varchar(32)"`               // 部署状态
-	Replicas     int    `gorm:"column:replicas;type:int(11);default:0;"`      // 实例数
-	InferredType string `gorm:"column:inferred_type;type:varchar(50)"`        // 推理类型GPU/CPU
-	Label        string `gorm:"column:label;type:varchar(50)"`                // GPU调度标签
-	Gpu          int    `gorm:"column:gpu;type:int(11);"`                     // 单实例GPU数量
-	Cpu          int    `gorm:"column:cpu;type:int(11);"`                     // 单实例CPU数量
-	Quantization string `gorm:"column:quantization;type:varchar(50)"`         // 量化
-	Vllm         bool   `gorm:"column:vllm;default:false;"`                   // 是否开启VLLM
+	ModelID        uint64 `gorm:"column:model_id;type:bigint(20);NOT NULL"`     // 模型表主键 models.id
+	ModelPath      string `gorm:"column:model_path;type:varchar(255);NOT NULL"` // 模型部署路径
+	Status         string `gorm:"column:status;type:varchar(32)"`               // 部署状态
+	Replicas       int    `gorm:"column:replicas;type:int(11);default:0;"`      // 实例数
+	InferredType   string `gorm:"column:inferred_type;type:varchar(50)"`        // 推理类型GPU/CPU
+	Label          string `gorm:"column:label;type:varchar(50)"`                // GPU调度标签
+	Gpu            int    `gorm:"column:gpu;type:int(11);"`                     // 单实例GPU数量
+	Cpu            int    `gorm:"column:cpu;type:int(11);"`                     // 单实例CPU数量
+	Quantization   string `gorm:"column:quantization;type:varchar(50)"`         // 量化
+	Vllm           bool   `gorm:"column:vllm;default:false;"`                   // 是否开启VLLM
+	DeploymentName string `gorm:"column:deployment_name;type:varchar(255)"`     // 部署名称
 }
 
 func (m *ModelDeploy) TableName() string {

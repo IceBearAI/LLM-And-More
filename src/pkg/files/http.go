@@ -73,15 +73,15 @@ func decodeCreateFileRequest(ctx context.Context, r *http.Request) (interface{},
 	line := 0
 	tokens := 0
 	if purpose == types.FilePurposeFineTune.String() || purpose == types.FilePurposeFineTuneEval.String() {
-		// 检查是否为JSONL格式
-		maxCapacity := 1024 * 1024          // 1MB
-		buf := make([]byte, 0, maxCapacity) // maxCapacity 是你希望设置的新的缓冲区大小
-		scanner := bufio.NewScanner(file)
-		scanner.Buffer(buf, maxCapacity)
 		enc, err := tiktoken.EncodingForModel("gpt-3.5-turbo")
 		if err != nil {
 			return nil, encode.ErrSystem.Wrap(errors.New("统计微调数据tokens错误"))
 		}
+		// 检查是否为JSONL格式
+		maxCapacity := 1024 * 1024 * 1024   // 1G
+		buf := make([]byte, 0, maxCapacity) // maxCapacity 是你希望设置的新的缓冲区大小
+		scanner := bufio.NewScanner(file)
+		scanner.Buffer(buf, maxCapacity)
 		for scanner.Scan() {
 			//var data MessagesWrapper
 			//if err = json.Unmarshal(scanner.Bytes(), &data); err != nil {

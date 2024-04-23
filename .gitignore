@@ -6,3 +6,4 @@ vendor/
 .cache
 storage
 .env
+k8sconfig*

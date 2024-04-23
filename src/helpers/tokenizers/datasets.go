@@ -60,13 +60,16 @@ func GetFirstLineSystemPrompt(fileBody []byte) (content string) {
 }
 
 // GetSystemContent 获取文件的所有system content
-func GetSystemContent(fileBody []byte) (content []string, err error) {
+func GetSystemContent(fileBody []byte, maxLine int) (content []string, err error) {
 	lines := bytes.Split(fileBody, []byte("\n"))
 	if len(lines) == 0 {
 		return
 	}
 	if json.Unmarshal(lines[0], &MessagesWrapper{}) == nil {
-		for _, line := range lines {
+		for n, line := range lines {
+			if maxLine > 0 && n > maxLine {
+				break
+			}
 			line = bytes.TrimSpace(line)
 			if len(line) == 0 {
 				continue
@@ -87,7 +90,10 @@ func GetSystemContent(fileBody []byte) (content []string, err error) {
 		return content, nil
 	}
 	if json.Unmarshal(lines[0], &DataAnnotationSegment{}) == nil {
-		for _, line := range lines {
+		for n, line := range lines {
+			if maxLine > 0 && n > maxLine {
+				break
+			}
 			line = bytes.TrimSpace(line)
 			if len(line) == 0 {
 				continue
