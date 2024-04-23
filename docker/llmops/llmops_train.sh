@@ -272,9 +272,9 @@ elif [ "$SCENARIO" == "faq" ]; then
 
 elif [ "$SCENARIO" == "rag" ]; then
     RAG_ENHANCEMENT=False
-    RETRIEVAL_METHOD="bm25"
+#     RETRIEVAL_METHOD="bm25"
     RETRIEVAL_METHOD="st"
-    ST="BAAI/bge-base-zh-v1.5"
+    ST="BAAI/bge-large-zh-v1.5"
 
     deepspeed /app/rag/rag_train.py \
         --train_path $TRAIN_LOCAL_FILE \

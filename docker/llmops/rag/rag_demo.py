@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument("--top_k", type=int, default=1)
     # parser.add_argument("--sentence_asymmetrical_path", type=str, default='shibing624/text2vec-base-chinese')
     parser.add_argument("--sentence_unsymmetrical_path", type=str,
-                        default='BAAI/bge-base-zh-v1.5')
+                        default='BAAI/bge-large-zh-v1.5')
     return parser.parse_args()
 
 
