@@ -22,7 +22,7 @@ def parse_args():
     parser.add_argument("--temperature", type=float, default=0.0, help="")
     parser.add_argument("--doc_path", type=str, default='./data/output.jsonl', help="Retrieved documents")
     parser.add_argument("--rag_history_path", type=str, default='./data/rag_history.txt', help="Dialogue with History")
-    parser.add_argument("--retrieval_method", type=str, default="bm25", choices=["bm25", "sentence_transformers"],
+    parser.add_argument("--retrieval_method", type=str, default="sentence_transformer", choices=["bm25", "sentence_transformers"],
                         help="Method for document retrieval")
     parser.add_argument("--threshold", type=float, default=0.68, help="Threshold for similarity to refuse answering")
     parser.add_argument("--top_k", type=int, default=1)

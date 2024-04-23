@@ -102,11 +102,12 @@ merge_lora_models() {
     cp  "$base_model_path/config"* "./$output_dir/"
     cp  "$base_model_path/config.json" "./$output_dir/"
     cp  "$base_model_path/token"* "./$output_dir/"
-
+    set +e
     if [[ $modename == *"glm3"* ]]; then
         cp  "$base_model_path/modeling_chatglm.py" "./$output_dir/"
         cp  "$base_model_path/quantization.py" "./$output_dir/"
     fi
+    set -e
 }
 
 LORA_MODULE_NAME=''
@@ -272,6 +273,7 @@ elif [ "$SCENARIO" == "faq" ]; then
 elif [ "$SCENARIO" == "rag" ]; then
     RAG_ENHANCEMENT=False
     RETRIEVAL_METHOD="bm25"
+    RETRIEVAL_METHOD="st"
     ST="BAAI/bge-base-zh-v1.5"
 
     deepspeed /app/rag/rag_train.py \
@@ -301,10 +303,11 @@ elif [ "$SCENARIO" == "rag" ]; then
         --gradient_checkpointing \
         --show_loss_step 10 \
         --output_dir $OUTPUT_DIR  > >(tee "$temp_file") 2>&1
+    set +e
     if [[ $MODENAME == *"glm3"* ]]; then
-        cp  "$BASE_MODEL_PATH/modeling_chatglm.py" "./$OUTPUT_DIR /"
-        cp  "$BASE_MODEL_PATH/quantization.py" "./$OUTPUT_DIR /"
+        cp "$BASE_MODEL_PATH/modeling_chatglm.py" "./$OUTPUT_DIR/" || cp "$BASE_MODEL_PATH/quantization.py" "./$OUTPUT_DIR/"
     fi
+    set -e
 else
   echo "Invalid scenario selection!"
 fi
