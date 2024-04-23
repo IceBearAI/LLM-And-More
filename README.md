@@ -130,7 +130,7 @@ LLM-And-More致力于为专业开发者和一线业务人员提供专业、易�
 
 ### 本地开发
 
-[golang](https://github.com/golang/go)版本请安装go1.21以上版本
+[golang](https://github.com/golang/go)版本请安装go1.22以上版本
 
 - 安装依赖包: `go mod tidy`
 - 本地启动: `make run`

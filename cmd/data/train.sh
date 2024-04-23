@@ -163,6 +163,8 @@ if [[ -f "$TRAIN_FILE" ]]; then
 else
     TRAIN_LOCAL_FILE=/data/train-data/train_dir_${JOB_ID}
     mkdir -p $TRAIN_LOCAL_FILE
+fi
+
 EVAL_LOCAL_FILE=/data/train-data/eval-${JOB_ID}.jsonl
 
 function download_file {
