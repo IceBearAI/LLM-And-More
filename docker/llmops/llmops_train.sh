@@ -157,13 +157,15 @@ else
 fi
 
 URL_REGEX="^(http|https)://"
-mkdir -p /data/train-data/
-if [[ -f "$TRAIN_FILE" ]]; then
-    TRAIN_LOCAL_FILE=/data/train-data/train-${JOB_ID}.jsonl
+DATA_DIR="/data/train-data/"
+mkdir -p "$DATA_DIR"
+if [[ -f "$TRAIN_FILE" || "$TRAIN_FILE" =~ $URL_REGEX ]]; then
+    TRAIN_LOCAL_FILE="${DATA_DIR}train-${JOB_ID}.jsonl"
 else
-    TRAIN_LOCAL_FILE=/data/train-data/train_dir_${JOB_ID}
-    mkdir -p $TRAIN_LOCAL_FILE
-EVAL_LOCAL_FILE=/data/train-data/eval-${JOB_ID}.jsonl
+    TRAIN_LOCAL_FILE="${DATA_DIR}train_dir_${JOB_ID}"
+    mkdir -p "$TRAIN_LOCAL_FILE"
+fi
+EVAL_LOCAL_FILE="${DATA_DIR}eval-${JOB_ID}.jsonl"
 
 function download_file {
     local SOURCE="$1"
@@ -268,7 +270,7 @@ elif [ "$SCENARIO" == "faq" ]; then
   fi
 
 elif [ "$SCENARIO" == "rag" ]; then
-	RAG_ENHANCEMENT=False
+    RAG_ENHANCEMENT=False
     RETRIEVAL_METHOD="bm25"
     ST="BAAI/bge-base-zh-v1.5"
 
@@ -289,8 +291,8 @@ elif [ "$SCENARIO" == "rag" ]; then
         --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
         --warmup_ratio 0.1 \
         --mode $MODENAME \
-		--train_type $TRAIN_TYPE \
-		--lora_module_name  $LORA_MODULE_NAME \
+        --train_type $TRAIN_TYPE \
+        --lora_module_name  $LORA_MODULE_NAME \
         --lora_dim 4 \
         --lora_alpha 64 \
         --lora_dropout 0.1 \
