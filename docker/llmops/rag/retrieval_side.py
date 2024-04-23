@@ -15,10 +15,10 @@ from sentence_transformers import SentenceTransformer, util
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--train_path", type=str, default='enhancement_data.jsonl', help="Retrieved documents")
-    parser.add_argument("--retrieval_method", type=str, default="bm25", choices=["bm25", "sentence_transformers"],
+    parser.add_argument("--retrieval_method", type=str, default="sentence_transformers", choices=["bm25", "sentence_transformers"],
                         help="Method for document retrieval")
     parser.add_argument("--threshold", type=float, default=0.68, help="Threshold for similarity to refuse answering")
-    parser.add_argument("--sentence_asymmetrical_path", type=str, default='shibing624/text2vec-base-chinese')
+    parser.add_argument("--sentence_asymmetrical_path", type=str, default='BAAI/bge-large-zh-v1.5')
 
     return parser.parse_args()
 

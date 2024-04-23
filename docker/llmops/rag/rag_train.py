@@ -94,7 +94,7 @@ def parse_args():
     parser.add_argument("--enhancement", default="false", type=str, help="")
     parser.add_argument("--retrieval_method", type=str, default="st", choices=["bm25", "st"],
                         help="Method for document retrieval")
-    parser.add_argument("--st", type=str, default='BAAI/bge-base-zh-v1.5')
+    parser.add_argument("--st", type=str, default='BAAI/bge-large-zh-v1.5')
     parser.add_argument("--top_k", type=int, default=1)
     parser.add_argument("--max_len", type=int, default=1024, help="")
     parser.add_argument("--max_src_len", type=int, default=256, help="")

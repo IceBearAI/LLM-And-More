@@ -24,9 +24,9 @@
   - 可使用`data_preparation.py`中的`prepare_rag_dataset`函数自定义构建`instruction`。
   - 可使用`data_preparation.py`中的`data_enhancement`函数自定义进行训练数据的增强，或使用`--enhancement`参数决定是否启用。
 - **检索设置**:                
-  - 可使用`--retrieval_method`参数选择检索方式，默认为`bm25`。 
+  - 可使用`--retrieval_method`参数选择检索方式，默认为`st`。 
   - 可使用`--top_k`参数设置检索返回的文档数量，默认为`1`。
-  - 可使用`--st`参数设置检索模型，默认为`BAAI/bge-base-zh-v1.5`,建议训练前提前下载。   
+  - 可使用`--st`参数设置检索模型，默认为`BAAI/bge-large-zh-v1.5`,建议训练前提前下载。   
 - **显卡选择**: 根据实际情况调整`--include localhost`后的数字，用逗号隔开表示使用的显卡编号。
 - **批次大小调整**: 如果显存不足，请适当降低`--per_device_train_batch_size`的值。
 - **开始训练**: 运行命令`bash 1train.sh`。训练完成后，结果将保存在`output_model`文件夹中。
@@ -58,7 +58,7 @@
 ~~包含对应的`document`和`question`适用于对称语义检索，如没有对应的`question`为非对称语义检索。~~
 
 - `--doc_path` : 检索的文档路径，应包含对应的`document`用于非对称语义检索。
-- `--retrieval_method`: 指定使用如下检索方案：["bm25", "sentence_transformers"]，默认为`bm25`，~~对称语义检索下`bm25`算法资源占用最优，~~非对称语义检索建议使用`sentence_transformers`方案。
+- `--retrieval_method`: 指定使用如下检索方案：["bm25", "sentence_transformers"]，默认为`sentence_transformer`，~~对称语义检索下`bm25`算法资源占用最优，~~非对称语义检索建议使用`sentence_transformers`方案。
 - `--rag_history_path `: 对话历史存储文件，可用于后续评估RAG应用
 - `--threshold 0.69 `: 拒答的文档得分阈值。
 ~~- `--sentence_asymmetrical_path`: 对称语义检索模型~~
