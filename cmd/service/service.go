@@ -11,6 +11,7 @@ import (
 	"github.com/IceBearAI/aigc/src/services/ldapcli"
 	runtime2 "github.com/IceBearAI/aigc/src/services/runtime"
 	"github.com/IceBearAI/aigc/src/util"
+	"github.com/olekukonko/tablewriter"
 	"github.com/sashabaranov/go-openai"
 	gormlogger "gorm.io/gorm/logger"
 	"net"
@@ -432,7 +433,7 @@ Platform: ` + goOS + "/" + goArch + `
 	cronJobCmd.AddCommand(cronJobStartCmd)
 
 	addFlags(rootCmd)
-	rootCmd.AddCommand(startCmd, generateCmd, jobCmd, cronJobCmd, accountCmd)
+	rootCmd.AddCommand(startCmd, generateCmd, jobCmd, cronJobCmd, accountCmd, tenantCmd)
 
 }
 
@@ -867,4 +868,23 @@ func closeConnection(ctx context.Context) {
 	//if rdb != nil {
 	//	_ = level.Debug(logger).Log("rdb", "close", "err", rdb.Close())
 	//}
+}
+
+func renderTable(header []string, data [][]string) {
+	// 创建一个新的表格
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader(header) // 设置表头
+
+	// 设置表格属性
+	table.SetBorder(true) // 设置表格没有边框
+	table.SetCenterSeparator("|")
+	table.SetAlignment(tablewriter.ALIGN_LEFT) // 设置对齐方式
+
+	// 向表格中添加数据
+	for _, v := range data {
+		table.Append(v)
+	}
+
+	// 渲染表格
+	table.Render()
 }

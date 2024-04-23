@@ -113,7 +113,6 @@ func (s *service) TemplateCreate(ctx context.Context, req templateCreateRequest)
 		ScriptFile:    req.ScriptFile,
 		OutputDir:     req.OutputDir,
 		MaxTokens:     maxTokens,
-		Lora:          req.Lora,
 		Enabled:       req.Enabled,
 		TemplateType:  req.TemplateType,
 		GpuLabel:      req.GpuLabel,
@@ -157,7 +156,6 @@ func (s *service) TemplateUpdate(ctx context.Context, req templateCreateRequest)
 	templateInfo.ScriptFile = req.ScriptFile
 	templateInfo.OutputDir = req.OutputDir
 	templateInfo.MaxTokens = maxTokens
-	templateInfo.Lora = req.Lora
 	templateInfo.Enabled = req.Enabled
 	templateInfo.GpuLabel = req.GpuLabel
 	templateInfo.ParallelNum = req.ParallelNum

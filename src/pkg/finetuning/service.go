@@ -203,7 +203,7 @@ func (s *service) _createJob(ctx context.Context, tenantId, channelId uint, trai
 		TrainEpoch:     epochs,
 		BaseModelPath:  ftJobTpl.BaseModelPath,
 		DataPath:       fmt.Sprintf("/data/train-data/%s", trainingFileId),
-		OutputDir:      fmt.Sprintf("%s/ft-%s-%d-%s", ftJobTpl.OutputDir, baseModel, tenantId, serviceName),
+		OutputDir:      fmt.Sprintf("%s/ft-%s-%d-%s", ftJobTpl.OutputDir, util.ReplacerServiceName(baseModel), tenantId, serviceName),
 		ScriptFile:     ftJobTpl.ScriptFile,
 		MasterPort:     rand.IntnRange(20000, 30000),
 		FileUrl:        panUrl,
@@ -705,12 +705,13 @@ func (s *service) CreateJob(ctx context.Context, tenantId uint, request CreateJo
 		_ = level.Error(logger).Log("repository.finetuning", "FindFileByFileId", "err", err.Error(), "fileId", request.FileId)
 		return response, err
 	}
-	// 转换文件格式
-	panUrl, err := s._fileConvertAlpaca(ctx, request.BaseModel, fileInfo.S3Url)
-	if err != nil {
-		_ = level.Error(logger).Log("service", "_fileConvertAlpaca", "err", err.Error(), "fileId", request.FileId, "s3Url", fileInfo.S3Url)
-		return
-	}
+	panUrl := s.options.convertUrlFun(fileInfo.S3Url)
+	//// 转换文件格式
+	//panUrl, err := s._fileConvertAlpaca(ctx, request.BaseModel, fileInfo.S3Url)
+	//if err != nil {
+	//	_ = level.Error(logger).Log("service", "_fileConvertAlpaca", "err", err.Error(), "fileId", request.FileId, "s3Url", fileInfo.S3Url)
+	//	return
+	//}
 	ftJobTpl, err := s.store.FineTuning().FindFineTuningTemplateByModel(ctx, request.BaseModel)
 	if err != nil {
 		_ = level.Error(logger).Log("repository.finetuning", "FindFineTuningTemplateByModel", "err", err.Error(), "baseModel", request.BaseModel)
@@ -734,7 +735,7 @@ func (s *service) CreateJob(ctx context.Context, tenantId uint, request CreateJo
 		TrainEpoch:        request.TrainEpoch,
 		BaseModelPath:     ftJobTpl.BaseModelPath,
 		DataPath:          fmt.Sprintf("/data/train-data/%s", request.FileId),
-		OutputDir:         fmt.Sprintf("%s/ft-%s-%d-%s", ftJobTpl.OutputDir, request.BaseModel, request.TenantId, suffix),
+		OutputDir:         fmt.Sprintf("%s/ft-%s-%d-%s", ftJobTpl.OutputDir, util.ReplacerServiceName(request.BaseModel), request.TenantId, suffix),
 		ScriptFile:        ftJobTpl.ScriptFile,
 		MasterPort:        rand.IntnRange(20000, 30000),
 		FileUrl:           panUrl,
@@ -989,7 +990,6 @@ func convertAlpaca(httpUrl string, logger log.Logger, modelName string) (alpaca 
 
 func convertJob(data *types.FineTuningTrainJob) JobResponse {
 	resp := JobResponse{
-		Id:                data.ID,
 		JobId:             data.JobId,
 		BaseModel:         data.BaseModel,
 		TrainEpoch:        data.TrainEpoch,

@@ -137,6 +137,8 @@ func start(ctx context.Context) (err error) {
 		models.WithGPUTolerationValue(datasetsGpuToleration),
 		models.WithVolumeName(runtimeK8sVolumeName),
 		models.WithControllerAddress(fsChatControllerAddress),
+		models.WithDataFs(DataFs),
+		models.WithDefaultTrainImage(datasetsImage),
 	)
 	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc,
 		finetuning.WithGpuTolerationValue(datasetsGpuToleration),

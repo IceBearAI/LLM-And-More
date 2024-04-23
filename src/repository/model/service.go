@@ -236,10 +236,14 @@ func (s *service) CreateModel(ctx context.Context, data *types.Models) (err erro
 	return
 }
 
-func (s *service) GetModel(ctx context.Context, id uint, preload ...string) (res types.Models, err error) {
+func (s *service) GetModel(ctx context.Context, id uint, preloads ...string) (res types.Models, err error) {
 	db := s.db.WithContext(ctx)
-	for _, v := range preload {
-		db = db.Preload(v)
+	for _, preload := range preloads {
+		if preload == "ModelDeploy" {
+			db = db.Preload(preload, "status = ? AND deleted_at IS NULL", types.ModelDeployStatusRunning.String())
+		} else {
+			db = db.Preload(preload)
+		}
 	}
 	err = db.Where("id = ?", id).First(&res).Error
 	return

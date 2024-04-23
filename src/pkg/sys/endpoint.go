@@ -116,22 +116,21 @@ type (
 	}
 
 	templateCreateRequest struct {
-		Name          string             `json:"name" validate:"required"`       //名称
-		BaseModel     string             `json:"baseModel" validate:"required"`  //基本模型 来源models表
-		Content       string             `json:"content" validate:"required"`    //脚本模版
-		Params        string             `json:"params"`                         //模版所需要参数
-		TrainImage    string             `json:"trainImage" validate:"required"` //训练镜像
-		Remark        string             `json:"remark"`                         //备注
-		BaseModelPath string             `json:"baseModelPath"`                  //基础模型路径
-		ScriptFile    string             `json:"scriptFile" validate:"required"` //脚本文件
-		OutputDir     string             `json:"outputDir"`                      //输出目录
-		Lora          bool               `json:"lora"`                           //是否使用lora微调
-		Enabled       bool               `json:"enabled"`                        //是否可用
-		GpuLabel      string             `json:"gpuLabel"`                       //GPU 标签
-		ParallelNum   int                `json:"parallelNum"`                    //并行数量
-		K8sCluster    string             `json:"k8sCluster"`                     //K8S集群
-		Cpu           int                `json:"cpu"`                            //CPU 核数
-		Memory        int                `json:"memory"`                         //内存大小 G
+		Name          string             `json:"name" validate:"required"`          //名称
+		BaseModel     string             `json:"baseModel" validate:"required"`     //基本模型 来源models表
+		Content       string             `json:"content" validate:"required"`       //脚本模版
+		Params        string             `json:"params"`                            //模版所需要参数
+		TrainImage    string             `json:"trainImage" validate:"required"`    //训练镜像
+		Remark        string             `json:"remark"`                            //备注
+		BaseModelPath string             `json:"baseModelPath" validate:"required"` //基础模型路径
+		ScriptFile    string             `json:"scriptFile"`                        //脚本文件
+		OutputDir     string             `json:"outputDir"`                         //输出目录
+		Enabled       bool               `json:"enabled"`                           //是否可用
+		GpuLabel      string             `json:"gpuLabel"`                          //GPU 标签
+		ParallelNum   int                `json:"parallelNum"`                       //并行数量
+		K8sCluster    string             `json:"k8sCluster"`                        //K8S集群
+		Cpu           int                `json:"cpu"`                               //CPU 核数
+		Memory        int                `json:"memory"`                            //内存大小 G
 		TemplateType  types.TemplateType `json:"templateType"`
 	}
 

@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"github.com/IceBearAI/aigc/src/encode"
 	"github.com/IceBearAI/aigc/src/helpers/tokenizers"
@@ -71,6 +72,8 @@ type CreationOptions struct {
 	controllerAddress  string
 	runtimePlatform    string
 	convertUrlFun      func(fileUrl string) string
+	defaultTrainImage  string
+	dataFs             embed.FS
 }
 
 // CreationOption is a creation option for the faceswap service.
@@ -115,6 +118,20 @@ func WithRuntimePlatform(platform string) CreationOption {
 func WithConvertUrlFun(fun func(fileUrl string) string) CreationOption {
 	return func(co *CreationOptions) {
 		co.convertUrlFun = fun
+	}
+}
+
+// WithDefaultTrainImage returns a CreationOption that sets the default train image.
+func WithDefaultTrainImage(image string) CreationOption {
+	return func(co *CreationOptions) {
+		co.defaultTrainImage = image
+	}
+}
+
+// WithDataFs returns a CreationOption that sets the data fs.
+func WithDataFs(dataFs embed.FS) CreationOption {
+	return func(co *CreationOptions) {
+		co.dataFs = dataFs
 	}
 }
 
@@ -166,7 +183,7 @@ func (s *service) ModelInfo(ctx context.Context, modelName string) (res modelInf
 		// 暂时默认从训练文件中获取
 		if fileBody, err := util.GetHttpFileBody(s.options.convertUrlFun(m.FineTuningTrainJob.FileUrl)); err == nil {
 			// 取body第一行数据解析成json
-			prompts, err := tokenizers.GetSystemContent(fileBody)
+			prompts, err := tokenizers.GetSystemContent(fileBody, 50)
 			if err != nil {
 				_ = level.Warn(logger).Log("tokenizers.GetSystemContent", "err", err.Error())
 			}
@@ -234,7 +251,16 @@ func (s *service) GetModelLogs(ctx context.Context, modelName, containerName str
 		_ = level.Warn(logger).Log("store.Model", "GetModelByModelName", "err", err.Error())
 		return
 	}
-	return s.apiSvc.Runtime().GetDeploymentLogs(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(modelName), modelInfo.ID), containerName)
+	status, err := s.apiSvc.Runtime().GetDeploymentStatus(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(modelName), modelInfo.ID))
+	if err != nil {
+		_ = level.Error(logger).Log("api.PaasChat", "GetDeploymentStatus", "err", err.Error())
+		return res, nil
+	}
+	if strings.ToLower(status) != "Running" {
+		_ = level.Warn(logger).Log("msg", "deployment not running", "status", status)
+		return res, nil
+	}
+	return s.apiSvc.Runtime().GetDeploymentLogs(ctx, containerName, fmt.Sprintf("%s-%d", util.ReplacerServiceName(modelName), modelInfo.ID))
 }
 
 func (s *service) DeleteEval(ctx context.Context, id uint) (err error) {
@@ -351,7 +377,7 @@ func (s *service) CreateEval(ctx context.Context, request CreateEvalRequest) (re
 
 func (s *service) Undeploy(ctx context.Context, id uint) (err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "Undeploy")
-	m, err := s.store.Model().GetModel(ctx, id)
+	m, err := s.store.Model().GetModel(ctx, id, "ModelDeploy")
 	if err != nil {
 		_ = level.Error(logger).Log("store.Model", "GetModel", "err", err.Error(), "id", id)
 		return
@@ -370,9 +396,12 @@ func (s *service) Undeploy(ctx context.Context, id uint) (err error) {
 		_ = level.Warn(logger).Log("repository.ModelDeploy", "CancelModelDeploy", "err", err.Error())
 		return err
 	}
-	serviceName := util.ReplacerServiceName(m.ModelName)
+	var deploymentName = fmt.Sprintf("%s-%d", util.ReplacerServiceName(m.ModelName), m.ID)
+	if m.ModelDeploy.DeploymentName == "" {
+		deploymentName = m.ModelDeploy.DeploymentName
+	}
 	// 调用API取消部署模型
-	err = s.apiSvc.Runtime().RemoveDeployment(ctx, fmt.Sprintf("%s-%d", serviceName, m.ID))
+	err = s.apiSvc.Runtime().RemoveDeployment(ctx, deploymentName)
 	if err != nil {
 		_ = level.Error(logger).Log("api.PaasChat", "UndeployModel", "err", err.Error(), "modelName", m.ModelName)
 	}
@@ -528,16 +557,17 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 	_ = level.Info(logger).Log("msg", "create deployment success", "deploymentName", deploymentName)
 	// 更新模型部署状态
 	if err = s.store.Model().SaveModelDeploy(ctx, &types.ModelDeploy{
-		ModelID:      uint64(m.ID),
-		ModelPath:    modelPath,
-		Status:       types.ModelDeployStatusPending.String(),
-		Replicas:     request.Replicas,
-		InferredType: request.InferredType,
-		Label:        request.Label,
-		Gpu:          request.Gpu,
-		Cpu:          request.Cpu,
-		Quantization: request.Quantization,
-		Vllm:         request.Vllm,
+		ModelID:        uint64(m.ID),
+		ModelPath:      modelPath,
+		Status:         types.ModelDeployStatusPending.String(),
+		Replicas:       request.Replicas,
+		InferredType:   request.InferredType,
+		Label:          request.Label,
+		Gpu:            request.Gpu,
+		Cpu:            request.Cpu,
+		Quantization:   request.Quantization,
+		Vllm:           request.Vllm,
+		DeploymentName: deploymentName,
 	}); err != nil {
 		_ = level.Warn(logger).Log("repository.ModelDeploy", "SaveModelDeploy", "err", err.Error())
 		return err
@@ -627,6 +657,39 @@ func (s *service) CreateModel(ctx context.Context, request CreateModelRequest) (
 	if err != nil {
 		_ = level.Error(logger).Log("store.Model", "CreateModel", "err", err.Error())
 		return
+	}
+
+	if request.ProviderName == types.ModelProviderLocalAI.String() {
+		inferenceShell, _ := s.options.dataFs.ReadFile("data/inference.sh")
+		// 自动添加模版
+		if err = s.store.Sys().SaveFineTuningTemplate(ctx, &types.FineTuningTemplate{
+			TemplateType:  types.TemplateTypeInference,
+			Content:       string(inferenceShell),
+			TrainImage:    s.options.defaultTrainImage,
+			Name:          fmt.Sprintf("%s-%s", request.ModelName, types.TemplateTypeInference),
+			BaseModel:     request.ModelName,
+			BaseModelPath: fmt.Sprintf("/data/base-model/%s", request.ModelName),
+			ScriptFile:    "/app/start.sh",
+			OutputDir:     "/data/ft-model",
+			Enabled:       true,
+		}); err != nil {
+			_ = level.Warn(logger).Log("store.FineTuning", "CreateFineTuningTemplate", "err", err.Error())
+		}
+		trainShell, _ := s.options.dataFs.ReadFile("data/inference.sh")
+		// 自动添加模版
+		if err = s.store.Sys().SaveFineTuningTemplate(ctx, &types.FineTuningTemplate{
+			TemplateType:  types.TemplateTypeTrain,
+			Content:       string(trainShell),
+			TrainImage:    s.options.defaultTrainImage,
+			Name:          fmt.Sprintf("%s-%s", request.ModelName, types.TemplateTypeTrain),
+			BaseModel:     request.ModelName,
+			BaseModelPath: fmt.Sprintf("/data/base-model/%s", request.ModelName),
+			ScriptFile:    "/app/train.sh",
+			OutputDir:     "/data/ft-model",
+			Enabled:       true,
+		}); err != nil {
+			_ = level.Warn(logger).Log("store.FineTuning", "CreateFineTuningTemplate", "err", err.Error())
+		}
 	}
 	res = convert(&req)
 	return
@@ -813,7 +876,8 @@ func providerName(m string) types.ModelProvider {
 func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc services.Service, opts ...CreationOption) Service {
 	logger = log.With(logger, "service", "models")
 	options := &CreationOptions{
-		volumeName: "aigc-data",
+		volumeName:        "aigc-data",
+		defaultTrainImage: "dudulu/llmops:latest",
 		convertUrlFun: func(fileUrl string) string {
 			return fileUrl
 		},
