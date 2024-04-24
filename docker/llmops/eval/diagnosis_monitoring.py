@@ -36,7 +36,6 @@ def diagnosis_monitoring(log_path):
     }
     # 从日志文件中提取损失
     results = extract_data_from_logs(log_path)
-    print(f"results: {results}")
     # 初始化风险等级和建议
     current_risks = {
         'overfitting': "Low",
