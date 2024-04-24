@@ -2,7 +2,7 @@ ps aux | grep llmops_deepspeed_main.py | awk '{print $2}' | xargs kill -9
 ps aux | grep faq_train.py | awk '{print $2}' | xargs kill -9
 clear
 export OUTPUT_DIR="./faq/output_model"
-export NUM_TRAIN_EPOCHS=2
+export NUM_TRAIN_EPOCHS=3
 export PER_DEVICE_TRAIN_BATCH_SIZE=1
 export PER_DEVICE_EVAL_BATCH_SIZE=4
 export GRADIENT_ACCUMULATION_STEPS=2
@@ -13,7 +13,7 @@ export MODEL_MAX_LENGTH=256
 export BASE_MODEL_PATH="/home/ubuntu/model/Qwen/Qwen1.5-4B"
 export BASE_MODEL_NAME="Qwen1.5-4B"
 GPUS_PER_NODE=4
-SCENARIO="faq"
+SCENARIO="general"
 USE_LORA=true
 # 场景选择: "general" 或 "faq"
 
@@ -137,8 +137,8 @@ echo "ZERO_STAGE: $ZERO_STAGE"
 echo "DS_FILE: $DS_FILE"
 
 URL_REGEX="^(http|https)://"
-TRAIN_LOCAL_FILE="./datasets_example/faq_train_dataset.jsonl"
-EVAL_LOCAL_FILE="./datasets_example/faq_train_dataset.jsonl"
+TRAIN_LOCAL_FILE="./datasets_example/general_train_dataset.jsonl"
+EVAL_LOCAL_FILE="./datasets_example/general_train_dataset~.jsonl"
 
 echo "TRAIN_LOCAL_FILE: $TRAIN_LOCAL_FILE"
 echo "EVAL_LOCAL_FILE: $EVAL_LOCAL_FILE"
@@ -146,7 +146,7 @@ echo "EVAL_LOCAL_FILE: $EVAL_LOCAL_FILE"
 temp_file=$(mktemp)
 
 if [ "$SCENARIO" == "general" ]; then
-  GENERAL_DATA_PATH=/data/train-data/formatted_datasets/${JOB_ID}
+  GENERAL_DATA_PATH=./data/train-data/formatted_datasets/${JOB_ID}
   mkdir -p $GENERAL_DATA_PATH
   if [ -n "$EVAL_FILE" ]; then
     python3 jsonl_to_arrow_format.py \
@@ -159,10 +159,7 @@ if [ "$SCENARIO" == "general" ]; then
         --output_path "$GENERAL_DATA_PATH"
   fi
 
-
-#  output=$(torchrun $DISTRIBUTED_ARGS {{.ScriptFile}} \
-#  output=$(deepspeed --include localhost:$CUDA_VISIBLE_DEVICES {{.ScriptFile}} \
-  deepspeed /app/llmops_deepspeed_main.py \
+  deepspeed llmops_deepspeed_main.py \
       --data_path $GENERAL_DATA_PATH \
       --data_output_path $OUTPUT_DIR/data_output \
       --data_split 9,1,0 \
