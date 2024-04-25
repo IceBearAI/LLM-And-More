@@ -31,5 +31,5 @@
 ## 打包成docker镜像
 
 ```
-$ docker build --rm -t fastchat:latest .
+$ docker build --rm -t fschat:latest .
 ```

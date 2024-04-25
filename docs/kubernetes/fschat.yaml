@@ -2,18 +2,15 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fschat-controller
-  namespace: aigc
 spec:
   replicas: 1
   selector:
     matchLabels:
       aigc.io/name: fschat-controller
-      aigc.io/serviceName: fschat-controller
   template:
     metadata:
       labels:
         aigc.io/name: fschat-controller
-        aigc.io/serviceName: fschat-controller
     spec:
       containers:
         - name: fschat-controller
@@ -75,29 +72,20 @@ spec:
               cpu: 200m
               memory: 2048M
       restartPolicy: Always
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 25%
-      maxSurge: 25%
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fschat-api
-  namespace: aigc
 spec:
   replicas: 1
   selector:
     matchLabels:
       aigc.io/name: fschat-api
-      aigc.io/serviceName: fschat-api
   template:
     metadata:
-      creationTimestamp: null
       labels:
         aigc.io/name: fschat-api
-        aigc.io/serviceName: fschat-api
     spec:
       containers:
         - name: fschat-api
@@ -161,11 +149,6 @@ spec:
               cpu: 200m
               memory: 2048M
       restartPolicy: Always
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 25%
-      maxSurge: 25%
 ---
 apiVersion: v1
 kind: Service
@@ -174,7 +157,6 @@ metadata:
   namespace: aigc
   labels:
     aigc.io/name: fschat-controller
-    aigc.io/serviceName: fschat-controller
 spec:
   ports:
     - name: 'http'
@@ -183,7 +165,6 @@ spec:
       targetPort: 21001
   selector:
     aigc.io/name: fschat-controller
-    aigc.io/serviceName: fschat-controller
 ---
 apiVersion: v1
 kind: Service
@@ -192,7 +173,6 @@ metadata:
   namespace: aigc
   labels:
     aigc.io/name: fschat-api
-    aigc.io/serviceName: fschat-api
 spec:
   ports:
     - name: 'http'
@@ -201,4 +181,3 @@ spec:
       targetPort: 8000
   selector:
     aigc.io/name: fschat-api
-    aigc.io/serviceName: fschat-api

@@ -2,18 +2,15 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: aigc-server
-  namespace: aigc
 spec:
   replicas: 1
   selector:
     matchLabels:
       aigc.io/name: aigc-server
-      aigc.io/serviceName: aigc-server
   template:
     metadata:
       labels:
         aigc.io/name: aigc-server
-        aigc.io/serviceName: aigc-server
     spec:
       volumes:
         - name: aigc-data
@@ -29,10 +26,6 @@ spec:
           env:
             - name: HF_ENDPOINT
               value: https://hf-mirror.com
-            - name: HTTP_PROXY
-              value:
-            - name: HTTPS_PROXY
-              value:
             - name: NO_PROXY
               value: .idc,.corp,.local,localhost,fschat-controller,fschat-api
             - name: AIGC_ADMIN_SERVER_STORAGE_PATH
@@ -70,7 +63,7 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
-          image: dudulu/aigc-server:v0.0.3
+          image: dudulu/aigc-server:latest
           name: aigc-server
           ports:
             - containerPort: 8080
@@ -87,7 +80,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: aigc-server
-  namespace: aigc
 spec:
   ports:
     - name: http
@@ -96,5 +88,3 @@ spec:
       targetPort: 8080
   selector:
     aigc.io/name: aigc-server
-    aigc.io/serviceName: aigc-server
-  type: NodePort

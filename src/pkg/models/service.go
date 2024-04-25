@@ -256,11 +256,11 @@ func (s *service) GetModelLogs(ctx context.Context, modelName, containerName str
 		_ = level.Error(logger).Log("api.PaasChat", "GetDeploymentStatus", "err", err.Error())
 		return res, nil
 	}
-	if strings.ToLower(status) != "Running" {
+	if strings.ToLower(status) != "running" {
 		_ = level.Warn(logger).Log("msg", "deployment not running", "status", status)
 		return res, nil
 	}
-	return s.apiSvc.Runtime().GetDeploymentLogs(ctx, containerName, fmt.Sprintf("%s-%d", util.ReplacerServiceName(modelName), modelInfo.ID))
+	return s.apiSvc.Runtime().GetDeploymentLogs(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(modelName), modelInfo.ID), containerName)
 }
 
 func (s *service) DeleteEval(ctx context.Context, id uint) (err error) {
@@ -397,7 +397,7 @@ func (s *service) Undeploy(ctx context.Context, id uint) (err error) {
 		return err
 	}
 	var deploymentName = fmt.Sprintf("%s-%d", util.ReplacerServiceName(m.ModelName), m.ID)
-	if m.ModelDeploy.DeploymentName == "" {
+	if m.ModelDeploy.DeploymentName != "" {
 		deploymentName = m.ModelDeploy.DeploymentName
 	}
 	// 调用API取消部署模型
