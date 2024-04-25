@@ -37,8 +37,22 @@ sys.path.append(
 warnings.filterwarnings('ignore')
 
 
-def log_info(Rank, epoch, step, loss, learning_rate):
-    return {'rank': Rank, 'loss': loss, 'Step': step, 'learning_rate': learning_rate, 'epoch': epoch}
+def log_info(Rank, epoch, step, train_loss, learning_rate, eval_loss=None):
+    # 创建基本的日志字典
+    log_dict = {
+        'rank': Rank,
+        'epoch': epoch,
+        'step': step,
+        'loss': train_loss,
+        'learning_rate': learning_rate,
+    }
+    
+    # 如果提供了eval_loss，则添加到字典中
+    if eval_loss is not None:
+        log_dict['eval_loss'] = eval_loss
+
+    return log_dict
+
 
 
 def parse_args():
@@ -347,27 +361,6 @@ def main():
 
         return average_loss, perplexity
 
-    def evaluation(model, eval_dataloader):
-        model.eval()
-        losses = 0
-        for step, batch in enumerate(eval_dataloader):
-            batch = to_device(batch, device)
-            with torch.no_grad():
-                outputs = model(**batch)
-
-            loss = outputs.loss
-            losses += loss.float()
-        losses = losses / (step + 1)
-        try:
-            perplexity = torch.exp(losses)
-        except OverflowError:
-            perplexity = float("inf")
-        try:
-            perplexity = get_all_reduce_mean(perplexity).item()
-        except:
-            pass
-        return perplexity
-
     print_rank_0('finished defining evaluation function.')
     # Split weights in two groups, one with weight decay and the other not.
     optimizer_grouped_parameters = get_optimizer_grouped_parameters(
@@ -408,12 +401,12 @@ def main():
         print_rank_0(
             f"Beginning of Epoch {epoch + 1}/{args.num_train_epochs}, Total Micro Batches {len(train_dataloader)}",
             args.global_rank)
-        # 如果第一个epoch开始，启动TensorBoard服务
-        #         if epoch == 0 and args.global_rank == 0:
-        #             start_tensorboard(args)
         model.train()
+        total_train_loss = 0
+        num_train_steps = 0
+        last_learning_rate = 0 
+        
         rounds = len(train_dataloader)
-
         for step, batch in enumerate(train_dataloader):
             if step < args.start_from_step:
                 print_rank_0(f'skipping {step}-th step of {rounds}.')
@@ -428,21 +421,34 @@ def main():
             log_data = log_info(args.global_rank, progress, step, loss.item(), learning_rate)
             print_rank_0(log_data,args.global_rank)
             model.backward(loss)
+            total_train_loss += loss.item()
+            num_train_steps += 1
             model.step()
+            last_learning_rate = model.optimizer.param_groups[0]['lr']
             end = time.time()
             print_rank_0(f'finished step {step}, used {end - start} seconds.',args.global_rank)
-            # if torch.distributed.get_rank() == 0:
-            #     print_throughput(model.module, args, end - start,
-            #                      args.global_rank)
 
+        # 计算平均训练损失
+        average_train_loss = total_train_loss / num_train_steps
         # Evaluate perplexity on the validation set.
         print_rank_0(
             f"***** Evaluating perplexity, Epoch {epoch + 1}/{args.num_train_epochs} *****",
             args.global_rank)
-        average_loss, perplexity = evaluation_loss_perplexity(
+        eval_loss, perplexity = evaluation_loss_perplexity(
             model, eval_dataloader, device)
+        # 分别记录训练和评估的损失
+        # 记录日志
+        log_data = log_info(
+            args.global_rank, 
+            epoch + 1, 
+            num_train_steps,  # 传递最后一步的步数
+            average_train_loss, 
+            last_learning_rate,  # 传递最后一步的学习率
+            eval_loss
+        )
+        print_rank_0(log_data, args.global_rank)
         print_rank_0(
-            f"Evaluation finished, Average Loss: {average_loss}, Perplexity: {perplexity}", args.global_rank)
+        f"Epoch {epoch + 1} finished, Training Loss: {average_train_loss}, Evaluation Loss: {eval_loss}, Perplexity: {perplexity}", args.global_rank)
         model.tput_timer.update_epoch_count()
 
     if args.output_dir is not None:
