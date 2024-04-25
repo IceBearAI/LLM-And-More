@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"github.com/docker/docker/api/types/filters"
 	"io"
 	"log"
 	"os"
@@ -39,6 +40,31 @@ type docker struct {
 	options       *CreationOptions
 	dockerCli     *client.Client
 	createOptions CreationOptions
+}
+
+func (s *docker) GetContainers(ctx context.Context, jobName string) (res []Container, err error) {
+	list, err := s.dockerCli.ContainerList(ctx, container.ListOptions{
+		Filters: filters.NewArgs(filters.KeyValuePair{
+			Key:   "name",
+			Value: jobName,
+		}),
+	})
+	if err != nil {
+		err = errors.Wrap(err, "ContainerList err")
+		return
+	}
+
+	for _, v := range list {
+		var ip = "127.0.0.1"
+		if v.NetworkSettings != nil {
+			ip = v.NetworkSettings.Networks["bridge"].IPAddress
+		}
+		res = append(res, Container{
+			Name: strings.TrimPrefix(v.Names[0], "/"),
+			Ip:   ip,
+		})
+	}
+	return
 }
 
 func (s *docker) WaitForTerminal(ctx context.Context, ts Session, config Config, containerID, cmd string) {

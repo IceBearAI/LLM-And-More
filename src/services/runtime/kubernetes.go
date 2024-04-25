@@ -75,6 +75,41 @@ type k8s struct {
 	createOptions CreationOptions
 }
 
+func (s *k8s) GetContainers(ctx context.Context, jobName string) (res []Container, err error) {
+	config := Config{
+		ServiceName: jobName,
+		namespace:   s.createOptions.namespace,
+	}
+	if config.LabelName == "" {
+		config.LabelName = s.createOptions.labelName
+	}
+
+	pods, err := s.k8sClient.CoreV1().Pods(config.namespace).List(ctx, v1.ListOptions{
+		LabelSelector: v1.FormatLabelSelector(&v1.LabelSelector{
+			MatchLabels: config.GenJobLabels(),
+		}),
+	})
+
+	if err != nil {
+		err = errors.Wrap(err, "GetPods")
+		return
+	}
+	if len(pods.Items) == 0 {
+		err = fmt.Errorf("pod not found")
+		return
+	}
+
+	for _, pod := range pods.Items {
+		for _, container := range pod.Spec.Containers {
+			res = append(res, Container{
+				Name: container.Name,
+				Ip:   pod.Status.PodIP,
+			})
+		}
+	}
+	return
+}
+
 func (s *k8s) GetDeploymentContainerNames(ctx context.Context, deploymentName string) (containerNames []string, err error) {
 	config := Config{
 		ServiceName: deploymentName,

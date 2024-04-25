@@ -482,6 +482,11 @@ func (c Config) tarDirectory(name, workspace string) (*bytes.Buffer, error) {
 	return buffer, nil
 }
 
+type Container struct {
+	Name string `json:"name"`
+	Ip   string `json:"ip"`
+}
+
 // Service is a service interface
 //
 //go:generate gowrap gen -g -p ./ -i Service -bt "ce_log:logging.go ce_trace:tracing.go"
@@ -505,7 +510,10 @@ type Service interface {
 	// WaitForTerminal 处理客户端发来的ws建立请求
 	WaitForTerminal(ctx context.Context, ts Session, config Config, container, cmd string)
 	// GetDeploymentContainerNames 获取部署的容器名
+	// Deprecated: use GetContainers instead
 	GetDeploymentContainerNames(ctx context.Context, deploymentName string) (containerNames []string, err error)
+	// GetContainers 获取容器
+	GetContainers(ctx context.Context, jobName string) (res []Container, err error)
 }
 
 // Middleware is a service middleware

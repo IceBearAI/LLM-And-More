@@ -16,6 +16,21 @@ type logging struct {
 	traceId string
 }
 
+func (s *logging) GetContainers(ctx context.Context, jobName string) (res []Container, err error) {
+	defer func(begin time.Time) {
+
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "GetContainers",
+			"jobName", jobName,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+
+	return s.next.GetContainers(ctx, jobName)
+}
+
 func (s *logging) WaitForTerminal(ctx context.Context, ts Session, config Config, container, cmd string) {
 	defer func(begin time.Time) {
 
