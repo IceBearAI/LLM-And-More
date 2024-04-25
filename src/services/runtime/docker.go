@@ -396,7 +396,7 @@ func (s *docker) CreateDeployment(ctx context.Context, config Config) (deploymen
 }
 
 func (s *docker) GetDeploymentLogs(ctx context.Context, id, containerName string) (log string, err error) {
-	out, err := s.dockerCli.ContainerLogs(ctx, id, container.LogsOptions{
+	out, err := s.dockerCli.ContainerLogs(ctx, containerName, container.LogsOptions{
 		ShowStderr: true,
 		ShowStdout: true,
 	})
@@ -414,7 +414,7 @@ func (s *docker) GetDeploymentLogs(ctx context.Context, id, containerName string
 }
 
 func (s *docker) GetJobLogs(ctx context.Context, id string) (log string, err error) {
-	return s.GetDeploymentLogs(ctx, id, "")
+	return s.GetDeploymentLogs(ctx, "", id)
 }
 
 func (s *docker) GetJobStatus(ctx context.Context, jobName string) (status string, err error) {
