@@ -7,9 +7,11 @@ import shutil
 import deepspeed
 import torch
 from peft import LoraConfig, get_peft_model
-from torch.utils.data import DataLoader, RandomSampler
+from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm
+from transformers import BitsAndBytesConfig
 
 from data_preparation import data_enhancement
 from merge_lora import merge_lora
@@ -24,14 +26,35 @@ except ImportError:
     from tensorboard import SummaryWriter
 
 
-def log_info(rank, epoch, step, loss, learning_rate):
-    return {
-        'rank': rank,
+def log_info(Rank, epoch, step, train_loss, learning_rate, eval_loss=None):
+    # 创建基本的日志字典
+    log_dict = {
+        'rank': Rank,
         'epoch': epoch,
         'step': step,
-        'loss': loss,
-        'learning_rate': learning_rate
+        'loss': train_loss,
+        'learning_rate': learning_rate,
     }
+
+    # 如果提供了eval_loss，则添加到字典中
+    if eval_loss is not None:
+        log_dict['eval_loss'] = eval_loss
+
+    return log_dict
+
+
+def evaluation_loss_perplexity(model, eval_dataloader, device):
+    model.eval()
+    losses = 0
+    for step, batch in enumerate(eval_dataloader):
+        batch = to_device(batch, device)
+        with torch.no_grad():
+            outputs = model(**batch)
+        loss = outputs.loss
+        losses += loss.float()
+    average_loss = losses / (step + 1)  # 计算平均损失
+    average_loss = average_loss.item()
+    return average_loss
 
 
 def save_checkpoint(model, tokenizer, epoch, global_step, args, ds_config):
@@ -102,6 +125,8 @@ def parse_args():
     # Train
     parser.add_argument("--per_device_train_batch_size",
                         type=int, default=16, help="")
+    parser.add_argument("--per_device_eval_batch_size",
+                        type=int, default=8, help="")
     parser.add_argument("--learning_rate", type=float, default=1e-3, help="")
     parser.add_argument("--weight_decay", type=float, default=0.1, help="")
     parser.add_argument("--num_train_epochs", type=int, default=1, help="")
@@ -121,6 +146,10 @@ def parse_args():
     parser.add_argument("--ds_file", type=str,
                         default="ds_zero2.json", help="")
     # LoRA
+    parser.add_argument("--load_in_kbits", type=int, default=8, help="", choices=[4, 8, 16])
+    parser.add_argument('--bf16', action='store_true')
+    parser.add_argument('--fp16', action='store_true')
+
     parser.add_argument("--lora_dim", type=int, default=8, help="")
     parser.add_argument("--lora_alpha", type=int, default=30, help="")
     parser.add_argument("--lora_dropout", type=float, default=0.1, help="")
@@ -169,8 +198,28 @@ def main():
     # load model
     if args.train_type == "lora":
         print_rank_0("use LoRA", args.global_rank)
+        model_load_kwargs = {
+            "low_cpu_mem_usage": not ds_config["zero_optimization"]["stage"] == 3,
+        }
+        quantization_config = None
+        if args.load_in_kbits in [4, 8]:
+            compute_dtype = (torch.float16 if args.fp16 else (torch.bfloat16 if args.bf16 else torch.float32))
+            load_in_4bit = args.load_in_kbits == 4
+            load_in_8bit = args.load_in_kbits == 8
+            print_rank_0(f"使用int{args.load_in_kbits}量化", args.global_rank)
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=load_in_4bit,
+                load_in_8bit=load_in_8bit,
+                llm_int8_threshold=6.0,
+                bnb_4bit_compute_dtype=compute_dtype,
+                # bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4"
+            )
+            print_rank_0(f"量化配置:{quantization_config.to_dict()}", args.global_rank)
+
         model = MODE[args.mode]["model"].from_pretrained(
-            args.model_name_or_path, trust_remote_code=True)
+            args.model_name_or_path, quantization_config=quantization_config, trust_remote_code=True,
+            **model_load_kwargs)
         lora_module_name = args.lora_module_name.split(",")
         config = LoraConfig(r=args.lora_dim,
                             lora_alpha=args.lora_alpha,
@@ -213,14 +262,21 @@ def main():
     train_dataset = MODE[args.mode]["dataset"](
         args.train_path, tokenizer, args.max_len, args.max_src_len, args.is_skip, args.retrieval_method, args.st,
         args.top_k)
+    train, eval = train_test_split(train_dataset, test_size=0.1,
+                                                         random_state=args.seed)
     if args.local_rank == -1:
-        train_sampler = RandomSampler(train_dataset)
+        train_sampler = RandomSampler(train)
+        eval_sampler = SequentialSampler(eval)
     else:
-        train_sampler = DistributedSampler(train_dataset)
+        train_sampler = DistributedSampler(train)
+        eval_sampler = DistributedSampler(eval)
 
     data_collator = DataCollator(tokenizer)
-    train_dataloader = DataLoader(train_dataset, collate_fn=data_collator, sampler=train_sampler,
+    train_dataloader = DataLoader(train, collate_fn=data_collator, sampler=train_sampler,
                                   batch_size=args.per_device_train_batch_size)
+    eval_dataloader = DataLoader(eval, collate_fn=data_collator, sampler=eval_sampler,
+                                  batch_size=args.per_device_eval_batch_size)
+
 
     # load optimizer
     ds_config["optimizer"]["params"]["lr"] = args.learning_rate
@@ -278,10 +334,12 @@ def main():
             model.step()
             # 更新学习率调度器
             lr_scheduler.step()
+            lr = lr_scheduler.get_last_lr()[0]
             if (step + 1) % args.gradient_accumulation_steps == 0:
+                show_loss = (tr_loss - logging_loss) / (args.show_loss_step * args.gradient_accumulation_steps)
                 log_data = log_info(args.global_rank, epoch + (step + 1) / len(train_dataloader), step + 1,
-                                    (tr_loss - logging_loss) / (args.show_loss_step * args.gradient_accumulation_steps),
-                                    lr_scheduler.get_last_lr()[0])
+                                    show_loss,
+                                    lr)
                 print_rank_0(log_data, args.global_rank)
                 global_step += 1
                 # write loss
@@ -289,14 +347,28 @@ def main():
                     print_rank_0("step: {}-{}-{}".format(step + 1,
                                                          global_step, model.global_steps), args.global_rank)
                     if args.global_rank <= 0:
-                        tb_write.add_scalar("train_loss", (tr_loss - logging_loss) /
-                                            (args.show_loss_step * args.gradient_accumulation_steps), global_step)
+                        tb_write.add_scalar("train_loss", show_loss, global_step)
                         logging_loss = tr_loss
                 # save model
                 if args.save_model_step is not None and global_step % args.save_model_step == 0:
                     checkpoint_path = save_checkpoint(model, tokenizer, epoch + 1, global_step, args, ds_config)
                     checkpoints.append(checkpoint_path)
                     checkpoints = manage_checkpoints(checkpoints, max_checkpoints)
+
+        # eval
+        eval_loss = evaluation_loss_perplexity(
+            model, eval_dataloader, device)
+        log_data = log_info(
+            args.global_rank,
+            epoch + 1,
+            step + 1,
+            show_loss,
+            lr,
+            eval_loss
+        )
+        print_rank_0(log_data, args.global_rank)
+        if args.global_rank <= 0:
+            tb_write.add_scalar("eval_loss", eval_loss, global_step)
 
     if args.global_rank <= 0:
         checkpoint_path = save_checkpoint(model, tokenizer, epoch + 1, global_step, args, ds_config)

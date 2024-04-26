@@ -9,6 +9,7 @@
    - `--enhancement`: 是否开启数据增强，如不需要或已增强请设置为`False`
    - `--model_name_or_path`: 基座Base模型存储路径。
    - `--merge_lora` : 是否开启LoRA checkpoint合并，如不需要请设置为`False`。
+   - `--load_in_kbits` : QLoRA级别，可选`4`、`8`、`16`，默认为`16`不启用。
    - `--mode`: 基座Base模型类型。可选项包括：
      - `glm`: ChatGLM
      - `glm2`: ChatGLM2
@@ -75,3 +76,16 @@
 
 
 确保在每一步中根据实际情况调整相应的参数。上述步骤将指导您完成从训练到应用的整个流程。
+### 4. QA:
+
+
+Q---QLoRA微调百川2报错`TypeError: 'BitsAndBytesConfig' object is not subscriptable`
+
+A---在模型目录中找到modeling_baichuan.py修改BaichuanForCausalLM类的__init__方法，将
+```
+if hasattr(config, "quantization_config") and config.quantization_config['load_in_4bit']:
+```
+改为
+```
+if hasattr(config, "quantization_config") and isinstance(config.quantization_config, dict) and config.quantization_config.get('load_in_4bit', False):
+```
