@@ -4,6 +4,13 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io"
+	"math/rand"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/IceBearAI/aigc/src/encode"
 	"github.com/IceBearAI/aigc/src/helpers/tokenizers"
 	"github.com/IceBearAI/aigc/src/repository"
@@ -20,12 +27,6 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"gorm.io/gorm"
 	"gorm.io/gorm/utils"
-	"io"
-	"math/rand"
-	"os"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type Middleware func(Service) Service
@@ -484,8 +485,8 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		Name:  "MAX_GPU_MEMORY",
 		Value: strconv.Itoa(request.MaxGpuMemory),
 	}, runtime.Env{
-		Name:  "USE_VLLM",
-		Value: strconv.FormatBool(request.Vllm),
+		Name:  "MODEL_WORKER_TYPE",
+		Value: strings.ToLower(request.ModelWorker),
 	}, runtime.Env{
 		Name:  "INFERRED_TYPE",
 		Value: request.InferredType,
@@ -578,14 +579,20 @@ func (s *service) ListModels(ctx context.Context, request ListModelRequest) (res
 
 	list := make([]Model, 0)
 	for _, v := range models {
+		var containers []runtime.Container
 		var containerNames []string
 		if v.ModelDeploy.ID > 0 {
-			containerNames, err = s.apiSvc.Runtime().GetDeploymentContainerNames(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(v.ModelName), v.ID))
+			containers, err = s.apiSvc.Runtime().GetContainers(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(v.ModelName), v.ID))
 			if err != nil {
 				_ = level.Warn(logger).Log("api.PaasChat", "GetDeploymentContainerNames", "err", err.Error())
 				continue
 			}
 		}
+
+		for _, container := range containers {
+			containerNames = append(containerNames, container.Name)
+		}
+
 		c := convert(&v)
 		c.ContainerNames = containerNames
 		list = append(list, c)
@@ -599,6 +606,10 @@ func (s *service) ListModels(ctx context.Context, request ListModelRequest) (res
 
 func (s *service) CreateModel(ctx context.Context, request CreateModelRequest) (res Model, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "CreateModel")
+	modelPath := fmt.Sprintf("/data/base-model/%s", request.ModelName)
+	if request.ModelPath != "" {
+		modelPath = request.ModelPath
+	}
 	m, err := s.store.Model().GetModelByModelName(ctx, request.ModelName)
 	if err == nil && m.ID > 0 {
 		_ = level.Warn(logger).Log("store.Model", "GetModelByModelName", "err", "模型名称已存在", "modelName", request.ModelName)
@@ -651,7 +662,7 @@ func (s *service) CreateModel(ctx context.Context, request CreateModelRequest) (
 			TrainImage:    s.options.defaultTrainImage,
 			Name:          fmt.Sprintf("%s-%s", request.ModelName, types.TemplateTypeInference),
 			BaseModel:     request.ModelName,
-			BaseModelPath: fmt.Sprintf("/data/base-model/%s", request.ModelName),
+			BaseModelPath: modelPath,
 			ScriptFile:    "/app/start.sh",
 			OutputDir:     "/data/ft-model",
 			Enabled:       true,
@@ -666,7 +677,7 @@ func (s *service) CreateModel(ctx context.Context, request CreateModelRequest) (
 			TrainImage:    s.options.defaultTrainImage,
 			Name:          fmt.Sprintf("%s-%s", request.ModelName, types.TemplateTypeTrain),
 			BaseModel:     request.ModelName,
-			BaseModelPath: fmt.Sprintf("/data/base-model/%s", request.ModelName),
+			BaseModelPath: modelPath,
 			ScriptFile:    "/app/train.sh",
 			OutputDir:     "/data/ft-model",
 			Enabled:       true,
@@ -693,9 +704,10 @@ func (s *service) GetModel(ctx context.Context, id uint) (res Model, err error) 
 		}
 	}
 	res = convert(&m)
+	var containers []runtime.Container
 	var containerNames []string
 	if m.ModelDeploy.ModelID > 0 {
-		containerNames, err = s.apiSvc.Runtime().GetDeploymentContainerNames(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(m.ModelName), m.ID))
+		containers, err = s.apiSvc.Runtime().GetContainers(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(m.ModelName), m.ID))
 		if err != nil {
 			_ = level.Warn(logger).Log("api.PaasChat", "GetDeploymentContainerNames", "err", err.Error())
 		}
@@ -723,6 +735,10 @@ func (s *service) GetModel(ctx context.Context, id uint) (res Model, err error) 
 	//		_ = level.Warn(logger).Log("util.GetHttpFileBody", "err", err.Error())
 	//	}
 	//}
+
+	for _, v := range containers {
+		containerNames = append(containerNames, v.Name)
+	}
 
 	res.ContainerNames = containerNames
 	return res, nil

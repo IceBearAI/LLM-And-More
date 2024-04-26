@@ -63,11 +63,16 @@ const state = reactive({
   formData: {
     provider: "",
     lang: "",
+    gender: "",
+    ageGroup: "",
+    speakStyle: "",
+    area: "",
     speakName: "",
     text: "",
     title: "",
     speed: 1,
-    tone: null
+    tone: null,
+    setDemo: false
   },
   /** 所选语言 */
   selectedLanguage: {
@@ -126,7 +131,7 @@ const onSubmit = async () => {
       showLoading: "btn#btnSubmit",
       showSuccess: true,
       url: "/api/voice/tts",
-      data: _.omit(state.formData, ["provider", "lang"])
+      data: _.omit(state.formData, ["provider", "lang", "gender", "ageGroup", "speakStyle", "area"])
     });
     if (res) {
       initAudio(res);

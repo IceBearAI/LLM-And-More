@@ -73,6 +73,7 @@ type (
 
 	CreateModelRequest struct {
 		ModelName     string `json:"modelName" validate:"required"`
+		ModelPath     string `json:"modelPath"`
 		ModelType     string `json:"modelType" validate:"required"`
 		BaseModelName string `json:"baseModelName"`
 		MaxTokens     int    `json:"maxTokens" validate:"required"`
@@ -175,7 +176,8 @@ type (
 		Vllm         bool   `json:"vllm"`
 		// 指定每个 GPU 用于存储模型权重的最大内存。这允许它为激活分配更多内存，因此您可以使用更长的上下文长度或更大的批量大小。
 		MaxGpuMemory int    `json:"maxGpuMemory"`
-		K8sCluster   string `json:"k8sCluster"` //k8s集群
+		K8sCluster   string `json:"k8sCluster"`  //k8s集群
+		ModelWorker  string `json:"modelWorker"` // 加速模式
 	}
 
 	// modelLogRequest 模型日志请求

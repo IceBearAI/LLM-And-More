@@ -29,7 +29,7 @@ def convert_new_format_to_old(dataset_path, output_file):
             file.write(json.dumps(old_format_entry, ensure_ascii=False) + "\n")
 
 parser = argparse.ArgumentParser(description='Dataset conversion from new to old format.')
-parser.add_argument('--train_path', type=str, required=True,
+parser.add_argument('--train_path', type=str,  default='',
                     help='Path to the train dataset in JSONL format.')
 parser.add_argument('--test_path', type=str, default='',
                     help='Path to the test dataset in JSONL format (optional).')

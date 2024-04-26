@@ -52,6 +52,41 @@
               <span>{{ getLabels([["speak_provider", row.provider]]) }} </span>
             </template>
           </el-table-column>
+          <el-table-column label="状态" width="100px">
+            <template #default="{ row }">
+              <ChipStatus v-model="row.enabled"></ChipStatus>
+            </template>
+          </el-table-column>
+          <el-table-column label="语音合成" width="100px">
+            <template #default="{ row }">
+              <template v-if="row.enabled">
+                <router-link
+                  :to="{
+                    path: '/voice-print/synthesis/synthesis-voice',
+                    query: { provider: row.provider, lang: row.lang, speakName: row.speakName }
+                  }"
+                  class="text-info"
+                  >合成</router-link
+                >
+              </template>
+              <template v-else> -- </template>
+            </template>
+          </el-table-column>
+          <el-table-column label="克隆" width="100px">
+            <template #default="{ row }">
+              <template v-if="row.provider === 'azure-personal'">
+                <router-link
+                  :to="{
+                    path: '/voice-print/synthesis/speaker/clone-detail',
+                    query: { speakName: row.speakName }
+                  }"
+                  class="text-info"
+                  >克隆</router-link
+                >
+              </template>
+              <template v-else> -- </template>
+            </template>
+          </el-table-column>
           <el-table-column label="语言" width="160px">
             <template #default="{ row }">
               <span>
@@ -83,18 +118,6 @@
           <el-table-column label="试听" min-width="330px">
             <template #default="{ row }">
               <AiAudio :src="row?.speakDemo" />
-            </template>
-          </el-table-column>
-          <el-table-column label="部署" width="100px">
-            <template #default="{ row }">
-              <router-link
-                :to="{
-                  path: '/voice-print/synthesis/synthesis-voice',
-                  query: { provider: row.provider, lang: row.lang, speakName: row.speakName }
-                }"
-                class="text-info"
-                >合成</router-link
-              >
             </template>
           </el-table-column>
           <el-table-column label="备注" prop="remark" min-width="200px"></el-table-column>
@@ -132,6 +155,7 @@ import AiAudio from "@/components/business/AiAudio.vue";
 import CreateSpeakerPane from "./components/CreateSpeakerPane.vue";
 import { http, format } from "@/utils";
 import { useMapRemoteStore } from "@/stores";
+import ChipStatus from "@/components/ui/ChipStatus.vue";
 
 const { loadDictTree, getLabels } = useMapRemoteStore();
 

@@ -50,6 +50,14 @@ type (
 		LearningRate TrainAnalysisObject `json:"learningRate"`
 	}
 
+	diagnosis struct {
+		// 过拟合
+		Overfitting string `json:"overfitting,omitempty"`
+		// 欠拟合
+		Underfitting string `json:"underfitting,omitempty"`
+		// 灾难性遗忘
+		CatastrophicForgetting string `json:"catastrophicForgetting,omitempty"`
+	}
 	JobResponse struct {
 		Id                uint          `json:"id"`                      // ID
 		JobId             string        `json:"jobId"`                   // 任务ID
@@ -77,6 +85,8 @@ type (
 		ProcPerNode       int           `json:"procPerNode"`             // 使用GPU数量
 		EvalBatchSize     int           `json:"evalBatchSize"`           // 评估批次大小
 		AccumulationSteps int           `json:"accumulationSteps"`       // 梯度累加步数
+		Scenario          string        `json:"scenario"`                // 应用场景
+		Diagnosis         *diagnosis    `json:"diagnosis"`               // 诊断
 	}
 
 	ListJobRequest struct {

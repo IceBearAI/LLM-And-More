@@ -1,3 +1,6 @@
+.elevation-1 {
+  box-shadow: rgb(0 0 0 / 5%) 0px 2px 4px !important;
+}
 .elevation-9 {
   box-shadow: rgb(0 0 0 / 5%) 0px 9px 17.5px !important;
 }
@@ -7,9 +10,8 @@
 }
 
 .primary-shadow {
-  box-shadow: rgba(var(--v-theme-primary), 0.30) 0px 12px 14px 0px;
+  box-shadow: rgba(var(--v-theme-primary), 0.3) 0px 12px 14px 0px;
   &:hover {
     box-shadow: none;
   }
 }
-

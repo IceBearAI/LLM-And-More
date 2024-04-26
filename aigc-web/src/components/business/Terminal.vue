@@ -1,5 +1,7 @@
 <template>
-  <div ref="terminalRef" class="terminal"></div>
+  <div class="terminal-wrapper">
+    <div ref="terminalRef" class="terminal-main" :style="{ height }"></div>
+  </div>
 </template>
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from "vue";
@@ -10,9 +12,32 @@ import { CanvasAddon } from "@xterm/addon-canvas";
 import { toast } from "vue3-toastify";
 import "@xterm/xterm/css/xterm.css";
 
+const baseTheme = {
+  foreground: "#F8F8F8",
+  background: "#2D2E2C",
+  selection: "#5DA5D533",
+  black: "#1E1E1D",
+  brightBlack: "#262625",
+  red: "#CE5C5C",
+  brightRed: "#FF7272",
+  green: "#5BCC5B",
+  brightGreen: "#72FF72",
+  yellow: "#CCCC5B",
+  brightYellow: "#FFFF72",
+  blue: "#5D5DD3",
+  brightBlue: "#7279FF",
+  magenta: "#BC5ED1",
+  brightMagenta: "#E572FF",
+  cyan: "#5DA5D5",
+  brightCyan: "#72F0FF",
+  white: "#F8F8F8",
+  brightWhite: "#FFFFFF"
+};
+
 interface IProps {
   wsUrl: string;
   startData: Record<string, any>;
+  height: string;
 }
 
 interface IEmits {
@@ -21,7 +46,8 @@ interface IEmits {
 
 const props = withDefaults(defineProps<IProps>(), {
   wsUrl: "",
-  startData: () => ({})
+  startData: () => ({}),
+  height: null
 });
 const emit = defineEmits<IEmits>();
 
@@ -62,14 +88,13 @@ const socketOnOpen = () => {
 
 const initTerminal = () => {
   terminal.value = new Terminal({
+    fontFamily: '"Cascadia Code", Menlo, monospace',
     disableStdin: false, // 是否应禁用输入
     windowsMode: true, // 根据窗口换行
     cursorBlink: true, // 光标闪烁
     cursorStyle: "underline", // 光标样式
-    theme: {
-      foreground: "#ececec", // 字体
-      background: "#000" // 背景色
-    }
+    theme: baseTheme,
+    allowProposedApi: true
   });
   const element = terminalRef.value;
   const fitAddon = new FitAddon(); // 全屏插件
@@ -143,7 +168,12 @@ onBeforeUnmount(() => {
 });
 </script>
 <style scoped lang="scss">
-.terminal {
+.terminal-wrapper {
+  background-color: #2d2e2c;
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+.terminal-main {
   touch-action: none;
 }
 </style>

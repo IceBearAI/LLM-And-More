@@ -29,12 +29,25 @@
           </el-table-column>
           <el-table-column label="人脸个数" prop="faceNum" min-width="160px"></el-table-column>
           <el-table-column label="比对阈值" prop="denoiseStrength" min-width="160px"></el-table-column>
+          <el-table-column label="人脸边距" prop="faceMargin" min-width="160px">
+            <template #default="{ row }">
+              <v-row class="text-left" dense>
+                <v-col cols="12">req: {{ row.faceMargin }}</v-col>
+                <v-col cols="12">real: {{ row.faceMarginReal }}</v-col>
+              </v-row>
+            </template>
+          </el-table-column>
           <el-table-column label="是否同一个人" min-width="120px">
             <template #default="{ row }">
               <ChipBoolean v-model="row.isSame"></ChipBoolean>
             </template>
           </el-table-column>
           <el-table-column label="操作人" prop="operatorEmail" min-width="150px" show-overflow-tooltip></el-table-column>
+          <el-table-column label="创建时间" min-width="165px">
+            <template #default="{ row }">
+              {{ format.dateFormat(row.createdAt, "YYYY-MM-DD HH:mm:ss") }}
+            </template>
+          </el-table-column>
           <el-table-column label="操作" width="80px" fixed="right">
             <template #default="{ row }">
               <ButtonsInTable :buttons="getButtons(row)" onlyOne />

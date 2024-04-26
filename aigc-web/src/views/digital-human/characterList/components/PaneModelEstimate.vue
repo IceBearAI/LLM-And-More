@@ -248,7 +248,7 @@ const emits = defineEmits(["submit"]);
 const refPane = ref();
 const refForm = ref();
 const refVideoFileId = ref();
-const regName = /^[a-zA-Z0-9_\u4e00-\u9fa5-]+$/;
+const regName = /^[a-zA-Z0-9-]+$/;
 const rules = reactive({
   coverFileId: [v => !!v || "请上传预览图片"],
   videoFileId: [
@@ -276,7 +276,7 @@ const rules = reactive({
         if ((value.length > 1 || value.length <= 30) && regName.test(value)) {
           return true;
         } else {
-          return "请输入正确标识：中文、数字、字母、-、_";
+          return "请输入正确标识：数字、字母、-";
         }
       } else {
         return "请输入标识";

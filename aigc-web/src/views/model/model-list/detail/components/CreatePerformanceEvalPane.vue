@@ -106,7 +106,7 @@
                   hide-details="auto"
                 >
                   <template #prepend>
-                    <label class="required"
+                    <label
                       >GPU内存
                       <Explain
                         >指定每个 GPU
@@ -166,7 +166,7 @@ const rules = reactive({
   batchSize: [v => !!v || "请输入单卡Batch大小"],
   cpu: [v => validator.validNumberInput(v, 0, 100, "请输入使用CPU数量", true)],
   gpu: [v => validator.validNumberInput(v, 0, 20, "请输入使用GPU数量", true)],
-  maxGpuMemory: [v => validator.validNumberInput(v, 1, 80, "请输入GPU内存", true)]
+  maxGpuMemory: [v => validator.validNumberInput(v, 1, 80, "", true)]
 });
 
 const handleAfterUpload = ({ res }) => {
@@ -198,7 +198,7 @@ const onSubmit = async ({ valid, errors, showLoading }) => {
     } else {
       data.cpu = 0;
     }
-    if (data.gpu < 2) {
+    if (data.gpu < 2 || !data.maxGpuMemory) {
       delete data.maxGpuMemory;
     }
     const [err, res] = await http.post({

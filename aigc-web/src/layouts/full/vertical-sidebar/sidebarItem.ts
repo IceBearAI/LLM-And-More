@@ -192,7 +192,7 @@ let sidebarItem: menu[] = [
   //       title: "speakerManagement",
   //       icon: IconCircleDot,
   //       iconSize: "small",
-  //       to: "/voice-print/synthesis/speaker"
+  //       to: "/voice-print/synthesis/speaker/list"
   //     },
   //     {
   //       title: "ttsSynthesisList",
