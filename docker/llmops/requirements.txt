@@ -25,3 +25,6 @@ python-doc
 python-docx
 unstructured
 jq
+#quantization
+accelerate
+bitsandbytes
