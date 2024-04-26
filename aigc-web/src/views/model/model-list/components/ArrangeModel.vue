@@ -116,12 +116,16 @@
             <label> </label>
           </template>
         </Select>
-
-        <v-checkbox style="margin-top: -14px" label="开启VLLM" v-model="formData.vllm" hide-details="auto" color="primary">
+        <Select
+          placeholder="请选择加速方式"
+          hide-details="auto"
+          :mapDictionary="{ code: 'model_worker' }"
+          v-model="formData.modelWorker"
+        >
           <template #prepend>
-            <label>VLLM <Explain>如果想要高吞吐量批量处理，您可以尝试开启，开启后会占用gpu的所有显存容量</Explain></label>
+            <label>推理加速</label>
           </template>
-        </v-checkbox>
+        </Select>
       </v-form>
     </div>
   </Pane>
@@ -152,9 +156,9 @@ const state = reactive<{
     gpu: 1,
     maxGpuMemory: "",
     quantization: "",
-    vllm: "",
     inferredType: "cpu",
-    k8sCluster: null
+    k8sCluster: null,
+    modelWorker: null
   }
 });
 const { formData, id } = toRefs(state);
@@ -196,15 +200,6 @@ const rules = reactive({
         return "请开启量化";
       }
     }
-  ],
-  vllm: [
-    value => {
-      if (value && value != false) {
-        return true;
-      } else {
-        return "请开启VLLM";
-      }
-    }
   ]
 });
 
@@ -230,6 +225,7 @@ const onSubmit = async ({ valid, showLoading }) => {
       data.cpu = 0;
     }
     data.maxGpuMemory = data.maxGpuMemory || 0;
+    data.modelWorker = data.modelWorker || "";
     const [err, res] = await http.post({
       ...showLoading,
       showSuccess: true,

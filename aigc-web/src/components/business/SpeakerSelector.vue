@@ -108,6 +108,7 @@ const getList = async () => {
     url: "/api/voice/speak",
     data: {
       pageSize: -1,
+      enabledType: "enabled",
       ...state.queryParams
     }
   });

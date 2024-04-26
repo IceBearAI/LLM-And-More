@@ -105,7 +105,21 @@ const MainRoutes: RouteRecordRaw = {
     },
     {
       path: "/voice-print/synthesis/speaker",
-      component: () => import("@/views/voice-print/synthesis/speaker-manage/speakerManage.vue")
+      component: () => import("@/components/business/AspectPage.vue"),
+      meta: {
+        aspectPageInclude: ["voiceList"]
+      },
+      redirect: "/voice-print/synthesis/speaker/list",
+      children: [
+        {
+          path: "list",
+          component: () => import("@/views/voice-print/synthesis/speaker-manage/speakerManage.vue")
+        },
+        {
+          path: "clone-detail",
+          component: () => import("@/views/voice-print/synthesis/speaker-manage/detail/cloneDetail.vue")
+        }
+      ]
     },
     {
       path: "/voice-print/synthesis",

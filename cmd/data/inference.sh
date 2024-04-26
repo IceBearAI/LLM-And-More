@@ -15,6 +15,7 @@
 # - HTTP_PROXY: HTTP代理
 # - HTTPS_PROXY: HTTPS代理
 # - NO_PROXY: 不代理的地址
+# - MODEL_WORKER_TYPE: 模型工作类型
 
 # shellcheck disable=SC2153
 if [ "$HTTP_PROXY" != "" ]; then
@@ -32,8 +33,9 @@ fi
 MODEL_WORKER=fastchat.serve.model_worker
 OS_TYPE=$(uname)
 
-# MODEL_WORKER
-if [ "$USE_VLLM" == "true" ]; then
+if [ "$MODEL_WORKER_TYPE" == "sglang" ]; then
+    MODEL_WORKER="fastchat.serve.sglang_worker"
+elif [ "$MODEL_WORKER_TYPE" == "vllm" ]; then
     MODEL_WORKER="fastchat.serve.vllm_worker"
 fi
 

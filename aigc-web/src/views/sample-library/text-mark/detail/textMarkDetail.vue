@@ -311,7 +311,7 @@ const onNext = async () => {
 const handleAIMark = async () => {
   aiMarkLoading.value = true;
   const [err, res] = await http.post({
-    timeout: 30 * 1000, // 30s
+    timeout: 60 * 1000, // 60s
     showLoading: false,
     showSuccess: false,
     url: `/api/mgr/annotation/task/${state.annotationId}/segment/${state.formData.uuid}/generation/annotation`,

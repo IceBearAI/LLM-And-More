@@ -67,7 +67,70 @@
 
             <v-col cols="12">
               <v-label class="mb-2 required">请选择需要合成的发声人</v-label>
-              <SpeakerSelector v-model="formData.speakName" />
+              <v-expansion-panels class="mb-3">
+                <v-expansion-panel elevation="1">
+                  <v-expansion-panel-title>高级搜索</v-expansion-panel-title>
+                  <v-expansion-panel-text class="mt-4" eager>
+                    <v-row>
+                      <v-col cols="4">
+                        <Select
+                          :mapDictionary="{ code: 'speak_provider' }"
+                          label="请选择供应"
+                          v-model="speakerSearchData.provider"
+                          @change="reloadSpeaker"
+                        >
+                        </Select>
+                      </v-col>
+                      <v-col cols="4">
+                        <Select
+                          :mapDictionary="{ code: 'speak_lang' }"
+                          label="请选择语言"
+                          v-model="speakerSearchData.lang"
+                          @change="reloadSpeaker"
+                        >
+                        </Select>
+                      </v-col>
+                      <v-col cols="4">
+                        <Select
+                          :mapDictionary="{ code: 'speak_gender' }"
+                          label="请选择性别"
+                          v-model="speakerSearchData.gender"
+                          @change="reloadSpeaker"
+                        >
+                        </Select>
+                      </v-col>
+                      <v-col cols="4">
+                        <Select
+                          :mapDictionary="{ code: 'speak_age_group' }"
+                          label="请选择年龄段"
+                          v-model="speakerSearchData.ageGroup"
+                          @change="reloadSpeaker"
+                        >
+                        </Select>
+                      </v-col>
+                      <v-col cols="4">
+                        <Select
+                          :mapDictionary="{ code: 'speak_style' }"
+                          label="请选择说话风格"
+                          v-model="speakerSearchData.speakStyle"
+                          @change="reloadSpeaker"
+                        >
+                        </Select>
+                      </v-col>
+                      <v-col cols="4">
+                        <Select
+                          :mapDictionary="{ code: 'speak_area' }"
+                          label="请选择适应范围"
+                          v-model="speakerSearchData.area"
+                          @change="reloadSpeaker"
+                        >
+                        </Select>
+                      </v-col>
+                    </v-row>
+                  </v-expansion-panel-text>
+                </v-expansion-panel>
+              </v-expansion-panels>
+              <SpeakerSelector ref="refSpeakerSelector" v-model="formData.speakName" />
             </v-col>
             <v-col cols="12" class="hv-center">
               <AiBtn id="btnSubmit" color="secondary" width="200" height="48" size="large" @click="onSubmit">开始合成</AiBtn>
@@ -129,10 +192,31 @@ const state = reactive<ItfProvideState>({
 const { style, formData, selectedSpeaker } = toRefs(state);
 provide("provieDigitalHumanEdit", state);
 
+const speakerSearchData = reactive({
+  provider: null,
+  lang: null,
+  gender: null,
+  ageGroup: null,
+  speakStyle: null,
+  area: null
+});
+const refSpeakerSelector = ref();
+
 const rules = reactive({
   title: [value => !!value || "请输入标题"],
   text: [value => !!value || "请输入语音播放文本", value => value.length <= 500 || "文本内容不能超过500个字"]
 });
+
+const reloadSpeaker = () => {
+  refSpeakerSelector.value.reload({
+    lang: speakerSearchData.lang,
+    provider: speakerSearchData.provider,
+    gender: speakerSearchData.gender,
+    ageGroup: speakerSearchData.ageGroup,
+    speakStyle: speakerSearchData.speakStyle,
+    area: speakerSearchData.area
+  });
+};
 
 // 生成语音播放文本
 const onAIText = async () => {

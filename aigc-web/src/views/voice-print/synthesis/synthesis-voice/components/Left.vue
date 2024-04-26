@@ -1,7 +1,7 @@
 <template>
   <v-form ref="refForm" class="my-form">
     <v-row>
-      <v-col cols="12">
+      <v-col cols="4">
         <v-label class="mb-2">供应</v-label>
         <Select
           :mapDictionary="{ code: 'speak_provider' }"
@@ -11,13 +11,53 @@
         >
         </Select>
       </v-col>
-      <v-col cols="12">
+      <v-col cols="4">
         <v-label class="mb-2">语言</v-label>
         <Select
           :mapDictionary="{ code: 'speak_lang' }"
           placeholder="请选择语言"
           v-model="formData.lang"
           v-model:infos="provideSynthesisVoice.selectedLanguage"
+          @change="reloadSpeaker"
+        >
+        </Select>
+      </v-col>
+      <v-col cols="4">
+        <v-label class="mb-2">性别</v-label>
+        <Select
+          :mapDictionary="{ code: 'speak_gender' }"
+          placeholder="请选择性别"
+          v-model="formData.gender"
+          @change="reloadSpeaker"
+        >
+        </Select>
+      </v-col>
+      <v-col cols="4">
+        <v-label class="mb-2">年龄段</v-label>
+        <Select
+          :mapDictionary="{ code: 'speak_age_group' }"
+          placeholder="请选择年龄段"
+          v-model="formData.ageGroup"
+          @change="reloadSpeaker"
+        >
+        </Select>
+      </v-col>
+      <v-col cols="4">
+        <v-label class="mb-2">说话风格</v-label>
+        <Select
+          :mapDictionary="{ code: 'speak_style' }"
+          placeholder="请选择说话风格"
+          v-model="formData.speakStyle"
+          @change="reloadSpeaker"
+        >
+        </Select>
+      </v-col>
+      <v-col cols="4">
+        <v-label class="mb-2">适应范围</v-label>
+        <Select
+          :mapDictionary="{ code: 'speak_area' }"
+          placeholder="请选择适应范围"
+          v-model="formData.area"
           @change="reloadSpeaker"
         >
         </Select>
@@ -54,7 +94,11 @@ const rules = reactive({
 const reloadSpeaker = () => {
   refSpeakerSelector.value.reload({
     lang: formData.value.lang,
-    provider: formData.value.provider
+    provider: formData.value.provider,
+    gender: formData.value.gender,
+    ageGroup: formData.value.ageGroup,
+    speakStyle: formData.value.speakStyle,
+    area: formData.value.area
   });
 };
 

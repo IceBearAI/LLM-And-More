@@ -146,6 +146,8 @@ type FineTuningTrainJob struct {
 	StartTrainTime *time.Time `gorm:"column:start_train_time;null;"`
 	// Scenario 应用场景
 	Scenario ScenarioType `gorm:"column:scenario;null;default:'general'"`
+	// Diagnosis 诊断
+	Diagnosis string `gorm:"column:diagnosis;null;"`
 
 	// Template 微调模版
 	Template FineTuningTemplate `gorm:"foreignKey:TemplateId;references:ID"`
