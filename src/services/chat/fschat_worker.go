@@ -12,17 +12,17 @@ import (
 )
 
 // WithControllerAddress is the option to set the controller address.
-func WithControllerAddress(addr string) CreationOption {
-	return func(o *CreationOptions) {
+func WithControllerAddress(addr string) WorkerCreationOption {
+	return func(o *WorkerCreationOptions) {
 		o.controllerAddress = addr
 	}
 }
 
-type fschatService struct {
-	options *CreationOptions
+type worker struct {
+	options *WorkerCreationOptions
 }
 
-func (s *fschatService) WorkerCheckLength(ctx context.Context, workerAddress string, model string, maxTokens int, prompt any) (res int, err error) {
+func (s *worker) WorkerCheckLength(ctx context.Context, workerAddress string, model string, maxTokens int, prompt any) (res int, err error) {
 	if maxTokens <= 0 {
 		maxTokens = 1024
 	}
@@ -45,7 +45,7 @@ func (s *fschatService) WorkerCheckLength(ctx context.Context, workerAddress str
 	return
 }
 
-func (s *fschatService) ListModels(ctx context.Context) (modelList []ModelCard, err error) {
+func (s *worker) ListModels(ctx context.Context) (modelList []ModelCard, err error) {
 	u, err := url.Parse(fmt.Sprintf("%s/list_models", s.options.controllerAddress))
 	if err != nil {
 		err = errors.Wrap(err, "failed to parse url")
@@ -70,7 +70,7 @@ func (s *fschatService) ListModels(ctx context.Context) (modelList []ModelCard, 
 	return
 }
 
-func (s *fschatService) GetWorkerAddress(ctx context.Context, model string) (res string, err error) {
+func (s *worker) GetWorkerAddress(ctx context.Context, model string) (res string, err error) {
 	u, err := url.Parse(fmt.Sprintf("%s/get_worker_address", s.options.controllerAddress))
 	if err != nil {
 		err = errors.Wrap(err, "failed to parse url")
@@ -89,7 +89,7 @@ func (s *fschatService) GetWorkerAddress(ctx context.Context, model string) (res
 	return war.Address, nil
 }
 
-func (s *fschatService) WorkerGetConvTemplate(ctx context.Context, workerAddress string, model string) (res ModelConvTemplate, err error) {
+func (s *worker) WorkerGetConvTemplate(ctx context.Context, workerAddress string, model string) (res ModelConvTemplate, err error) {
 	u, err := url.Parse(fmt.Sprintf("%s/worker_get_conv_template", workerAddress))
 	if err != nil {
 		err = errors.Wrap(err, "failed to parse url")
@@ -104,22 +104,31 @@ func (s *fschatService) WorkerGetConvTemplate(ctx context.Context, workerAddress
 	return
 }
 
-func (s *fschatService) WorkerGenerateStream(ctx context.Context, workerAddress string, model string, stream string) (res string, err error) {
+func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string, model string, stream string) (res string, err error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (s *fschatService) WorkerGenerate(ctx context.Context, workerAddress string, params GenerateParams) (res string, err error) {
+func (s *worker) WorkerGenerate(ctx context.Context, workerAddress string, params GenerateParams) (res string, err error) {
 	u, err := url.Parse(fmt.Sprintf("%s/worker_generate", workerAddress))
 	if err != nil {
 		err = errors.Wrap(err, "failed to parse url")
 		return
 	}
-	fmt.Println(u.String())
+	ep := kithttp.NewClient(http.MethodPost, u, kithttp.EncodeJSONRequest, func(ctx context.Context, response2 *http.Response) (response interface{}, err error) {
+		b, _ := io.ReadAll(response2.Body)
+		fmt.Println(string(b))
+		return
+	}, s.options.httpClientOpts...).Endpoint()
+	_, err = ep(ctx, params)
+	if err != nil {
+		err = errors.Wrap(err, "failed to call endpoint")
+		return
+	}
 	return
 }
 
-func (s *fschatService) WorkerGetEmbeddings(ctx context.Context, workerAddress string, payload EmbeddingPayload) (res EmbeddingsResponse, err error) {
+func (s *worker) WorkerGetEmbeddings(ctx context.Context, workerAddress string, payload EmbeddingPayload) (res EmbeddingsResponse, err error) {
 	u, err := url.Parse(fmt.Sprintf("%s/get_embeddings", workerAddress))
 	if err != nil {
 		err = errors.Wrap(err, "failed to parse url")
@@ -172,7 +181,7 @@ func (s *fschatService) WorkerGetEmbeddings(ctx context.Context, workerAddress s
 	return
 }
 
-func (s *fschatService) WorkerCountToken(ctx context.Context, workerAddress, model string, prompt any) (res int, err error) {
+func (s *worker) WorkerCountToken(ctx context.Context, workerAddress, model string, prompt any) (res int, err error) {
 	u, err := url.Parse(fmt.Sprintf("%s/count_token", workerAddress))
 	if err != nil {
 		err = errors.Wrap(err, "failed to parse url")
@@ -191,7 +200,7 @@ func (s *fschatService) WorkerCountToken(ctx context.Context, workerAddress, mod
 	return resp.Count, nil
 }
 
-func (s *fschatService) WorkerGetStatus(ctx context.Context, workerAddress string) (res WorkerStatus, err error) {
+func (s *worker) WorkerGetStatus(ctx context.Context, workerAddress string) (res WorkerStatus, err error) {
 	u, err := url.Parse(fmt.Sprintf("%s/worker_get_status", workerAddress))
 	if err != nil {
 		err = errors.Wrap(err, "failed to parse url")
@@ -206,7 +215,7 @@ func (s *fschatService) WorkerGetStatus(ctx context.Context, workerAddress strin
 	return
 }
 
-func (s *fschatService) WorkerGetModelDetails(ctx context.Context, workerAddress, model string) (res ModelDetail, err error) {
+func (s *worker) WorkerGetModelDetails(ctx context.Context, workerAddress, model string) (res ModelDetail, err error) {
 	u, err := url.Parse(fmt.Sprintf("%s/model_details", workerAddress))
 	if err != nil {
 		err = errors.Wrap(err, "failed to parse url")
@@ -221,15 +230,15 @@ func (s *fschatService) WorkerGetModelDetails(ctx context.Context, workerAddress
 	return
 }
 
-func NewFsChat(opts ...CreationOption) Service {
-	options := &CreationOptions{
+func NewFastChatWorker(opts ...WorkerCreationOption) WorkerService {
+	options := &WorkerCreationOptions{
 		controllerAddress: "http://fschat-controller:21001",
 	}
 	for _, opt := range opts {
 		opt(options)
 	}
 
-	return &fschatService{
+	return &worker{
 		options: options,
 	}
 }
