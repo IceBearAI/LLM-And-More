@@ -241,8 +241,14 @@ def notexists_mkdir(args):
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     # 不存在即创建tensorboard目录
-    if not os.path.exists(args.tensorboard_path):
+    try:
+        os.rmdir(args.tensorboard_path)
+    except :
+        print("tensorboard_path not exists.")
+    try:
         os.makedirs(args.tensorboard_path)
+    except:
+        print("tensorboard_path exists.")
     # 不存在即创建data_output目录
     if not os.path.exists(args.data_output_path):
         os.makedirs(args.data_output_path)
@@ -302,7 +308,7 @@ def main():
             print_rank_0('only optimizing LoRA parameters.')
     else:
         print_rank_0('not using LoRA.')
-    model = model.to(device)
+    # model = model.to(device)
     # Prepare the data
     print_rank_0('start preparing dataset...')
     train_phase = 1
