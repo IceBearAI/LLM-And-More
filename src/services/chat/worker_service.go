@@ -37,7 +37,26 @@ type UsageInfo struct {
 	CompletionTokens int `json:"completion_tokens"`
 }
 
-// GenerateParams 生成参数
+// GenerateStreamParams 生成流参数
+type GenerateStreamParams struct {
+	Model            string      `json:"model"`
+	Prompt           string      `json:"prompt"`
+	Temperature      float32     `json:"temperature"`
+	Logprobs         bool        `json:"logprobs"`
+	TopP             float32     `json:"top_p"`
+	TopK             int         `json:"top_k"`
+	PresencePenalty  float32     `json:"presence_penalty"`
+	FrequencyPenalty float32     `json:"frequency_penalty"`
+	MaxNewTokens     int         `json:"max_new_tokens"`
+	Echo             bool        `json:"echo"`
+	StopTokenIds     interface{} `json:"stop_token_ids"`
+	Images           []any       `json:"images"`
+	BestOf           int         `json:"best_of"`
+	UseBeamSearch    bool        `json:"use_beam_search"`
+	Stop             any         `json:"stop"`
+}
+
+// GenerateParams 生成流参数
 type GenerateParams struct {
 	Model            string      `json:"model"`
 	Prompt           string      `json:"prompt"`
@@ -111,21 +130,24 @@ type ModelDetail struct {
 	ContextLength int `json:"context_length"`
 }
 
+// Conv 对话
+type Conv struct {
+	Name           string     `json:"name"`
+	SystemTemplate string     `json:"system_template"`
+	SystemMessage  string     `json:"system_message"`
+	Roles          []string   `json:"roles"`
+	Messages       [][]string `json:"messages"`
+	Offset         int        `json:"offset"`
+	SepStyle       int        `json:"sep_style"`
+	Sep            string     `json:"sep"`
+	Sep2           string     `json:"sep2"`
+	StopStr        string     `json:"stop_str"`
+	StopTokenIds   []int      `json:"stop_token_ids"`
+}
+
 // ModelConvTemplate 对话模板
 type ModelConvTemplate struct {
-	Conv struct {
-		Name           string        `json:"name"`
-		SystemTemplate string        `json:"system_template"`
-		SystemMessage  string        `json:"system_message"`
-		Roles          []string      `json:"roles"`
-		Messages       []interface{} `json:"messages"`
-		Offset         int           `json:"offset"`
-		SepStyle       int           `json:"sep_style"`
-		Sep            string        `json:"sep"`
-		Sep2           interface{}   `json:"sep2"`
-		StopStr        string        `json:"stop_str"`
-		StopTokenIds   []int         `json:"stop_token_ids"`
-	} `json:"conv"`
+	Conv Conv `json:"conv"`
 }
 
 // WorkerStatus 工作状态
@@ -138,6 +160,22 @@ type WorkerStatus struct {
 	QueueLength int `json:"queue_length"`
 }
 
+type Logprobs struct {
+	TextOffset    []int                `json:"text_offset"`
+	Tokens        []string             `json:"tokens"`
+	TokenLogprobs []float32            `json:"token_logprobs"`
+	TopLogprobs   []map[string]float32 `json:"top_logprobs"`
+}
+
+// WorkerGenerateStreamResponse 工作生成流响应
+type WorkerGenerateStreamResponse struct {
+	Text         string    `json:"text"`
+	ErrorCode    int       `json:"error_code"`
+	Usage        UsageInfo `json:"usage"`
+	FinishReason string    `json:"finish_reason"`
+	Logprobs     Logprobs  `json:"logprobs"`
+}
+
 // WorkerService 服务接口
 type WorkerService interface {
 	// ListModels 列出模型 调用 controller
@@ -147,9 +185,9 @@ type WorkerService interface {
 	// WorkerGetConvTemplate 获取worker对话模板
 	WorkerGetConvTemplate(ctx context.Context, workerAddress, model string) (res ModelConvTemplate, err error)
 	// WorkerGenerateStream 生成worker对话流
-	WorkerGenerateStream(ctx context.Context, workerAddress, model string, stream string) (res string, err error)
+	WorkerGenerateStream(ctx context.Context, workerAddress string, params GenerateStreamParams) (res <-chan WorkerGenerateStreamResponse, err error)
 	// WorkerGenerate 生成worker对话
-	WorkerGenerate(ctx context.Context, workerAddress string, params GenerateParams) (res string, err error)
+	WorkerGenerate(ctx context.Context, workerAddress string, params GenerateParams) (res <-chan WorkerGenerateStreamResponse, err error)
 	// WorkerGetEmbeddings 获取worker嵌入
 	WorkerGetEmbeddings(ctx context.Context, workerAddress string, payload EmbeddingPayload) (res EmbeddingsResponse, err error)
 	// WorkerCountToken 计数令牌

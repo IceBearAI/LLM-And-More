@@ -10,10 +10,12 @@ import (
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/lithammer/shortuuid/v4"
 	"github.com/pkg/errors"
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/sashabaranov/go-openai"
 	"reflect"
+	"time"
 )
 
 // CreationOptions is the options for the faceswap service.
@@ -163,7 +165,94 @@ func (s *service) generateCompletionStreamGenerator(ctx context.Context, worker 
 	//    yield "data: [DONE]\n\n"
 }
 
-func (s *service) localAIChatCompletion(ctx context.Context, modelInfo types.Models, req openai.CompletionRequest) {
+func (s *service) localAIChatCompletionStream(ctx context.Context, modelInfo types.Models, req openai.ChatCompletionRequest) (res <-chan openai.ChatCompletionStream, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	svc := chat.NewFastChatWorker()
+	models, err := svc.ListModels(ctx)
+	if err != nil {
+		err = errors.WithMessage(err, "failed to list models")
+		_ = level.Warn(logger).Log("msg", "failed to list models", "err", err)
+		return
+	}
+	var exists bool
+	for _, model := range models {
+		if model.ID == req.Model {
+			exists = true
+			break
+		}
+	}
+	if !exists {
+		err = errors.New("model not found")
+		_ = level.Warn(logger).Log("msg", "model not found", "err", err)
+		return
+	}
+	workerAddress, err := svc.GetWorkerAddress(ctx, modelInfo.ModelName)
+	if err != nil {
+		err = errors.WithMessage(err, "failed to get worker address")
+		_ = level.Warn(logger).Log("msg", "failed to get worker address", "err", err)
+		return
+	}
+	var maxTokens int
+	prompts := s.processInput(req.Model, req.Messages)
+	for _, prompt := range prompts {
+		maxTokens, err = svc.WorkerCheckLength(ctx, workerAddress, req.Model, req.MaxTokens, prompt)
+		if err != nil {
+			err = errors.WithMessage(err, "failed to check length")
+			_ = level.Warn(logger).Log("msg", "failed to check length", "err", err)
+			return
+		}
+	}
+	if maxTokens < req.MaxTokens {
+		req.MaxTokens = maxTokens
+	}
+
+	// todo: 获取模版，并处理面prompt
+	stream, err := svc.WorkerGenerateStream(ctx, workerAddress, chat.GenerateStreamParams{
+		Model:            req.Model,
+		Prompt:           "",
+		Temperature:      req.Temperature,
+		Logprobs:         req.LogProbs,
+		TopP:             req.TopP,
+		TopK:             -1,
+		PresencePenalty:  req.PresencePenalty,
+		FrequencyPenalty: req.FrequencyPenalty,
+		MaxNewTokens:     req.MaxTokens,
+		StopTokenIds:     nil,
+		Images:           nil,
+		UseBeamSearch:    false,
+		Stop:             req.Stop,
+	})
+	if err != nil {
+		err = errors.WithMessage(err, "failed to generate stream")
+		return
+	}
+	now := time.Now().UnixMilli()
+	dot := make(chan openai.ChatCompletionStreamResponse)
+	for content := range stream {
+		if content.ErrorCode != 0 {
+			err = errors.New(content.Text)
+			return
+		}
+		dot <- openai.ChatCompletionStreamResponse{
+			ID:      fmt.Sprintf("cmpl-%s", shortuuid.New()),
+			Object:  "chat.completion.chunk",
+			Created: now,
+			Model:   req.Model,
+			Choices: []openai.ChatCompletionStreamChoice{
+				{
+					FinishReason: openai.FinishReason(content.FinishReason),
+					Delta: openai.ChatCompletionStreamChoiceDelta{
+						Content: content.Text,
+						Role:    "assistant",
+					},
+				},
+			},
+		}
+	}
+	return
+}
+
+func (s *service) localAIChatCompletion(ctx context.Context, modelInfo types.Models, req openai.CompletionRequest) (res <-chan openai.ChatCompletionResponse, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 	svc := chat.NewFastChatWorker()
 	models, err := svc.ListModels(ctx)
@@ -204,15 +293,54 @@ func (s *service) localAIChatCompletion(ctx context.Context, modelInfo types.Mod
 		req.MaxTokens = maxTokens
 	}
 	req.Prompt = prompts
-	if req.Stream {
-		//stream, err := svc.WorkerGenerateStream(ctx, workerAddress, req.Model, req.Prompt)
-		//if err != nil {
-		//	err = errors.WithMessage(err, "failed to generate stream")
-		//	_ = level.Warn(logger).Log("msg", "failed to generate stream", "err", err)
-		//	return
-		//}
-		//fmt.Println(stream)
+	// todo: 获取模版，并处理面prompt
+	wsrStream, err := svc.WorkerGenerate(ctx, workerAddress, chat.GenerateParams{
+		Model:            req.Model,
+		Prompt:           "",
+		Temperature:      req.Temperature,
+		Logprobs:         req.LogProbs,
+		TopP:             req.TopP,
+		TopK:             -1,
+		PresencePenalty:  req.PresencePenalty,
+		FrequencyPenalty: req.FrequencyPenalty,
+		MaxNewTokens:     req.MaxTokens,
+		Echo:             req.Echo,
+		StopTokenIds:     nil,
+		Images:           nil,
+		BestOf:           req.BestOf,
+		UseBeamSearch:    false,
+		Stop:             req.Stop,
+	})
+	if err != nil {
+		err = errors.WithMessage(err, "failed to generate stream")
 		return
+	}
+	now := time.Now().UnixMilli()
+	dot := make(chan openai.CompletionResponse)
+	for content := range wsrStream {
+		if content.ErrorCode != 0 {
+			err = errors.New(content.Text)
+			return
+		}
+		dot <- openai.CompletionResponse{
+			ID:      fmt.Sprintf("cmpl-%s", shortuuid.New()),
+			Object:  "chat.completion.chunk",
+			Created: now,
+			Model:   req.Model,
+			Choices: []openai.CompletionChoice{
+				{
+					Index:        0,
+					FinishReason: content.FinishReason,
+					Text:         content.Text,
+					LogProbs: openai.LogprobResult{
+						Tokens:        content.Logprobs.Tokens,
+						TokenLogprobs: content.Logprobs.TokenLogprobs,
+						TopLogprobs:   content.Logprobs.TopLogprobs,
+						TextOffset:    content.Logprobs.TextOffset,
+					},
+				},
+			},
+		}
 	}
 
 	// text_completions = []
@@ -264,6 +392,7 @@ func (s *service) localAIChatCompletion(ctx context.Context, modelInfo types.Mod
 	//        return CompletionResponse(
 	//            model=request.model, choices=choices, usage=UsageInfo.parse_obj(usage)
 	//        )
+	return
 }
 
 func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (res openai.ChatCompletionResponse, err error) {

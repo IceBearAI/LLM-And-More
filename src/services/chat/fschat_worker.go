@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -104,28 +105,136 @@ func (s *worker) WorkerGetConvTemplate(ctx context.Context, workerAddress string
 	return
 }
 
-func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string, model string, stream string) (res string, err error) {
-	//TODO implement me
-	panic("implement me")
+func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string, params GenerateStreamParams) (res <-chan WorkerGenerateStreamResponse, err error) {
+	u, err := url.Parse(fmt.Sprintf("%s/worker_generate_stream", workerAddress))
+	if err != nil {
+		err = errors.Wrap(err, "failed to parse url")
+		return
+	}
+	opts := s.options.httpClientOpts
+	opts = append(opts, kithttp.BufferedStream(true))
+
+	ep := kithttp.NewClient(http.MethodPost, u, func(ctx context.Context, r *http.Request, request interface{}) error {
+		r.Header.Set("Content-Type", "application/json; charset=utf-8")
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("Accept", "text/event-stream")
+		r.Header.Set("Cache-Control", "no-cache")
+		r.Header.Set("Connection", "keep-alive")
+		var b bytes.Buffer
+		r.Body = io.NopCloser(&b)
+		return json.NewEncoder(&b).Encode(request)
+	}, func(ctx context.Context, response2 *http.Response) (response interface{}, err error) {
+		return response2.Body, nil
+	}, opts...).Endpoint()
+	resStream, err := ep(ctx, params)
+	if err != nil {
+		err = errors.Wrap(err, "failed to call endpoint")
+		return
+	}
+	dot := make(chan WorkerGenerateStreamResponse)
+	go func() {
+		rc := resStream.(io.ReadCloser)
+		defer rc.Close()
+		for {
+			buf := make([]byte, 1024)
+			n, err := rc.Read(buf)
+			if err != nil {
+				if err == io.EOF {
+					close(dot)
+					return
+				}
+				err = errors.Wrap(err, "failed to read response")
+				dot <- WorkerGenerateStreamResponse{
+					ErrorCode: 1,
+					Text:      err.Error(),
+				}
+				close(dot)
+				return
+			}
+			var newBuf = buf[:n]
+			if bytes.HasSuffix(buf[:n], []byte("\x00")) {
+				newBuf = buf[:n-1]
+			}
+			var resp WorkerGenerateStreamResponse
+			if err = json.Unmarshal(newBuf, &resp); err != nil {
+				err = errors.Wrap(err, "failed to unmarshal response")
+				dot <- WorkerGenerateStreamResponse{
+					ErrorCode: 1,
+					Text:      err.Error(),
+				}
+				close(dot)
+				return
+			}
+			dot <- resp
+		}
+	}()
+	return dot, nil
 }
 
-func (s *worker) WorkerGenerate(ctx context.Context, workerAddress string, params GenerateParams) (res string, err error) {
+func (s *worker) WorkerGenerate(ctx context.Context, workerAddress string, params GenerateParams) (res <-chan WorkerGenerateStreamResponse, err error) {
 	u, err := url.Parse(fmt.Sprintf("%s/worker_generate", workerAddress))
 	if err != nil {
 		err = errors.Wrap(err, "failed to parse url")
 		return
 	}
-	ep := kithttp.NewClient(http.MethodPost, u, kithttp.EncodeJSONRequest, func(ctx context.Context, response2 *http.Response) (response interface{}, err error) {
-		b, _ := io.ReadAll(response2.Body)
-		fmt.Println(string(b))
-		return
-	}, s.options.httpClientOpts...).Endpoint()
-	_, err = ep(ctx, params)
+	opts := s.options.httpClientOpts
+	opts = append(opts, kithttp.BufferedStream(true))
+
+	ep := kithttp.NewClient(http.MethodPost, u, func(ctx context.Context, r *http.Request, request interface{}) error {
+		r.Header.Set("Content-Type", "application/json; charset=utf-8")
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("Accept", "text/event-stream")
+		r.Header.Set("Cache-Control", "no-cache")
+		r.Header.Set("Connection", "keep-alive")
+		var b bytes.Buffer
+		r.Body = io.NopCloser(&b)
+		return json.NewEncoder(&b).Encode(request)
+	}, func(ctx context.Context, response2 *http.Response) (response interface{}, err error) {
+		return response2.Body, nil
+	}, opts...).Endpoint()
+	resStream, err := ep(ctx, params)
 	if err != nil {
 		err = errors.Wrap(err, "failed to call endpoint")
 		return
 	}
-	return
+	dot := make(chan WorkerGenerateStreamResponse)
+	go func() {
+		rc := resStream.(io.ReadCloser)
+		defer rc.Close()
+		for {
+			buf := make([]byte, 1024)
+			n, err := rc.Read(buf)
+			if err != nil {
+				if err == io.EOF {
+					close(dot)
+					return
+				}
+				err = errors.Wrap(err, "failed to read response")
+				dot <- WorkerGenerateStreamResponse{
+					ErrorCode: 1,
+					Text:      err.Error(),
+				}
+				close(dot)
+				return
+			}
+			var newBuf = buf[:n]
+			if bytes.HasSuffix(buf[:n], []byte("\x00")) {
+				newBuf = buf[:n-1]
+			}
+			var resp WorkerGenerateStreamResponse
+			if err = json.Unmarshal(newBuf, &resp); err != nil {
+				err = errors.Wrap(err, "failed to unmarshal response")
+				dot <- WorkerGenerateStreamResponse{
+					ErrorCode: 1,
+					Text:      err.Error(),
+				}
+				close(dot)
+				return
+			}
+			dot <- resp
+		}
+	}()
+	return dot, nil
 }
 
 func (s *worker) WorkerGetEmbeddings(ctx context.Context, workerAddress string, payload EmbeddingPayload) (res EmbeddingsResponse, err error) {

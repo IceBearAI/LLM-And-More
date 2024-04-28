@@ -105,5 +105,49 @@ func TestWorkerService_WorkerGenerate(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	t.Log(resp)
+	for {
+		select {
+		case r, ok := <-resp:
+			if !ok {
+				return
+			}
+			t.Log(r.Text)
+		}
+	}
+}
+
+func TestWorkerService_WorkerGenerateStream(t *testing.T) {
+	svc := initSvc()
+	ctx := context.Background()
+	workerAddress, err := svc.GetWorkerAddress(ctx, "qwen1.5-0.5b")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	prompt := "<|im_start|>system\nYou are a helpful assistant.<|im_end|><|im_start|>user\n您好!你叫什么名字？<|im_end|><|im_start|>assistant\n"
+	params := GenerateStreamParams{
+		Model:        "qwen1.5-0.5b",
+		Prompt:       prompt,
+		Stop:         []string{"<|endoftext|>"},
+		Temperature:  0.7,
+		TopP:         0.6,
+		MaxNewTokens: 1024,
+		StopTokenIds: []int{151643,
+			151644,
+			151645},
+	}
+	resp, err := svc.WorkerGenerateStream(ctx, workerAddress, params)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	for {
+		select {
+		case r, ok := <-resp:
+			if !ok {
+				return
+			}
+			t.Log(r.Text)
+		}
+	}
 }
