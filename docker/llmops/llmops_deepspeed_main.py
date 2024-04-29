@@ -364,7 +364,6 @@ def main():
         average_loss = average_loss.item()
         perplexity = perplexity.item() if not isinstance(
             perplexity, float) else perplexity
-
         return average_loss, perplexity
 
     print_rank_0('finished defining evaluation function.')
@@ -402,17 +401,16 @@ def main():
     print_rank_0(
         f"***** Evaluating perplexity, Epoch {0}/{args.num_train_epochs} *****",
         args.global_rank)
-    total_steps = len(train_dataloader)
+    rounds = len(train_dataloader)
     for epoch in range(args.num_train_epochs):
         print_rank_0(
-            f"Beginning of Epoch {epoch + 1}/{args.num_train_epochs}, Total Micro Batches {len(train_dataloader)}",
+            f"Beginning of Epoch {epoch + 1}/{args.num_train_epochs}, Total Micro Batches {rounds}",
             args.global_rank)
         model.train()
         total_train_loss = 0
         num_train_steps = 0
         last_learning_rate = 0 
-        
-        rounds = len(train_dataloader)
+
         for step, batch in enumerate(train_dataloader):
             if step < args.start_from_step:
                 print_rank_0(f'skipping {step}-th step of {rounds}.')
@@ -423,7 +421,7 @@ def main():
             outputs = model(**batch, use_cache=False)
             loss = outputs.loss
             learning_rate = model.optimizer.param_groups[0]['lr']
-            progress = epoch + (step + 1) / total_steps
+            progress = epoch + (step + 1) / rounds
             log_data = log_info(args.global_rank, progress, step, loss.item(), learning_rate)
             print_rank_0(log_data,args.global_rank)
             model.backward(loss)
@@ -440,21 +438,26 @@ def main():
         print_rank_0(
             f"***** Evaluating perplexity, Epoch {epoch + 1}/{args.num_train_epochs} *****",
             args.global_rank)
-        eval_loss, perplexity = evaluation_loss_perplexity(
-            model, eval_dataloader, device)
-        # 分别记录训练和评估的损失
-        # 记录日志
-        log_data = log_info(
-            args.global_rank, 
-            epoch + 1, 
-            num_train_steps,  # 传递最后一步的步数
-            average_train_loss, 
-            last_learning_rate,  # 传递最后一步的学习率
-            eval_loss
-        )
-        print_rank_0(log_data, args.global_rank)
-        print_rank_0(
-        f"Epoch {epoch + 1} finished, Training Loss: {average_train_loss}, Evaluation Loss: {eval_loss}, Perplexity: {perplexity}", args.global_rank)
+        if "baichuan" and ("7b" or "13b") in args.model_name_or_path.lower():
+            print_rank_0('skipping eval on sft dataset...', args.global_rank)
+            pass
+        else:
+            print_rank_0("evaluating on sft dataset...", args.global_rank)
+            eval_loss, perplexity = evaluation_loss_perplexity(
+                model, eval_dataloader, device)
+            # 分别记录训练和评估的损失
+            # 记录日志
+            log_data = log_info(
+                args.global_rank,
+                epoch + 1,
+                num_train_steps,  # 传递最后一步的步数
+                average_train_loss,
+                last_learning_rate,  # 传递最后一步的学习率
+                eval_loss
+            )
+            print_rank_0(log_data, args.global_rank)
+            print_rank_0(
+            f"Epoch {epoch + 1} finished, Training Loss: {average_train_loss}, Evaluation Loss: {eval_loss}, Perplexity: {perplexity}", args.global_rank)
         model.tput_timer.update_epoch_count()
 
     if args.output_dir is not None:
