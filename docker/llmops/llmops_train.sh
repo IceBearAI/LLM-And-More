@@ -201,17 +201,19 @@ if [ "$SCENARIO" == "general" ]; then
     python3 jsonl_to_arrow_format.py \
         --train_path "$TRAIN_LOCAL_FILE" \
         --test_path "$EVAL_LOCAL_FILE" \
-        --output_path "$GENERAL_DATA_PATH"
+        --output_path "$GENERAL_DATA_PATH" \
+        --split_ratio 0.9
   else
     python3 jsonl_to_arrow_format.py \
         --train_path "$TRAIN_LOCAL_FILE" \
-        --output_path "$GENERAL_DATA_PATH"
+        --output_path "$GENERAL_DATA_PATH" \
+        --split_ratio 0.9
   fi
 
   deepspeed /app/llmops_deepspeed_main.py \
       --data_path $GENERAL_DATA_PATH \
       --data_output_path $OUTPUT_DIR/data_output \
-      --data_split 9,1,0 \
+      --data_split 10,0,0 \
       --model_name_or_path $BASE_MODEL_PATH \
       --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
       --per_device_eval_batch_size $PER_DEVICE_EVAL_BATCH_SIZE \
