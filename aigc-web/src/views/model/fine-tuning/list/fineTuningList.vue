@@ -139,7 +139,7 @@ import TableTrainStatus from "./components/TableTrainStatus.vue";
 import DialogLog from "@/components/ui/log/DialogLog.vue";
 import { useRouter } from "vue-router";
 
-import { http, format } from "@/utils";
+import { http, format, url } from "@/utils";
 
 import { IconCircleCheckFilled, IconLoader, IconAlarm } from "@tabler/icons-vue";
 
@@ -240,7 +240,7 @@ const getButtons = row => {
       text: "终端",
       color: "info",
       click() {
-        window.open(`/model/terminal?resourceType=ft-job&serviceName=${row.fineTunedModel}`, "_blank");
+        url.onNewPage(`/model/terminal?resourceType=ft-job&serviceName=${row.fineTunedModel}`);
       }
     });
   }
