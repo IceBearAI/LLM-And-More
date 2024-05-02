@@ -22,7 +22,16 @@
           v-model="formData.speakName"
           :disabled="isEdit"
         >
-          <template #prepend><label class="required">标识</label></template>
+          <template #prepend
+            ><label class="required"
+              >标识 <Explain v-if="formData.provider === 'azure-personal'">zh-CN-yxh-bozhang75-adrxf</Explain></label
+            ></template
+          >
+          <template #append>
+            <a class="link" href="http://docs.paas.creditease.corp/paas-gpt/voice/voice_personal.html" target="_blank"
+              >声音克隆（个人版）</a
+            >
+          </template>
         </v-text-field>
         <v-text-field
           type="text"

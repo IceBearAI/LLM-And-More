@@ -253,7 +253,7 @@ function createRequest(service: AxiosInstance) {
         "X-Tenant-Id": tenantId,
         "Content-Type": "application/json"
       },
-      timeout: config.url == "/files" ? 60 * 1000 * 5 : 60 * 1000, // 请求超时时间 1000=1s
+      timeout: config.url == "/files" ? 60 * 1000 * 10 : 60 * 1000, // 请求超时时间 1000=1s
       // baseURL: import.meta.env.VITE_APP_BASE_API,
       data: {}
     };

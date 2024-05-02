@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/IceBearAI/aigc/src/encode"
 	aigcjwt "github.com/IceBearAI/aigc/src/jwt"
 	"github.com/IceBearAI/aigc/src/repository"
@@ -17,9 +21,6 @@ import (
 	jwt2 "github.com/golang-jwt/jwt/v4"
 	"github.com/igm/sockjs-go/v3/sockjs"
 	"github.com/pkg/errors"
-	"net/http"
-	"strings"
-	"time"
 )
 
 // CreationOptions is the options for the faceswap service.
@@ -100,7 +101,8 @@ func (s *service) Token(ctx context.Context, tenantId, userId uint, resourceType
 		err = encode.ErrAuthTimeout.Error()
 		return
 	}
-	var containers []string
+	var containers []runtime.Container
+	var containerNames []string
 	if resourceType == "deployment" {
 		modelInfo, err := s.repository.Model().GetModelByModelName(ctx, name)
 		if err != nil {
@@ -118,14 +120,18 @@ func (s *service) Token(ctx context.Context, tenantId, userId uint, resourceType
 	} else {
 		serviceName = name
 	}
-	containers, err = s.apiSvc.Runtime().GetDeploymentContainerNames(ctx, serviceName)
+	containers, err = s.apiSvc.Runtime().GetContainers(ctx, serviceName)
 	if err != nil {
 		_ = level.Warn(logger).Log("apiSvc.Runtime", "GetDeploymentContainerNames", "err", err.Error())
 	}
 
+	for _, v := range containers {
+		containerNames = append(containerNames, v.Name)
+	}
+
 	res.SessionId = tk
 	res.Container = containerName
-	res.Containers = containers
+	res.Containers = containerNames
 	res.ServiceName = serviceName
 	return res, nil
 }

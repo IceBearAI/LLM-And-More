@@ -4,6 +4,13 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io"
+	"math/rand"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/IceBearAI/aigc/src/encode"
 	"github.com/IceBearAI/aigc/src/helpers/tokenizers"
 	"github.com/IceBearAI/aigc/src/repository"
@@ -20,12 +27,6 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"gorm.io/gorm"
 	"gorm.io/gorm/utils"
-	"io"
-	"math/rand"
-	"os"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type Middleware func(Service) Service
@@ -49,12 +50,16 @@ type Service interface {
 	// Undeploy 模型取消部署
 	Undeploy(ctx context.Context, id uint) (err error)
 	// CreateEval 创建评估任务
+	// Deprecated: use modelevaluate.Create instead
 	CreateEval(ctx context.Context, request CreateEvalRequest) (res Eval, err error)
 	// ListEval 评估任务分页列表
+	// Deprecated: use modelevaluate.List instead
 	ListEval(ctx context.Context, request ListEvalRequest) (res ListEvalResponse, err error)
 	// CancelEval 取消评估任务
+	// Deprecated: use modelevaluate.Cancel instead
 	CancelEval(ctx context.Context, id uint) (err error)
 	// DeleteEval 删除评估任务
+	// Deprecated: use modelevaluate.Delete instead
 	DeleteEval(ctx context.Context, id uint) (err error)
 	// GetModelLogs 获取模型输出日志
 	GetModelLogs(ctx context.Context, modelName, containerName string) (res string, err error)
@@ -458,27 +463,6 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 	minPort := 1024
 	maxPort := 65535
 	randomPort := rand.Intn(maxPort-minPort+1) + minPort
-	template, err := util.EncodeTemplate("start.sh", baseModelTemplate.Content, map[string]interface{}{
-		"modelName":    m.ModelName,
-		"modelPath":    modelPath,
-		"port":         randomPort,
-		"quantization": request.Quantization,
-		"numGpus":      request.Gpu,
-		"maxGpuMemory": request.MaxGpuMemory,
-		"vllm":         request.Vllm,
-		"cpu":          request.Cpu,
-		"inferredType": request.InferredType,
-		"k8sCluster":   request.K8sCluster,
-	})
-	if err != nil {
-		err = errors.Wrap(err, "encode template failed")
-		_ = level.Error(logger).Log("msg", "encode template failed", "err", err.Error())
-		return err
-	}
-
-	if request.Quantization == "8bit" {
-		request.Quantization = "--load-8bit"
-	}
 
 	var envs []runtime.Env
 	var envVars []string
@@ -501,8 +485,8 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		Name:  "MAX_GPU_MEMORY",
 		Value: strconv.Itoa(request.MaxGpuMemory),
 	}, runtime.Env{
-		Name:  "USE_VLLM",
-		Value: strconv.FormatBool(request.Vllm),
+		Name:  "MODEL_WORKER_TYPE",
+		Value: strings.ToLower(request.ModelWorker),
 	}, runtime.Env{
 		Name:  "INFERRED_TYPE",
 		Value: request.InferredType,
@@ -541,7 +525,7 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		GpuTolerationValue: request.Label,
 		GPU:                request.Gpu,
 		ConfigData: map[string]string{
-			"/app/start.sh": template,
+			"/app/start.sh": baseModelTemplate.Content,
 		},
 		Replicas: int32(request.Replicas),
 		Ports: map[string]string{
@@ -595,14 +579,20 @@ func (s *service) ListModels(ctx context.Context, request ListModelRequest) (res
 
 	list := make([]Model, 0)
 	for _, v := range models {
+		var containers []runtime.Container
 		var containerNames []string
 		if v.ModelDeploy.ID > 0 {
-			containerNames, err = s.apiSvc.Runtime().GetDeploymentContainerNames(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(v.ModelName), v.ID))
+			containers, err = s.apiSvc.Runtime().GetContainers(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(v.ModelName), v.ID))
 			if err != nil {
 				_ = level.Warn(logger).Log("api.PaasChat", "GetDeploymentContainerNames", "err", err.Error())
 				continue
 			}
 		}
+
+		for _, container := range containers {
+			containerNames = append(containerNames, container.Name)
+		}
+
 		c := convert(&v)
 		c.ContainerNames = containerNames
 		list = append(list, c)
@@ -710,9 +700,10 @@ func (s *service) GetModel(ctx context.Context, id uint) (res Model, err error) 
 		}
 	}
 	res = convert(&m)
+	var containers []runtime.Container
 	var containerNames []string
 	if m.ModelDeploy.ModelID > 0 {
-		containerNames, err = s.apiSvc.Runtime().GetDeploymentContainerNames(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(m.ModelName), m.ID))
+		containers, err = s.apiSvc.Runtime().GetContainers(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(m.ModelName), m.ID))
 		if err != nil {
 			_ = level.Warn(logger).Log("api.PaasChat", "GetDeploymentContainerNames", "err", err.Error())
 		}
@@ -740,6 +731,10 @@ func (s *service) GetModel(ctx context.Context, id uint) (res Model, err error) 
 	//		_ = level.Warn(logger).Log("util.GetHttpFileBody", "err", err.Error())
 	//	}
 	//}
+
+	for _, v := range containers {
+		containerNames = append(containerNames, v.Name)
+	}
 
 	res.ContainerNames = containerNames
 	return res, nil

@@ -897,7 +897,7 @@ func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url
 	// 将 *bytes.Reader 类型强制转换为 multipart.File 类型
 	file := NewFile(alpacaDada) // 将 []byte 转换为 multipart.File
 
-	fileUrl, err := s.fileSvc.UploadLocal(ctx, file, suffix)
+	fileUrl, err := s.fileSvc.UploadToStorage(ctx, file, suffix)
 
 	if err != nil {
 		_ = level.Error(logger).Log("fileSvc", "UploadLocal", "err", err.Error())
@@ -989,6 +989,10 @@ func convertAlpaca(httpUrl string, logger log.Logger, modelName string) (alpaca 
 }
 
 func convertJob(data *types.FineTuningTrainJob) JobResponse {
+	var dgs diagnosis
+	if data.Diagnosis != "" {
+		_ = json.Unmarshal([]byte(data.Diagnosis), &dgs)
+	}
 	resp := JobResponse{
 		JobId:             data.JobId,
 		BaseModel:         data.BaseModel,
@@ -1012,6 +1016,7 @@ func convertJob(data *types.FineTuningTrainJob) JobResponse {
 		EvalBatchSize:     data.EvalBatchSize,
 		AccumulationSteps: data.AccumulationSteps,
 		ProcPerNode:       data.ProcPerNode,
+		Diagnosis:         &dgs,
 	}
 	if data.FinishedAt != nil {
 		resp.FinishedAt = data.FinishedAt.Format(time.RFC3339)

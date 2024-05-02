@@ -56,6 +56,10 @@
           </v-slider>
         </div>
       </v-col>
+      <v-col v-if="tenantId === '5f9b3b3d-9b9c-4e1a-8e1a-5a4b4b4b4b4b'" cols="12">
+        <v-label class="mb-2">设置为样音</v-label>
+        <v-switch v-model="formData.setDemo" color="primary" hide-details="auto"></v-switch>
+      </v-col>
       <slot></slot>
     </v-row>
   </v-form>
@@ -64,7 +68,9 @@
 import { reactive, toRefs, ref, onMounted, inject, computed } from "vue";
 import { http, validator } from "@/utils";
 import Explain from "@/components/ui/Explain.vue";
+import { useUserStore } from "@/stores";
 
+const { tenantId } = useUserStore().userInfo;
 const refForm = ref();
 const provideSynthesisVoice = inject("provideSynthesisVoice");
 const { formData } = toRefs(provideSynthesisVoice);

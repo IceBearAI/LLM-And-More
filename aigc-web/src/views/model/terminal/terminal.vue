@@ -1,6 +1,6 @@
 <template>
   <UiParentCard>
-    <v-row>
+    <v-row dense>
       <v-col cols="12" lg="3" md="4" sm="6">
         <v-select
           v-model="searchData.containerName"
@@ -13,8 +13,8 @@
         </v-select>
       </v-col>
 
-      <v-col style="height: calc(100vh - 160px)" cols="12">
-        <Terminal class="h-100" v-if="wsUrl" :ws-url="wsUrl" :start-data="startData" :key="refreshTerminalKey" />
+      <v-col cols="12">
+        <Terminal v-if="wsUrl" :ws-url="wsUrl" :start-data="startData" :key="refreshTerminalKey" height="calc(100vh - 216px)" />
       </v-col>
     </v-row>
   </UiParentCard>
@@ -78,3 +78,8 @@ onMounted(() => {
   getServiceWebsocketToken();
 });
 </script>
+<style scoped lang="scss">
+:deep(.v-card-text) {
+  padding-bottom: 10px;
+}
+</style>

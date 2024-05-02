@@ -1,14 +1,22 @@
 <template>
   <Pane ref="refPane">
     <v-row>
-      <v-col :cols="data['current']?.isFineTuning ? 7 : 12">
+      <v-col :cols="isShowRemind ? 7 : 12">
         <div style="height: 500px">
           <GradeRadarChart ref="gradeRadarChartRef" />
         </div>
       </v-col>
-      <v-col v-if="data['current'] && data['current'].isFineTuning" cols="5">
-        <v-alert :type="data['current'].riskOver ? 'error' : 'success'" variant="tonal">过拟合风险</v-alert>
-        <v-alert :type="data['current'].riskUnder ? 'error' : 'success'" variant="tonal" class="mt-4">欠拟合风险</v-alert>
+      <v-col v-if="isShowRemind" cols="5">
+        <v-alert v-if="data['current'].riskOver" :type="data['current'].riskOver ? 'error' : 'success'" variant="tonal"
+          >过拟合风险</v-alert
+        >
+        <v-alert
+          v-if="data['current'].riskUnder"
+          :type="data['current'].riskUnder ? 'error' : 'success'"
+          variant="tonal"
+          class="mt-4"
+          >欠拟合风险</v-alert
+        >
         <v-alert type="info" variant="tonal" class="mt-4">
           <h5 class="text-h6 text-capitalize">建议进一步操作</h5>
           <div>{{ data["current"].remind }}</div>
@@ -38,7 +46,7 @@
   </Pane>
 </template>
 <script setup lang="ts">
-import { ref, reactive } from "vue";
+import { ref, reactive, computed } from "vue";
 import GradeRadarChart from "@/components/business/charts/GradeRadarChart.vue";
 import { http } from "@/utils";
 
@@ -70,6 +78,10 @@ const modelMap = [
 
 const paneConfig = reactive({
   id: ""
+});
+
+const isShowRemind = computed(() => {
+  return data.value["current"] && (data.value["current"].riskOver || data.value["current"].riskUnder);
 });
 
 const renderRadarChart = () => {

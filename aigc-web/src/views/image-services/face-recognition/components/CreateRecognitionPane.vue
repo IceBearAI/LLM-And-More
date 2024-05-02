@@ -36,6 +36,18 @@
                 ></v-img>
               </template>
             </v-file-input>
+            <v-text-field
+              type="text"
+              placeholder="格式：top, right, bottom, left"
+              hide-details="auto"
+              clearable
+              v-model="formData.faceMargin"
+              :rules="[v => !v || /^(\d{1,4},\d{1,4},\d{1,4},\d{1,4})$/.test(v) || '请输入正确格式：top, right, bottom, left']"
+            >
+              <template #prepend>
+                <label>人脸边距 <Explain>人脸边距约束，格式：top, right, bottom, left</Explain></label></template
+              >
+            </v-text-field>
             <template v-if="formData.checkType === 2">
               <v-file-input
                 v-model="formData.baseImage"
@@ -91,6 +103,10 @@
             <template #prepend> <label>检测图片：</label></template>
             <img :src="result.inputS3Url" width="200" alt="检测图片" class="rounded-md align-end text-right" />
           </v-input>
+          <v-input v-if="result.faceMargin">
+            <template #prepend> <label>人脸边距：</label></template>
+            {{ result.faceMargin }}
+          </v-input>
           <v-input v-if="result.outputS3Url">
             <template #prepend> <label>比对图片：</label></template>
             <img :src="result.outputS3Url" width="200" alt="比对图片" class="rounded-md align-end text-right" />
@@ -116,12 +132,14 @@
 import { reactive, ref, computed } from "vue";
 import UiParentCard from "@/components/shared/UiParentCard.vue";
 import { http } from "@/utils";
+import Explain from "@/components/ui/Explain.vue";
 
 interface IFormData {
   checkType: number | null;
   checkImage: any[];
   baseImage: any[];
   tolerance: number;
+  faceMargin: string;
 }
 
 const emits = defineEmits(["submit"]);
@@ -135,7 +153,8 @@ const formData = reactive<IFormData>({
   checkType: null,
   checkImage: [],
   baseImage: [],
-  tolerance: 0.6
+  tolerance: 0.6,
+  faceMargin: ""
 });
 const result = ref<Record<string, any>>({});
 const submitLoading = ref(false);

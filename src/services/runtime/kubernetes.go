@@ -75,6 +75,39 @@ type k8s struct {
 	createOptions CreationOptions
 }
 
+func (s *k8s) GetContainers(ctx context.Context, jobName string) (res []Container, err error) {
+	config := Config{
+		ServiceName: jobName,
+		namespace:   s.createOptions.namespace,
+	}
+	if config.LabelName == "" {
+		config.LabelName = s.createOptions.labelName
+	}
+
+	pods, err := s.k8sClient.CoreV1().Pods(config.namespace).List(ctx, v1.ListOptions{
+		LabelSelector: v1.FormatLabelSelector(&v1.LabelSelector{
+			MatchLabels: config.GenJobLabels(),
+		}),
+	})
+
+	if err != nil {
+		err = errors.Wrap(err, "GetPods")
+		return
+	}
+	if len(pods.Items) == 0 {
+		err = fmt.Errorf("pod not found")
+		return
+	}
+
+	for _, pod := range pods.Items {
+		res = append(res, Container{
+			Name: pod.Name,
+			Ip:   pod.Status.PodIP,
+		})
+	}
+	return
+}
+
 func (s *k8s) GetDeploymentContainerNames(ctx context.Context, deploymentName string) (containerNames []string, err error) {
 	config := Config{
 		ServiceName: deploymentName,
@@ -400,22 +433,16 @@ func (s *k8s) GetDeploymentStatus(ctx context.Context, deploymentName string) (s
 		namespace:   s.createOptions.namespace,
 	}
 
-	pods, err := s.k8sClient.CoreV1().Pods(config.namespace).List(ctx, v1.ListOptions{
-		LabelSelector: v1.FormatLabelSelector(&v1.LabelSelector{
-			MatchLabels: config.GenDeploymentLabels(),
-		}),
-	})
-
+	deployment, err := s.k8sClient.AppsV1().Deployments(config.namespace).Get(ctx, deploymentName, v1.GetOptions{})
 	if err != nil {
-		err = errors.Wrap(err, "GetPods")
+		err = errors.Wrap(err, "GetDeployment")
 		return
 	}
-	if len(pods.Items) == 0 {
-		err = fmt.Errorf("pod not found")
-		return
+	if deployment.Status.ReadyReplicas >= deployment.Status.Replicas {
+		status = "Running"
+	} else {
+		status = "Pending"
 	}
-
-	status = string(pods.Items[0].Status.Phase)
 	return
 }
 

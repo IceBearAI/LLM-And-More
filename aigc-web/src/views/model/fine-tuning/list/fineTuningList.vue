@@ -62,17 +62,13 @@
               <TableTrainStatus :item="row" @open:log="onLog(row)" />
             </template>
           </el-table-column>
-          <el-table-column label="webshell" min-width="90px">
+          <el-table-column label="训练监控" min-width="100px">
             <template #default="{ row }">
-              <el-tooltip v-if="row.trainStatus === 'running'" content="进入终端" placement="top">
-                <router-link
-                  class="link"
-                  :to="{ path: '/model/terminal', query: { resourceType: 'ft-job', serviceName: row.fineTunedModel } }"
-                  target="_blank"
-                >
-                  <IconTerminal2 class="align-top" :size="20" />
-                </router-link>
-              </el-tooltip>
+              <v-row v-if="row.diagnosis" dense class="text-error">
+                <v-col v-if="row.diagnosis.overfitting === 'High'" cols="12">过拟合</v-col>
+                <v-col v-if="row.diagnosis.underfitting === 'High'" cols="12">欠拟合</v-col>
+                <v-col v-if="row.diagnosis.catastrophicForgetting === 'High'" cols="12">灾难性遗忘</v-col>
+              </v-row>
             </template>
           </el-table-column>
           <el-table-column label="训练时长" prop="trainDuration" min-width="120px"></el-table-column>
@@ -142,9 +138,8 @@ import TaskOverview from "@/components/business/TaskOverview.vue";
 import TableTrainStatus from "./components/TableTrainStatus.vue";
 import DialogLog from "@/components/ui/log/DialogLog.vue";
 import { useRouter } from "vue-router";
-import { IconTerminal2 } from "@tabler/icons-vue";
 
-import { http, format } from "@/utils";
+import { http, format, url } from "@/utils";
 
 import { IconCircleCheckFilled, IconLoader, IconAlarm } from "@tabler/icons-vue";
 
@@ -237,6 +232,15 @@ const getButtons = row => {
       color: "error",
       click() {
         onDelete(row);
+      }
+    });
+  }
+  if (status === "running") {
+    ret.push({
+      text: "终端",
+      color: "info",
+      click() {
+        url.onNewPage(`/model/terminal?resourceType=ft-job&serviceName=${row.fineTunedModel}`);
       }
     });
   }
