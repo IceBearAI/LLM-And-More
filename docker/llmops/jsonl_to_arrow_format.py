@@ -1,7 +1,7 @@
 import argparse
 import json
 import os
-
+from sklearn.model_selection import train_test_split
 import pandas as pd
 import pyarrow as pa
 
@@ -13,6 +13,8 @@ parser.add_argument('--test_path', type=str, default='',
                     help='Path to the test dataset in JSONL format (optional).')
 parser.add_argument('--output_path', type=str, required=True,
                     help='Output path for the formatted datasets in Arrow format.')
+parser.add_argument('--split_ratio', type=float, default=0.8,
+                    help='Ratio of data to be allocated to the training set (default: 0.8).')
 args = parser.parse_args()
 
 
@@ -75,13 +77,32 @@ def create_state_json(output_path, filename="data-00000-of-00001.arrow"):
     with open(os.path.join(output_path, 'state.json'), 'w') as f:
         json.dump(state, f, indent=4)
 
-
 def convert_dataset(dataset_path, output_folder):
     os.makedirs(output_folder, exist_ok=True)
     df = jsonl_to_dataframe(dataset_path)
     arrow_file_path = os.path.join(output_folder, 'data-00000-of-00001.arrow')
     dataframe_to_arrow(df, arrow_file_path)
     create_state_json(output_folder)
+
+def convert_dataset_split(dataset_path, output_folder, split_ratio):
+    os.makedirs(output_folder, exist_ok=True)
+    df = jsonl_to_dataframe(dataset_path)
+    train_df, test_df = train_test_split(df, train_size=split_ratio, random_state=1234)
+    train_df = train_df.reset_index(drop=True)
+    test_df = test_df.reset_index(drop=True)
+    # Save training set
+    train_output_folder = os.path.join(output_folder, 'train')
+    os.makedirs(train_output_folder, exist_ok=True)
+    arrow_train_file_path = os.path.join(train_output_folder, 'data-00000-of-00001.arrow')
+    dataframe_to_arrow(train_df, arrow_train_file_path)
+    create_state_json(train_output_folder)
+
+    # Save testing set
+    test_output_folder = os.path.join(output_folder, 'test')
+    os.makedirs(test_output_folder, exist_ok=True)
+    arrow_test_file_path = os.path.join(test_output_folder, 'data-00000-of-00001.arrow')
+    dataframe_to_arrow(test_df, arrow_test_file_path)
+    create_state_json(test_output_folder)
 
 
 # 创建formatted_datasets目录
@@ -95,14 +116,19 @@ dataset_info = {
 }
 dataset_dict = {"splits": ["train", "test"]}
 
-# 处理train数据集
-convert_dataset(args.train_path, os.path.join(args.output_path, 'train'))
+if args.test_path != '':
+    convert_dataset(args.train_path, os.path.join(args.output_path, 'train'))
+    convert_dataset(args.test_path, os.path.join(args.output_path, 'test'))
+else:
+    print('No test dataset provided, using train dataset for both train and test.')
+    convert_dataset_split(args.train_path, args.output_path, args.split_ratio)
+    # convert_dataset(args.train_path, os.path.join(args.output_path, 'train'))
+    # convert_dataset(args.train_path, os.path.join(args.output_path, 'test'))
+
+# 保存dataset_info.json
 with open(os.path.join(args.output_path, 'train', 'dataset_info.json'), 'w', encoding='utf-8') as f:
     json.dump(dataset_info, f)
 
-# 处理test数据集，即使test_path为空也生成空的Arrow文件
-print(f'detect test_path: {args.test_path}')
-convert_dataset(args.test_path, os.path.join(args.output_path, 'test'))
 with open(os.path.join(args.output_path, 'test', 'dataset_info.json'), 'w', encoding='utf-8') as f:
     json.dump(dataset_info, f)
 

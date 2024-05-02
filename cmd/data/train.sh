@@ -285,6 +285,7 @@ elif [ "$SCENARIO" == "rag" ]; then
         --st $ST \
         --model_name_or_path $BASE_MODEL_PATH \
         --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
+        --per_device_eval_batch_size $PER_DEVICE_EVAL_BATCH_SIZE \
         --max_len $MODEL_MAX_LENGTH \
         --max_src_len 1024 \
         --learning_rate $LEARNING_RATE \
@@ -294,6 +295,8 @@ elif [ "$SCENARIO" == "rag" ]; then
         --warmup_ratio 0.1 \
         --mode $MODENAME \
         --train_type $TRAIN_TYPE \
+        --load_in_kbits 16 \
+        --fp16 \
         --lora_module_name  $LORA_MODULE_NAME \
         --lora_dim 4 \
         --lora_alpha 64 \
@@ -305,7 +308,7 @@ elif [ "$SCENARIO" == "rag" ]; then
         --output_dir $OUTPUT_DIR  > >(tee "$temp_file") 2>&1
     set +e
     if [[ $MODENAME == *"glm3"* ]]; then
-        cp "$BASE_MODEL_PATH/modeling_chatglm.py" "./$OUTPUT_DIR/" || cp "$BASE_MODEL_PATH/quantization.py" "./$OUTPUT_DIR/"
+        cp "$BASE_MODEL_PATH/modeling_chatglm.py" "./$OUTPUT_DIR" || cp "$BASE_MODEL_PATH/quantization.py" "./$OUTPUT_DIR"
     fi
     set -e
 else
