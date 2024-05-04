@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/IceBearAI/aigc/src/repository"
 	"github.com/IceBearAI/aigc/src/repository/types"
@@ -15,12 +16,15 @@ import (
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/sashabaranov/go-openai"
 	"reflect"
+	"strings"
 	"time"
 )
 
 // CreationOptions is the options for the faceswap service.
 type CreationOptions struct {
 	httpClientOpts []kithttp.ClientOption
+	workerSvc      chat.WorkerService
+	openAISvc      chat.OpenAIService
 }
 
 // CreationOption is the option for the chat service.
@@ -33,11 +37,18 @@ func WithHTTPClientOpts(opts ...kithttp.ClientOption) CreationOption {
 	}
 }
 
+// WithWorkerService is the option to set the worker service.
+func WithWorkerService(svc chat.WorkerService) CreationOption {
+	return func(o *CreationOptions) {
+		o.workerSvc = svc
+	}
+}
+
 type Service interface {
 	// ChatCompletion 聊天处理
 	ChatCompletion(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (res openai.ChatCompletionResponse, err error)
 	// ChatCompletionStream 聊天处理流传输
-	ChatCompletionStream(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (stream *openai.ChatCompletionStream, err error)
+	ChatCompletionStream(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (stream <-chan openai.ChatCompletionStreamResponse, err error)
 	// Models 模型列表
 	Models(ctx context.Context, channelId uint) (res []openai.Model, err error)
 	// Embeddings 向量化处理
@@ -52,7 +63,18 @@ type service struct {
 	repository repository.Repository
 }
 
+func (s *service) Models(ctx context.Context, channelId uint) (res []openai.Model, err error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *service) Embeddings(ctx context.Context, channelId uint, req openai.EmbeddingRequest) (res openai.EmbeddingResponse, err error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (s *service) processInput(modelName string, inp any) (newInp []string) {
+	fmt.Println(reflect.TypeOf(inp))
 	if reflect.TypeOf(inp).Name() == "string" {
 		newInp = []string{inp.(string)}
 	} else if reflect.TypeOf(inp).Name() == "[]any" {
@@ -165,9 +187,9 @@ func (s *service) generateCompletionStreamGenerator(ctx context.Context, worker 
 	//    yield "data: [DONE]\n\n"
 }
 
-func (s *service) localAIChatCompletionStream(ctx context.Context, modelInfo types.Models, req openai.ChatCompletionRequest) (res <-chan openai.ChatCompletionStream, err error) {
+func (s *service) localAIChatCompletionStream(ctx context.Context, req openai.ChatCompletionRequest) (res <-chan openai.ChatCompletionStreamResponse, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
-	svc := chat.NewFastChatWorker()
+	svc := chat.NewFastChatWorker(chat.WithControllerAddress("http://localhost:21001"))
 	models, err := svc.ListModels(ctx)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to list models")
@@ -186,12 +208,13 @@ func (s *service) localAIChatCompletionStream(ctx context.Context, modelInfo typ
 		_ = level.Warn(logger).Log("msg", "model not found", "err", err)
 		return
 	}
-	workerAddress, err := svc.GetWorkerAddress(ctx, modelInfo.ModelName)
+	workerAddress, err := svc.GetWorkerAddress(ctx, req.Model)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to get worker address")
 		_ = level.Warn(logger).Log("msg", "failed to get worker address", "err", err)
 		return
 	}
+	_ = level.Info(logger).Log("msg", "worker address", "workerAddress", workerAddress)
 	var maxTokens int
 	prompts := s.processInput(req.Model, req.Messages)
 	for _, prompt := range prompts {
@@ -199,17 +222,53 @@ func (s *service) localAIChatCompletionStream(ctx context.Context, modelInfo typ
 		if err != nil {
 			err = errors.WithMessage(err, "failed to check length")
 			_ = level.Warn(logger).Log("msg", "failed to check length", "err", err)
-			return
+			return res, err
 		}
 	}
-	if maxTokens < req.MaxTokens {
+	_ = level.Info(logger).Log("msg", "max tokens", "maxTokens", maxTokens)
+	if maxTokens != 0 && maxTokens < req.MaxTokens {
 		req.MaxTokens = maxTokens
 	}
+
+	convTemplate, err := svc.WorkerGetConvTemplate(ctx, workerAddress, req.Model)
+	if err != nil {
+		err = errors.WithMessage(err, "failed to get conv template")
+		_ = level.Warn(logger).Log("msg", "failed to get conv template", "err", err)
+		return
+	}
+
+	var systemMessage = convTemplate.Conv.SystemMessage
+	for _, msg := range req.Messages {
+		if msg.Role == "system" {
+			systemMessage = msg.Content
+			break
+		}
+	}
+
+	if req.Stop == nil {
+		// todo 应该多模型模版获取
+		req.Stop = []string{convTemplate.Conv.StopStr}
+	}
+	stopTokenIds := convTemplate.Conv.StopTokenIds
+
+	prompt := strings.ReplaceAll(convTemplate.Conv.SystemTemplate, "{system_message}", systemMessage)
+	prompt += convTemplate.Conv.Sep
+	for _, msg := range req.Messages {
+		if msg.Role == "user" {
+			prompt += convTemplate.Conv.Roles[0] + "\n"
+			prompt += msg.Content + convTemplate.Conv.Sep
+		} else if msg.Role == "assistant" {
+			prompt += convTemplate.Conv.Roles[1] + "\n"
+			prompt += msg.Content + convTemplate.Conv.Sep
+		}
+	}
+	prompt += convTemplate.Conv.Roles[1]
+	_ = level.Debug(logger).Log("msg", "prompt", "prompt", prompt)
 
 	// todo: 获取模版，并处理面prompt
 	stream, err := svc.WorkerGenerateStream(ctx, workerAddress, chat.GenerateStreamParams{
 		Model:            req.Model,
-		Prompt:           "",
+		Prompt:           prompt,
 		Temperature:      req.Temperature,
 		Logprobs:         req.LogProbs,
 		TopP:             req.TopP,
@@ -217,7 +276,7 @@ func (s *service) localAIChatCompletionStream(ctx context.Context, modelInfo typ
 		PresencePenalty:  req.PresencePenalty,
 		FrequencyPenalty: req.FrequencyPenalty,
 		MaxNewTokens:     req.MaxTokens,
-		StopTokenIds:     nil,
+		StopTokenIds:     stopTokenIds,
 		Images:           nil,
 		UseBeamSearch:    false,
 		Stop:             req.Stop,
@@ -226,30 +285,47 @@ func (s *service) localAIChatCompletionStream(ctx context.Context, modelInfo typ
 		err = errors.WithMessage(err, "failed to generate stream")
 		return
 	}
-	now := time.Now().UnixMilli()
-	dot := make(chan openai.ChatCompletionStreamResponse)
-	for content := range stream {
+
+	for {
+		content, ok := <-stream
+		if !ok {
+			fmt.Println("stream closed")
+			break
+		}
 		if content.ErrorCode != 0 {
+			fmt.Println("error")
 			err = errors.New(content.Text)
 			return
 		}
-		dot <- openai.ChatCompletionStreamResponse{
-			ID:      fmt.Sprintf("cmpl-%s", shortuuid.New()),
-			Object:  "chat.completion.chunk",
-			Created: now,
-			Model:   req.Model,
-			Choices: []openai.ChatCompletionStreamChoice{
-				{
-					FinishReason: openai.FinishReason(content.FinishReason),
-					Delta: openai.ChatCompletionStreamChoiceDelta{
-						Content: content.Text,
-						Role:    "assistant",
+		fmt.Println(content.Text, content.Usage)
+	}
+
+	dot := make(chan openai.ChatCompletionStreamResponse)
+	go func() {
+		now := time.Now().UnixMilli()
+		for content := range stream {
+			if content.ErrorCode != 0 {
+				err = errors.New(content.Text)
+				return
+			}
+			dot <- openai.ChatCompletionStreamResponse{
+				ID:      fmt.Sprintf("cmpl-%s", shortuuid.New()),
+				Object:  "chat.completion.chunk",
+				Created: now,
+				Model:   req.Model,
+				Choices: []openai.ChatCompletionStreamChoice{
+					{
+						FinishReason: openai.FinishReason(content.FinishReason),
+						Delta: openai.ChatCompletionStreamChoiceDelta{
+							Content: content.Text,
+							Role:    "assistant",
+						},
 					},
 				},
-			},
+			}
 		}
-	}
-	return
+	}()
+	return dot, nil
 }
 
 func (s *service) localAIChatCompletion(ctx context.Context, modelInfo types.Models, req openai.CompletionRequest) (res <-chan openai.ChatCompletionResponse, err error) {
@@ -296,7 +372,7 @@ func (s *service) localAIChatCompletion(ctx context.Context, modelInfo types.Mod
 	// todo: 获取模版，并处理面prompt
 	wsrStream, err := svc.WorkerGenerate(ctx, workerAddress, chat.GenerateParams{
 		Model:            req.Model,
-		Prompt:           "",
+		Prompt:           "<|im_start|>system\nYou are a helpful assistant.<|im_end|><|im_start|>user\n您好!你叫什么名字？<|im_end|><|im_start|>assistant\n",
 		Temperature:      req.Temperature,
 		Logprobs:         req.LogProbs,
 		TopP:             req.TopP,
@@ -448,4 +524,88 @@ func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai
 		fmt.Println(workerResult)
 	}
 	return
+}
+
+func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (stream <-chan openai.ChatCompletionStreamResponse, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+
+	dot := make(chan openai.ChatCompletionStreamResponse)
+	defer func() {
+		close(dot)
+	}()
+
+	modelInfo, err := s.repository.Model().FindByModelId(ctx, req.Model)
+	if err != nil {
+		err = errors.WithMessage(err, "failed to find model")
+		_ = level.Warn(logger).Log("msg", "failed to find model", "err", err)
+		return dot, nil
+	}
+
+	b, _ := json.Marshal(req.Messages)
+	stop, _ := json.Marshal(req.Stop)
+	msgData := &types.ChatMessages{
+		ModelName:        req.Model,
+		ChannelId:        channelId,
+		Prompt:           req.Messages[len(req.Messages)-1].Content,
+		Finished:         false,
+		Temperature:      req.Temperature,
+		TopP:             req.TopP,
+		N:                req.N,
+		User:             req.User,
+		Messages:         string(b),
+		Error:            true,
+		PresencePenalty:  req.PresencePenalty,
+		FrequencyPenalty: req.FrequencyPenalty,
+		MaxTokens:        req.MaxTokens,
+		Stop:             string(stop),
+	}
+	defer func() {
+		if err = s.repository.Messages().Create(ctx, msgData); err != nil {
+			err = errors.WithMessage(err, "failed to create message")
+			_ = level.Warn(logger).Log("msg", "failed to create message", "err", err)
+		}
+	}()
+	if modelInfo.BaseModelName != "" {
+		req.Model = modelInfo.BaseModelName
+	}
+	completionStream, err := s.localAIChatCompletionStream(ctx, req)
+	if err != nil {
+		msgData.ErrorMessage = err.Error()
+		_ = level.Warn(logger).Log("msg", "failed to get completion stream", "err", err)
+		return dot, err
+	}
+
+	go func() {
+		for content := range completionStream {
+			if content.Choices[0].FinishReason == openai.FinishReasonStop {
+				// 更新数据库
+				msgData.Response = content.Choices[0].Delta.Content
+				msgData.Error = false
+				msgData.Created = content.Created
+				msgData.TimeCost = time.Since(msgData.CreatedAt).String()
+				msgData.Finished = true
+				if err = s.repository.Messages().Update(ctx, msgData); err != nil {
+					_ = level.Warn(logger).Log("msg", "failed to update message", "err", err)
+				}
+			}
+			dot <- content
+		}
+	}()
+
+	return dot, nil
+}
+
+func New(logger log.Logger, traceId string, store repository.Repository, services services.Service, opts ...CreationOption) Service {
+	logger = log.With(logger, "service", "chat")
+	options := &CreationOptions{}
+	for _, o := range opts {
+		o(options)
+	}
+	return &service{
+		traceId:    traceId,
+		logger:     logger,
+		repository: store,
+		services:   services,
+		options:    options,
+	}
 }

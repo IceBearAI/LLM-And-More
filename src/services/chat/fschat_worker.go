@@ -145,8 +145,9 @@ func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string,
 				}
 				err = errors.Wrap(err, "failed to read response")
 				dot <- WorkerGenerateStreamResponse{
-					ErrorCode: 1,
-					Text:      err.Error(),
+					ErrorCode:    1,
+					Text:         err.Error(),
+					FinishReason: "stop",
 				}
 				close(dot)
 				return
@@ -159,8 +160,9 @@ func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string,
 			if err = json.Unmarshal(newBuf, &resp); err != nil {
 				err = errors.Wrap(err, "failed to unmarshal response")
 				dot <- WorkerGenerateStreamResponse{
-					ErrorCode: 1,
-					Text:      err.Error(),
+					ErrorCode:    1,
+					Text:         err.Error(),
+					FinishReason: "stop",
 				}
 				close(dot)
 				return

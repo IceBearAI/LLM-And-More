@@ -7,7 +7,7 @@ import (
 )
 
 func initSvc() WorkerService {
-	return NewFastChatWorker(WithControllerAddress("http://fschat-controller.paas.paas.test"))
+	return NewFastChatWorker(WithControllerAddress("http://localhost:21001"))
 }
 
 func TestWorkerService_ListModels(t *testing.T) {
@@ -119,14 +119,14 @@ func TestWorkerService_WorkerGenerate(t *testing.T) {
 func TestWorkerService_WorkerGenerateStream(t *testing.T) {
 	svc := initSvc()
 	ctx := context.Background()
-	workerAddress, err := svc.GetWorkerAddress(ctx, "qwen1.5-0.5b")
+	workerAddress, err := svc.GetWorkerAddress(ctx, "qwen1.5-0.5b-chat")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	prompt := "<|im_start|>system\nYou are a helpful assistant.<|im_end|><|im_start|>user\n您好!你叫什么名字？<|im_end|><|im_start|>assistant\n"
 	params := GenerateStreamParams{
-		Model:        "qwen1.5-0.5b",
+		Model:        "qwen1.5-0.5b-chat",
 		Prompt:       prompt,
 		Stop:         []string{"<|endoftext|>"},
 		Temperature:  0.7,

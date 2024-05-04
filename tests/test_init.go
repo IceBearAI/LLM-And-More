@@ -62,23 +62,24 @@ const (
 	EnvNameTracerJaegerLogSpans = "AIGC_TRACER_JAEGER_LOG_SPANS"
 
 	// [外部Service相关]
-	EnvNameServerHttpProxy       = "AIGC_SERVER_HTTP_PROXY"
-	EnvNameServiceAlarmHost      = "AIGC_SERVICE_ALARM_HOST" // 告警相关
-	EnvNameServiceOpenAiHost     = "AIGC_SERVICE_OPENAI_HOST"
-	EnvNameServiceOpenAiToken    = "AIGC_SERVICE_OPENAI_TOKEN"
-	EnvNameServiceOpenAiModel    = "AIGC_SERVICE_OPENAI_MODEL"
-	EnvNameServiceOpenAiOrgId    = "AIGC_SERVICE_OPENAI_ORG_ID"
-	EnvNameServiceS3Host         = "AIGC_SERVICE_S3_HOST" // S3对象存储相当
-	EnvNameServiceS3AccessKey    = "AIGC_SERVICE_S3_ACCESS_KEY"
-	EnvNameServiceS3SecretKey    = "AIGC_SERVICE_S3_SECRET_KEY"
-	EnvNameServiceS3S3Url        = "AIGC_SERVICE_S3_S3URL"
-	EnvNameServiceS3Region       = "AIGC_SERVICE_S3_REGION"
-	EnvNameServiceS3Bucket       = "AIGC_SERVICE_S3_BUCKET"
-	EnvNameServiceS3BucketPublic = "AIGC_SERVICE_S3_BUCKET_PUBLIC"
-	EnvNameServiceS3DownloadUrl  = "AIGC_SERVICE_S3_DOWNLOAD_URL"
-	EnvNameServiceS3ProjectName  = "AIGC_SERVICE_S3_PROJECT_NAME"
-	EnvNameServiceS3Cluster      = "AIGC_SERVICE_S3_CLUSTER"
-	EnvNameDockerWorkspace       = "AIGC_DOCKER_WORKSPACE" // chat-api 相关
+	EnvNameServiceAlarmHost    = "AIGC_SERVICE_ALARM_HOST"     // 告警相关
+	EnvNameServiceLocalAIHost  = "AIGC_SERVICE_CHAT_API_HOST"  // chat-api 地址
+	EnvNameServiceLocalAIToken = "AIGC_SERVICE_CHAT_API_TOKEN" // chat-api token
+	EnvNameServiceOpenAiEnable = "AIGC_SERVICE_OPENAI_ENABLE"  // openai相关
+	EnvNameServiceOpenAiHost   = "AIGC_SERVICE_OPENAI_HOST"
+	EnvNameServiceOpenAiToken  = "AIGC_SERVICE_OPENAI_TOKEN"
+	EnvNameServiceOpenAiModel  = "AIGC_SERVICE_OPENAI_MODEL"
+	EnvNameServiceOpenAiOrgId  = "AIGC_SERVICE_OPENAI_ORG_ID"
+	//EnvNameServiceS3Host         = "AIGC_SERVICE_S3_HOST" // S3对象存储相当
+	//EnvNameServiceS3AccessKey    = "AIGC_SERVICE_S3_ACCESS_KEY"
+	//EnvNameServiceS3SecretKey    = "AIGC_SERVICE_S3_SECRET_KEY"
+	//EnvNameServiceS3S3Url        = "AIGC_SERVICE_S3_S3URL"
+	//EnvNameServiceS3Region       = "AIGC_SERVICE_S3_REGION"
+	//EnvNameServiceS3Bucket       = "AIGC_SERVICE_S3_BUCKET"
+	//EnvNameServiceS3BucketPublic = "AIGC_SERVICE_S3_BUCKET_PUBLIC"
+	//EnvNameServiceS3DownloadUrl  = "AIGC_SERVICE_S3_DOWNLOAD_URL"
+	//EnvNameServiceS3ProjectName  = "AIGC_SERVICE_S3_PROJECT_NAME"
+	//EnvNameServiceS3Cluster      = "AIGC_SERVICE_S3_CLUSTER"
 
 	// [LDAP 相关]
 	EnvNameLdapHost        = "AIGC_LDAP_HOST"
@@ -92,57 +93,83 @@ const (
 	EnvNameLdapUserAttr    = "AIGC_LDAP_USER_ATTR"
 
 	// [以下是aigc-server模块配置]
-	EnvHttpPort           = "AIGC_SERVER_HTTP_PORT"
-	EnvNameServerLogDrive = "AIGC_SERVER_LOG_DRIVE"
-	EnvNameServerLogPath  = "AIGC_SERVER_LOG_PATH"
-	EnvNameServerName     = "AIGC_SERVER_NAME"
-	EnvNameServerDebug    = "AIGC_SERVER_DEBUG"
-	EnvNameServerKey      = "AIGC_SERVER_KEY"
-	EnvNameServerLogLevel = "AIGC_SERVER_LOG_LEVEL"
-	EnvNameServerLogName  = "AIGC_SERVER_LOG_NAME"
+	EnvHttpPort                 = "AIGC_ADMIN_HTTP_PORT"
+	EnvNameServerLogDrive       = "AIGC_ADMIN_SERVER_LOG_DRIVE"
+	EnvNameServerLogPath        = "AIGC_ADMIN_SERVER_LOG_PATH"
+	EnvNameServerName           = "AIGC_ADMIN_SERVER_NAME"
+	EnvNameServerDebug          = "AIGC_ADMIN_SERVER_DEBUG"
+	EnvNameServerKey            = "AIGC_ADMIN_SERVER_KEY"
+	EnvNameServerLogLevel       = "AIGC_ADMIN_SERVER_LOG_LEVEL"
+	EnvNameServerLogName        = "AIGC_ADMIN_SERVER_LOG_NAME"
+	EnvNameServerAigcChannelKey = "AIGC_ADMIN_SERVER_AIGC_CHANNEL_KEY"
+	EnvNameServerAdminUser      = "AIGC_ADMIN_SERVER_ADMIN_USER"
+	EnvNameServerAdminPass      = "AIGC_ADMIN_SERVER_ADMIN_PASS"
+	EnvNameServerStoragePath    = "AIGC_ADMIN_SERVER_STORAGE_PATH"
+	EnvNameServerDomain         = "AIGC_ADMIN_SERVER_DOMAIN"
+
+	// [datasets]
+	EnvNameDatasetsImage         = "AIGC_DATASETS_IMAGE"
+	EnvNameDatasetsModelName     = "AIGC_DATASETS_MODEL_NAME"
+	EnvNameDatasetsDevice        = "AIGC_DATASETS_DEVICE"
+	EnvNameDatasetsGpuToleration = "AIGC_DATASETS_GPU_TOLERATION"
 
 	// [runtime]
-	EnvNameRuntimePlatform      = "AIGC_RUNTIME_PLATFORM"
-	EnvNameRuntimeShmSize       = "AIGC_RUNTIME_SHM_SIZE"
-	EnvNameRuntimeK8sHost       = "AIGC_RUNTIME_K8S_HOST"
-	EnvNameRuntimeK8sToken      = "AIGC_RUNTIME_K8S_TOKEN"
-	EnvNameRuntimeK8sConfigPath = "AIGC_RUNTIME_K8S_CONFIG_PATH"
-	EnvNameRuntimeK8sNamespace  = "AIGC_RUNTIME_K8S_NAMESPACE"
-	EnvNameRuntimeK8sInsecure   = "AIGC_RUNTIME_K8S_INSECURE"
-	DefaultRuntimeK8sVolumeName = ""
+	EnvNameRuntimePlatform        = "AIGC_RUNTIME_PLATFORM"
+	EnvNameRuntimeShmSize         = "AIGC_RUNTIME_SHM_SIZE"
+	EnvNameRuntimeK8sHost         = "AIGC_RUNTIME_K8S_HOST"
+	EnvNameRuntimeK8sToken        = "AIGC_RUNTIME_K8S_TOKEN"
+	EnvNameRuntimeK8sConfigPath   = "AIGC_RUNTIME_K8S_CONFIG_PATH"
+	EnvNameRuntimeK8sNamespace    = "AIGC_RUNTIME_K8S_NAMESPACE"
+	EnvNameRuntimeK8sInsecure     = "AIGC_RUNTIME_K8S_INSECURE"
+	EnvNameRuntimeK8sVolumeName   = "AIGC_RUNTIME_K8S_VOLUME_NAME"
+	EnvNameRuntimeDockerWorkspace = "AIGC_RUNTIME_DOCKER_WORKSPACE"
+	EnvNameRuntimeGpuNum          = "AIGC_RUNTIME_GPU_NUM"
+
+	// [local]
+	EnvNameStorageType = "AIGC_STORAGE_TYPE"
+	//EnvNameLocalDataPath = "AIGC_LOCAL_DATA_PATH"
+
+	// [fschat]
+	EnvNameFsChatControllerAddress = "AIGC_FSCHAT_CONTROLLER_ADDRESS"
+	EnvNameFsChatApiAddress        = "AIGC_FSCHAT_API_ADDRESS"
 
 	DefaultRuntimePlatform      = "docker"
-	DefaultRuntimeShmSize       = "16G"
+	DefaultRuntimeShmSize       = "16Gi"
 	DefaultRuntimeK8sHost       = ""
 	DefaultRuntimeK8sToken      = ""
 	DefaultRuntimeK8sInsecure   = false
 	DefaultRuntimeK8sConfigPath = ""
 	DefaultRuntimeK8sNamespace  = "default"
+	DefaultRuntimeK8sVolumeName = ""
 
-	DefaultDbDrive       = "mysql"
-	DefaultMysqlHost     = "localhost"
+	// [cronjob]
+	EnvNameCronJobAuto = "AIGC_CRONJOB_AUTO"
+
+	DefaultDbDrive       = "sqlite"
+	DefaultMysqlHost     = "mysql"
 	DefaultMysqlPort     = 3306
 	DefaultMysqlUser     = "aigc"
 	DefaultMysqlPassword = ""
 	DefaultMysqlDatabase = "aigc"
-	//DefaultRedisHosts    = "localhost:6379"
-	//DefaultRedisDb       = 0
-	//DefaultRedisPassword = ""
-	//DefaultRedisPrefix   = "aigc"
+	DefaultRedisHosts    = "redis:6379"
+	DefaultRedisDb       = 0
+	DefaultRedisPassword = ""
+	DefaultRedisPrefix   = "aigc"
 
 	DefaultServerName      = "aigc-server"
-	DefaultServerKey       = ""
+	DefaultServerKey       = "Aigcfj@202401"
 	DefaultServerLogLevel  = "all"
 	DefaultServerLogDrive  = "term"
 	DefaultServerLogPath   = ""
 	DefaultServerLogName   = "aigc-server.log"
 	DefaultServerDebug     = false
 	DefaultEnableCORS      = false
-	DefaultServerHttpProxy = ""
+	DefaultServerAdminUser = "admin"
+	DefaultServerAdminPass = "admin"
 
 	DefaultCORSAllowOrigins     = "*"
 	DefaultCORSAllowMethods     = "GET,POST,PUT,DELETE,OPTIONS"
-	DefaultCORSAllowHeaders     = "Accept,Content-Type,Content-Length,Accept-Encoding,X-CSRF-Token,Authorization"
+	DefaultCORSAllowHeaders     = "Accept,Content-Type,Content-Length,Accept-Encoding,X-CSRF-Token,Authorization,X-Token,X-Tenant-Id"
 	DefaultCORSAllowCredentials = true
 	DefaultCORSExposeHeaders    = "Content-Length,Access-Control-Allow-Origin,Access-Control-Allow-Headers,Content-Type"
 
@@ -153,18 +180,18 @@ const (
 	DefaultJaegerType             = "const"
 	DefaultJaegerLogSpans         = false
 
-	DefaultServiceAlarmHost = ""
-	// [gpt]相关
-	DefaultServiceChatApiHost = "http://chat-api:8080"
-	DefaultServiceOpenAiHost  = "https://api.openai.com/v1"
-	DefaultServiceOpenAiToken = "sk-001"
-	DefaultServiceOpenAiModel = openai.GPT3Dot5Turbo
-	DefaultServiceOpenAiOrgId = ""
+	// [chat]相关
+	DefaultServiceChatApiHost  = "http://fschat-api:8000/v1"
+	DefaultServiceChatApiToken = "sk-001"
+	DefaultServiceOpenAiHost   = "https://api.openai.com/v1"
+	DefaultServiceOpenAiToken  = "sk-001"
+	DefaultServiceOpenAiModel  = openai.GPT3Dot5Turbo
+	DefaultServiceOpenAiOrgId  = ""
 
 	// [ldap相关]
-	DefaultLdapHost        = "ldap"
+	DefaultLdapHost        = "ldap://ldap"
 	DefaultLdapPort        = 389
-	DefaultLdapBaseDn      = "OU=HABROOT,DC=corp"
+	DefaultLdapBaseDn      = "OU=HABROOT,DC=ORG,DC=corp"
 	DefaultLdapBindUser    = "aigc_ldap"
 	DefaultLdapBindPass    = ""
 	DefaultLdapUserFilter  = "(userPrincipalName=%s)"
@@ -172,14 +199,18 @@ const (
 	DefaultLdapAttributes  = "name,mail,userPrincipalName,displayName,sAMAccountName"
 
 	// [s3]
-	DefaultServiceS3Host         = "http://s3"
-	DefaultServiceS3AccessKey    = ""
-	DefaultServiceS3SecretKey    = ""
-	DefaultServiceS3Bucket       = "aigc"
-	DefaultServiceS3BucketPublic = "aigc"
-	DefaultServiceS3Region       = "default"
-	DefaultServiceS3Cluster      = "ceph-c2"
-	DefaultDockerWorkspace       = "/tmp"
+	//DefaultServiceS3Host         = "http://s3"
+	//DefaultServiceS3AccessKey    = ""
+	//DefaultServiceS3SecretKey    = ""
+	//DefaultServiceS3Bucket       = "aigc"
+	//DefaultServiceS3BucketPublic = "aigc"
+	//DefaultServiceS3Region       = "default"
+	//DefaultServiceS3Cluster      = "ceph-c2"
+
+	// [datasets]
+	DefaultDatasetsImage     = "dudulu/llmops:latest"
+	DefaultDatasetsModelName = "uer/sbert-base-chinese-nli"
+	DefaultDatasetsDevice    = ""
 )
 
 var (
@@ -196,28 +227,28 @@ var (
 )
 
 var (
-	//redisDb int
-	//redisAuth, redisHosts, redisPrefix string
+	//rdb    redis.UniversalClient
 	apiSvc services.Service
 	//hashId   hashids.HashIds
-	dbDrive, mysqlHost, mysqlUser, mysqlPassword, mysqlDatabase                                        string
-	mysqlPort, ormPort                                                                                 int
-	serverHttpProxy                                                                                    string
-	serverName, serverKey, serverLogLevel, serverLogDrive, serverLogPath, serverLogName                string
-	corsAllowOrigins, corsAllowMethods, corsAllowHeaders, corsExposeHeaders                            string
-	serverDebug, enableCORS, corsAllowCredentials, tracerEnable, tracerJaegerLogSpans, mysqlOrmMetrics bool
-	tracerDrive, tracerJaegerHost, tracerJaegerType                                                    string
-	tracerJaegerParam                                                                                  float64
-	serviceAlarmHost                                                                                   string
+	dbDrive, mysqlHost, mysqlUser, mysqlPassword, mysqlDatabase                                            string
+	mysqlPort, redisDb, ormPort                                                                            int
+	redisAuth, redisHosts, redisPrefix                                                                     string
+	serverName, serverKey, serverLogLevel, serverLogDrive, serverLogPath, serverLogName, serverStoragePath string
+	defaultStoragePath, serverDomain                                                                       string
+	serverAdminUser, serverAdminPass                                                                       string
+	corsAllowOrigins, corsAllowMethods, corsAllowHeaders, corsExposeHeaders                                string
+	serverDebug, enableCORS, corsAllowCredentials, tracerEnable, tracerJaegerLogSpans, mysqlOrmMetrics     bool
+	tracerDrive, tracerJaegerHost, tracerJaegerType                                                        string
+	tracerJaegerParam                                                                                      float64
+	serverChannelKey                                                                                       string
 
-	// [openai]
+	// [gpt]
+	serviceOpenAiEnable                                                           bool
+	serviceLocalAiHost, serviceLocalAiToken                                       string
 	serviceOpenAiHost, serviceOpenAiToken, serviceOpenAiModel, serviceOpenAiOrgId string
 
 	// [s3]
-	serviceS3Host, serviceS3AccessKey, serviceS3SecretKey, serviceS3Bucket, serviceS3Region, serviceS3Cluster string
-
-	// [docker]
-	dockerWorkspace string
+	//serviceS3Host, serviceS3AccessKey, serviceS3SecretKey, serviceS3Bucket, serviceS3BucketPublic, serviceS3Region, serviceS3ProjectName string
 
 	// [ldap]相关
 	ldapHost, ldapBaseDn, ldapBindUser, ldapBindPass, ldapUserFilter, ldapGroupFilter string
@@ -225,9 +256,26 @@ var (
 	ldapUserAttr                                                                      []string
 	ldapUseSsl                                                                        bool
 
+	// [chat]
+	defaultServiceChatHost = "http://chat-api:8080"
+
+	// datasets
+	datasetsImage, datasetsModelName, datasetsDevice, datasetsGpuToleration string
+
+	// local
+	storageType string
+
 	// [runtime]
-	runtimePlatform, runtimeShmSize, runtimeK8sHost, runtimeK8sToken, runtimeK8sConfigPath, runtimeK8sNamespace string
-	runtimeK8sInsecure                                                                                          bool
+	runtimePlatform, runtimeShmSize, runtimeK8sHost, runtimeK8sToken, runtimeK8sConfigPath, runtimeK8sNamespace, runtimeK8sVolumeName string
+	runtimeDockerWorkspace                                                                                                            string
+	runtimeK8sInsecure                                                                                                                bool
+	runtimeGpuNum                                                                                                                     int
+
+	// [fschat]
+	fsChatControllerAddress, fsChatApiAddress string
+
+	// [cronjob]
+	cronJobAuto bool
 
 	corsHeaders   = make(map[string]string, 3)
 	rateBucketNum = 50000
@@ -282,18 +330,22 @@ func preRun() {
 	serverLogDrive = envString(EnvNameServerLogDrive, DefaultServerLogDrive)
 	serverLogPath = envString(EnvNameServerLogPath, DefaultServerLogPath)
 	serverLogName = envString(EnvNameServerLogName, DefaultServerLogName)
-	serverHttpProxy = envString(EnvNameServerHttpProxy, DefaultServerHttpProxy)
+	serverChannelKey = envString(EnvNameServerAigcChannelKey, "sk-001")
 	serverDebug, _ = strconv.ParseBool(envString(EnvNameServerDebug, strconv.FormatBool(DefaultServerDebug)))
-
-	// 以下是[service] 模块配置
-	serviceAlarmHost = envString(EnvNameServiceAlarmHost, DefaultServiceAlarmHost)
+	serverAdminUser = envString(EnvNameServerAdminUser, DefaultServerAdminUser)
+	serverAdminUser = envString(EnvNameServerAdminPass, DefaultServerAdminPass)
+	serverStoragePath = envString(EnvNameServerStoragePath, defaultStoragePath)
+	serverDomain = envString(EnvNameServerDomain, fmt.Sprintf("http://localhost%s", httpAddr))
+	cronJobAuto, _ = strconv.ParseBool(envString(EnvNameCronJobAuto, "true"))
 
 	// [service.gpt]
-	//serviceGPTHost = envString(EnvNameServiceGptHost, DefaultServiceChatApiHost)
+	serviceOpenAiEnable, _ = strconv.ParseBool(envString(EnvNameServiceOpenAiEnable, "false"))
 	serviceOpenAiHost = envString(EnvNameServiceOpenAiHost, DefaultServiceOpenAiHost)
 	serviceOpenAiToken = envString(EnvNameServiceOpenAiToken, DefaultServiceOpenAiToken)
 	serviceOpenAiModel = envString(EnvNameServiceOpenAiModel, DefaultServiceOpenAiModel)
 	serviceOpenAiOrgId = envString(EnvNameServiceOpenAiOrgId, DefaultServiceOpenAiOrgId)
+	serviceLocalAiHost = envString(EnvNameServiceLocalAIHost, DefaultServiceChatApiHost)
+	serviceLocalAiToken = envString(EnvNameServiceLocalAIToken, DefaultServiceChatApiToken)
 
 	// [ldap]
 	ldapHost = envString(EnvNameLdapHost, DefaultLdapHost)
@@ -306,15 +358,23 @@ func preRun() {
 	ldapUserAttr = strings.Split(envString(EnvNameLdapUserAttr, DefaultLdapAttributes), ",")
 
 	// [service.s3]
-	serviceS3Host = envString(EnvNameServiceS3Host, DefaultServiceS3Host)
-	serviceS3AccessKey = envString(EnvNameServiceS3AccessKey, DefaultServiceS3AccessKey)
-	serviceS3SecretKey = envString(EnvNameServiceS3SecretKey, DefaultServiceS3SecretKey)
-	serviceS3Bucket = envString(EnvNameServiceS3Bucket, DefaultServiceS3Bucket)
-	serviceS3Region = envString(EnvNameServiceS3Region, DefaultServiceS3Region)
-	serviceS3Cluster = envString(EnvNameServiceS3Cluster, DefaultServiceS3Cluster)
+	//serviceS3Host = envString(EnvNameServiceS3Host, DefaultServiceS3Host)
+	//serviceS3AccessKey = envString(EnvNameServiceS3AccessKey, DefaultServiceS3AccessKey)
+	//serviceS3SecretKey = envString(EnvNameServiceS3SecretKey, DefaultServiceS3SecretKey)
+	//serviceS3Bucket = envString(EnvNameServiceS3Bucket, DefaultServiceS3Bucket)
+	//serviceS3BucketPublic = envString(EnvNameServiceS3BucketPublic, DefaultServiceS3BucketPublic)
+	//serviceS3Region = envString(EnvNameServiceS3Region, DefaultServiceS3Region)
+	//serviceS3ProjectName = envString(EnvNameServiceS3ProjectName, namespace)
 
-	// [docker]
-	dockerWorkspace = envString(EnvNameDockerWorkspace, DefaultDockerWorkspace)
+	// [dataset]
+	datasetsImage = envString(EnvNameDatasetsImage, DefaultDatasetsImage)
+	datasetsModelName = envString(EnvNameDatasetsModelName, DefaultDatasetsModelName)
+	datasetsDevice = envString(EnvNameDatasetsDevice, DefaultDatasetsDevice)
+	datasetsGpuToleration = envString(EnvNameDatasetsGpuToleration, "")
+
+	// [local]
+	storageType = envString(EnvNameStorageType, "local")
+	//localDataPath = envString(EnvNameLocalDataPath, DefaultLocalDataPath)
 
 	// [runtime]
 	runtimePlatform = envString(EnvNameRuntimePlatform, DefaultRuntimePlatform)
@@ -323,7 +383,14 @@ func preRun() {
 	runtimeK8sToken = envString(EnvNameRuntimeK8sToken, DefaultRuntimeK8sToken)
 	runtimeK8sConfigPath = envString(EnvNameRuntimeK8sConfigPath, DefaultRuntimeK8sConfigPath)
 	runtimeK8sNamespace = envString(EnvNameRuntimeK8sNamespace, DefaultRuntimeK8sNamespace)
+	runtimeK8sVolumeName = envString(EnvNameRuntimeK8sVolumeName, DefaultRuntimeK8sVolumeName)
 	runtimeK8sInsecure, _ = strconv.ParseBool(envString(EnvNameRuntimeK8sInsecure, strconv.FormatBool(DefaultRuntimeK8sInsecure)))
+	runtimeDockerWorkspace = envString(EnvNameRuntimeDockerWorkspace, defaultStoragePath)
+	runtimeGpuNum, _ = strconv.Atoi(envString(EnvNameRuntimeGpuNum, "8"))
+
+	// [fschat]
+	fsChatControllerAddress = envString(EnvNameFsChatControllerAddress, "http://fschat-controller:21001")
+	fsChatApiAddress = envString(EnvNameFsChatControllerAddress, "http://fschat-api:8000")
 }
 
 func Init() (services.Service, error) {
@@ -354,12 +421,12 @@ func prepare(ctx context.Context) error {
 	if strings.EqualFold(dbDrive, "mysql") {
 		dbUrl := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local&timeout=20m&collation=utf8mb4_unicode_ci",
 			mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)
-		sqlDB, err := sql.Open("mysql", dbUrl)
-		if err != nil {
-			_ = level.Error(logger).Log("sql", "Open", "err", err.Error())
-			return err
+		sqlDB, dbErr := sql.Open("mysql", dbUrl)
+		if dbErr != nil {
+			_ = level.Error(logger).Log("sql", "Open", "err", dbErr.Error())
+			return dbErr
 		}
-		gormDB, err = gorm.Open(mysql.New(mysql.Config{
+		gormDB, dbErr = gorm.Open(mysql.New(mysql.Config{
 			Conn:              sqlDB,
 			DefaultStringSize: 255,
 		}), &gorm.Config{
@@ -373,8 +440,8 @@ func prepare(ctx context.Context) error {
 		_ = level.Debug(logger).Log("mysql", "connect", "success", true)
 		//gormDB.Statement.Clauses["soft_delete_enabled"] = clause.Clause{}
 	} else if strings.EqualFold(dbDrive, "sqlite") {
-		_ = os.MkdirAll(fmt.Sprintf("%s/database", "./storage"), 0755)
-		gormDB, err = gorm.Open(sqlite.Open(fmt.Sprintf("%s/database/aigc.db", "./storage")), &gorm.Config{
+		_ = os.MkdirAll(fmt.Sprintf("%s/database", serverStoragePath), 0755)
+		gormDB, err = gorm.Open(sqlite.Open(fmt.Sprintf("%s/database/aigc.db", serverStoragePath)), &gorm.Config{
 			DisableForeignKeyConstraintWhenMigrating: true,
 		})
 		if err != nil {
@@ -398,6 +465,16 @@ func prepare(ctx context.Context) error {
 	} else {
 		gormDB.Logger = gormlogger.Default.LogMode(gormlogger.Info)
 	}
+
+	// SetMaxIdleConns sets the maximum number of connections in the idle connection pool.
+	db.SetMaxIdleConns(20)
+
+	// SetMaxOpenConns sets the maximum number of open connections to the database.
+	db.SetMaxOpenConns(100)
+
+	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused.
+	db.SetConnMaxLifetime(time.Hour)
+
 	if mysqlOrmMetrics {
 		//if err = gormDB.Use(gormprometheus.New(gormprometheus.Config{
 		//	DBName:          mysqlDatabase,

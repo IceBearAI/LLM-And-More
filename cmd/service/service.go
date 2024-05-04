@@ -448,12 +448,12 @@ func prepare(ctx context.Context) error {
 	if strings.EqualFold(dbDrive, "mysql") {
 		dbUrl := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local&timeout=20m&collation=utf8mb4_unicode_ci",
 			mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)
-		sqlDB, err := sql.Open("mysql", dbUrl)
-		if err != nil {
-			_ = level.Error(logger).Log("sql", "Open", "err", err.Error())
-			return err
+		sqlDB, dbErr := sql.Open("mysql", dbUrl)
+		if dbErr != nil {
+			_ = level.Error(logger).Log("sql", "Open", "err", dbErr.Error())
+			return dbErr
 		}
-		gormDB, err = gorm.Open(mysql.New(mysql.Config{
+		gormDB, dbErr = gorm.Open(mysql.New(mysql.Config{
 			Conn:              sqlDB,
 			DefaultStringSize: 255,
 		}), &gorm.Config{

@@ -39,21 +39,21 @@ type UsageInfo struct {
 
 // GenerateStreamParams 生成流参数
 type GenerateStreamParams struct {
-	Model            string      `json:"model"`
-	Prompt           string      `json:"prompt"`
-	Temperature      float32     `json:"temperature"`
-	Logprobs         bool        `json:"logprobs"`
-	TopP             float32     `json:"top_p"`
-	TopK             int         `json:"top_k"`
-	PresencePenalty  float32     `json:"presence_penalty"`
-	FrequencyPenalty float32     `json:"frequency_penalty"`
-	MaxNewTokens     int         `json:"max_new_tokens"`
-	Echo             bool        `json:"echo"`
-	StopTokenIds     interface{} `json:"stop_token_ids"`
-	Images           []any       `json:"images"`
-	BestOf           int         `json:"best_of"`
-	UseBeamSearch    bool        `json:"use_beam_search"`
-	Stop             any         `json:"stop"`
+	Model            string  `json:"model"`
+	Prompt           string  `json:"prompt"`
+	Temperature      float32 `json:"temperature"`
+	Logprobs         bool    `json:"logprobs"`
+	TopP             float32 `json:"top_p"`
+	TopK             int     `json:"top_k"`
+	PresencePenalty  float32 `json:"presence_penalty"`
+	FrequencyPenalty float32 `json:"frequency_penalty"`
+	MaxNewTokens     int     `json:"max_new_tokens"`
+	Echo             bool    `json:"echo"`
+	StopTokenIds     []int   `json:"stop_token_ids"`
+	Images           []any   `json:"images"`
+	BestOf           int     `json:"best_of"`
+	UseBeamSearch    bool    `json:"use_beam_search"`
+	Stop             any     `json:"stop"`
 }
 
 // GenerateParams 生成流参数

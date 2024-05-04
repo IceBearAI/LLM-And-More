@@ -14,9 +14,9 @@ import (
 	"github.com/tmc/langchaingo/agents"
 	"github.com/tmc/langchaingo/callbacks"
 	"github.com/tmc/langchaingo/chains"
+	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/tmc/langchaingo/memory"
-	"github.com/tmc/langchaingo/schema"
 	lmtools "github.com/tmc/langchaingo/tools"
 	"strings"
 	"time"
@@ -132,7 +132,7 @@ func (s *service) Playground(ctx context.Context, tenantId uint, assistantId str
 	}
 	_ = level.Info(logger).Log("assistant.name", assistant.Name)
 	// 获取历史对话记录
-	var previousMessages []schema.ChatMessage
+	chatMessageHistory := memory.NewChatMessageHistory()
 	var lastMessage message
 	// 取出最后一条消息
 	lastMessage = req.Messages[len(req.Messages)-1:][0]
@@ -140,12 +140,12 @@ func (s *service) Playground(ctx context.Context, tenantId uint, assistantId str
 	req.Messages = req.Messages[:len(req.Messages)-1]
 	for _, msg := range req.Messages {
 		if strings.EqualFold(msg.Role, "user") {
-			previousMessages = append(previousMessages, schema.HumanChatMessage{Content: msg.Content})
+			_ = chatMessageHistory.AddUserMessage(ctx, msg.Content)
 		} else if strings.EqualFold(msg.Role, "assistant") {
-			previousMessages = append(previousMessages, schema.AIChatMessage{Content: msg.Content})
+			_ = chatMessageHistory.AddAIMessage(ctx, msg.Content)
 		} else if strings.EqualFold(msg.Role, "system") {
 			if strings.TrimSpace(msg.Content) != "" {
-				previousMessages = append(previousMessages, schema.SystemChatMessage{Content: msg.Content})
+				_ = chatMessageHistory.AddMessage(ctx, llms.SystemChatMessage{Content: msg.Content})
 			}
 		}
 	}
@@ -193,6 +193,7 @@ func (s *service) Playground(ctx context.Context, tenantId uint, assistantId str
 	if req.Stream {
 		creationOptions = append(creationOptions, agents.WithCallbacksHandler(newStreamLogHandler(streamResp)))
 	}
+	previousMessages, _ := chatMessageHistory.Messages(ctx)
 	executor := agents.NewExecutor(agents.NewConversationalAgent(llm, tools, creationOptions...), tools, []agents.Option{
 		//agents.WithMaxIterations(3),
 		//agents.WithReturnIntermediateSteps(),

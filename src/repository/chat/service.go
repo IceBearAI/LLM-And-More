@@ -21,10 +21,6 @@ type Service interface {
 	AllowUsers(ctx context.Context, email string) (res []types.ChatAllowUser, err error)
 	// History 获取聊天记录
 	History(ctx context.Context, model types.ChatModel, id uint, email string, promptType types.ChatPromptType, page, pageSize int) (res []types.Chat, total int64, err error)
-	// FindRoleByName 获取角色
-	FindRoleByName(ctx context.Context, name, email string) (res types.ChatRole, err error)
-	// FindOrCreateRole 获取或创建角色
-	FindOrCreateRole(ctx context.Context, name, email string) (res types.ChatRole, err error)
 	// ClearHistory 清空历史记录
 	ClearHistory(ctx context.Context, email string, id uint) (err error)
 	// FindByChatId 根据chatId查找聊天记录
@@ -42,14 +38,17 @@ type Service interface {
 	// DeleteConversation 删除会话
 	DeleteConversation(ctx context.Context, email string, conversationId uint) (err error)
 	// FindSystemPrompt 获取系统提示
+	// Deprecated: 废弃
 	FindSystemPrompt(ctx context.Context, chatModel types.ChatModel, promptType types.ChatPromptType) (res types.ChatSystemPrompt, err error)
 	// FindPromptTypes 创建系统提示
+	// Deprecated: 废弃
 	FindPromptTypes(ctx context.Context) (res []types.ChatPromptTypes, err error)
 	// FindChannel 获取渠道
 	FindChannel(ctx context.Context, name string, preload ...string) (res types.ChatChannels, err error)
 	// CountChannel 统计渠道对话数
 	CountChannel(ctx context.Context, channelName string, currTime time.Time) (res int, err error)
 	// FindPrompts 获取所有提词
+	// Deprecated: 废弃
 	FindPrompts(ctx context.Context, promptType string) (res []types.ChatPrompts, err error)
 	// FindChannelByApiKey 根据ApiKey获取渠道
 	FindChannelByApiKey(ctx context.Context, apiKey string, preload ...string) (res types.ChatChannels, err error)
@@ -61,19 +60,6 @@ type Service interface {
 	UpdateMessage(ctx context.Context, data *types.ChatMessages) (err error)
 	// FindModelByChannelId 根据chatId获取Message
 	FindModelByChannelId(ctx context.Context, channelId uint, modelId string) (res types.ChatChannelModels, err error)
-
-	// CreateRole 创建角色
-	// Deprecated: 废弃
-	CreateRole(ctx context.Context, name, alias, email string) (err error)
-	// RolesByUser 获取用户角色
-	// Deprecated: 废弃
-	RolesByUser(ctx context.Context, email string, limit int) (res []types.ChatRole, err error)
-	// UpdateRole 更新聊天角色信息
-	// Deprecated: 废弃
-	UpdateRole(ctx context.Context, email, roleName, roleAlias string) (err error)
-	// DeleteRole 删除角色
-	// Deprecated: 废弃
-	DeleteRole(ctx context.Context, email, roleName string) (err error)
 	// CreateAudio 创建音频记录
 	CreateAudio(ctx context.Context, data *types.ChatAudio) (err error)
 	// UpdateAudio 更新音频记录
@@ -232,44 +218,6 @@ func (s *service) ClearHistory(ctx context.Context, email string, conversationId
 
 func (s *service) UpdateChat(ctx context.Context, data *types.Chat) (err error) {
 	return s.db.WithContext(ctx).Save(data).Error
-}
-
-func (s *service) DeleteRole(ctx context.Context, email, roleName string) (err error) {
-	return s.db.WithContext(ctx).Where("email = ? AND name = ?", email, roleName).Delete(&types.ChatRole{}).Error
-}
-
-func (s *service) UpdateRole(ctx context.Context, email, roleName, roleAlias string) (err error) {
-	roleInfo, err := s.FindRoleByName(ctx, roleName, email)
-	if err != nil {
-		return
-	}
-	roleInfo.Alias = roleAlias
-	return s.db.WithContext(ctx).Save(&roleInfo).Error
-}
-
-func (s *service) RolesByUser(ctx context.Context, email string, limit int) (res []types.ChatRole, err error) {
-	err = s.db.WithContext(ctx).Where("email = ?", email).Order("id DESC").Limit(limit).Find(&res).Error
-	return
-}
-
-func (s *service) CreateRole(ctx context.Context, name, alias, email string) (err error) {
-	return s.db.WithContext(ctx).Create(&types.ChatRole{
-		Name:  name,
-		Alias: alias,
-		Email: email,
-	}).Error
-}
-
-func (s *service) FindOrCreateRole(ctx context.Context, name, email string) (res types.ChatRole, err error) {
-	res.Name = name
-	res.Email = email
-	err = s.db.WithContext(ctx).Where("name = ? AND email = ?", name, email).FirstOrCreate(&res).Error
-	return
-}
-
-func (s *service) FindRoleByName(ctx context.Context, name, email string) (res types.ChatRole, err error) {
-	err = s.db.WithContext(ctx).Where("name = ? AND email = ?", name, email).First(&res).Error
-	return
 }
 
 func (s *service) History(ctx context.Context, model types.ChatModel, conversationId uint, email string, promptType types.ChatPromptType, page, pageSize int) (res []types.Chat, total int64, err error) {
