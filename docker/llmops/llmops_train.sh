@@ -111,7 +111,7 @@ merge_lora_models() {
 }
 
 LORA_MODULE_NAME=''
-MODENAME=$(echo "$BASE_MODEL_NAME" | tr '[:upper:]' '[:lower:]')
+MODENAME=$(echo "$BASE_MODEL_NAME" | tr '[:upper:]' '[:lower:]' | tr -d '-')
 case $MODENAME in
     *'llama2'*)
         LORA_MODULE_NAME='gate_proj,down_proj,up_proj'
@@ -235,7 +235,7 @@ if [ "$SCENARIO" == "general" ]; then
       --deepspeed \
       --output_dir $OUTPUT_DIR \
       --start_from_step -1 \
-      --save_per_steps 100  > >(tee "$temp_file") 2>&1
+      --save_per_steps 200  > >(tee "$temp_file") 2>&1
 elif [ "$SCENARIO" == "faq" ]; then
   formatted_datasets_path=/data/train-data/faq_formatted_datasets
   mkdir -p "$formatted_datasets_path"
@@ -298,7 +298,7 @@ elif [ "$SCENARIO" == "rag" ]; then
         --mode $MODENAME \
         --train_type $TRAIN_TYPE \
         --load_in_kbits 16 \
-        --fp16
+        --fp16 \
         --lora_module_name  $LORA_MODULE_NAME \
         --lora_dim 4 \
         --lora_alpha 64 \
