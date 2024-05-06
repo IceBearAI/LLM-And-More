@@ -29,9 +29,10 @@ func TestService_ChatCompletionStream(t *testing.T) {
 		Messages: []openai.ChatCompletionMessage{
 			{
 				Role:    "user",
-				Content: "What is the capital of the United States?",
+				Content: "What is the meaning of life?",
 			},
 		},
+		Stream: true,
 	})
 	if err != nil {
 		t.Error(err)

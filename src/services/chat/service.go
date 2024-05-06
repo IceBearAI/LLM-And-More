@@ -6,7 +6,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-type endpoint struct {
+type Endpoint struct {
 	Platform string
 	Host     string
 	Token    string
@@ -15,7 +15,7 @@ type endpoint struct {
 // CreationOptions is the options for the faceswap service.
 type CreationOptions struct {
 	httpClientOpts []kithttp.ClientOption
-	endpoints      []endpoint
+	endpoints      []Endpoint
 }
 
 // CreationOption is the option for the chat service.
@@ -29,7 +29,7 @@ func WithHTTPClientOpts(opts ...kithttp.ClientOption) CreationOption {
 }
 
 // WithEndpoints is the option to set the endpoints.
-func WithEndpoints(endpoints ...endpoint) CreationOption {
+func WithEndpoints(endpoints ...Endpoint) CreationOption {
 	return func(o *CreationOptions) {
 		o.endpoints = endpoints
 	}

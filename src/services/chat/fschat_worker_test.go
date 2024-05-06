@@ -141,6 +141,7 @@ func TestWorkerService_WorkerGenerateStream(t *testing.T) {
 		t.Error(err)
 		return
 	}
+
 	for {
 		select {
 		case r, ok := <-resp:

@@ -136,7 +136,7 @@ func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string,
 		rc := resStream.(io.ReadCloser)
 		defer rc.Close()
 		for {
-			buf := make([]byte, 1024)
+			buf := make([]byte, 102400)
 			n, err := rc.Read(buf)
 			if err != nil {
 				if err == io.EOF {
@@ -204,7 +204,7 @@ func (s *worker) WorkerGenerate(ctx context.Context, workerAddress string, param
 		rc := resStream.(io.ReadCloser)
 		defer rc.Close()
 		for {
-			buf := make([]byte, 1024)
+			buf := make([]byte, 102400)
 			n, err := rc.Read(buf)
 			if err != nil {
 				if err == io.EOF {

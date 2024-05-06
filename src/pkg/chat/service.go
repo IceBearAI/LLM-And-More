@@ -55,6 +55,11 @@ type Service interface {
 	Embeddings(ctx context.Context, channelId uint, req openai.EmbeddingRequest) (res openai.EmbeddingResponse, err error)
 }
 
+type CompletionStreamResponse struct {
+	Usage openai.Usage `json:"usage"`
+	openai.ChatCompletionStreamResponse
+}
+
 type service struct {
 	traceId    string
 	logger     log.Logger
@@ -187,7 +192,7 @@ func (s *service) generateCompletionStreamGenerator(ctx context.Context, worker 
 	//    yield "data: [DONE]\n\n"
 }
 
-func (s *service) localAIChatCompletionStream(ctx context.Context, req openai.ChatCompletionRequest) (res <-chan openai.ChatCompletionStreamResponse, err error) {
+func (s *service) localAIChatCompletionStream(ctx context.Context, req openai.ChatCompletionRequest) (res <-chan CompletionStreamResponse, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 	svc := chat.NewFastChatWorker(chat.WithControllerAddress("http://localhost:21001"))
 	models, err := svc.ListModels(ctx)
@@ -229,6 +234,9 @@ func (s *service) localAIChatCompletionStream(ctx context.Context, req openai.Ch
 	if maxTokens != 0 && maxTokens < req.MaxTokens {
 		req.MaxTokens = maxTokens
 	}
+	if req.MaxTokens == 0 {
+		req.MaxTokens = 2048
+	}
 
 	convTemplate, err := svc.WorkerGetConvTemplate(ctx, workerAddress, req.Model)
 	if err != nil {
@@ -265,6 +273,8 @@ func (s *service) localAIChatCompletionStream(ctx context.Context, req openai.Ch
 	prompt += convTemplate.Conv.Roles[1]
 	_ = level.Debug(logger).Log("msg", "prompt", "prompt", prompt)
 
+	dot := make(chan CompletionStreamResponse)
+
 	// todo: 获取模版，并处理面prompt
 	stream, err := svc.WorkerGenerateStream(ctx, workerAddress, chat.GenerateStreamParams{
 		Model:            req.Model,
@@ -286,45 +296,46 @@ func (s *service) localAIChatCompletionStream(ctx context.Context, req openai.Ch
 		return
 	}
 
-	for {
-		content, ok := <-stream
-		if !ok {
-			fmt.Println("stream closed")
-			break
-		}
-		if content.ErrorCode != 0 {
-			fmt.Println("error")
-			err = errors.New(content.Text)
-			return
-		}
-		fmt.Println(content.Text, content.Usage)
-	}
-
-	dot := make(chan openai.ChatCompletionStreamResponse)
 	go func() {
 		now := time.Now().UnixMilli()
-		for content := range stream {
+		defer func() {
+			close(dot)
+		}()
+		for {
+			content, ok := <-stream
+			if !ok {
+				_ = level.Info(logger).Log("msg", "stream closed")
+				break
+			}
 			if content.ErrorCode != 0 {
 				err = errors.New(content.Text)
-				return
+				_ = level.Warn(logger).Log("msg", "error code", "errorCode", content.ErrorCode, "text", content.Text)
 			}
-			dot <- openai.ChatCompletionStreamResponse{
-				ID:      fmt.Sprintf("cmpl-%s", shortuuid.New()),
-				Object:  "chat.completion.chunk",
-				Created: now,
-				Model:   req.Model,
-				Choices: []openai.ChatCompletionStreamChoice{
-					{
-						FinishReason: openai.FinishReason(content.FinishReason),
-						Delta: openai.ChatCompletionStreamChoiceDelta{
-							Content: content.Text,
-							Role:    "assistant",
+			dot <- CompletionStreamResponse{
+				Usage: struct {
+					PromptTokens     int `json:"prompt_tokens"`
+					CompletionTokens int `json:"completion_tokens"`
+					TotalTokens      int `json:"total_tokens"`
+				}{PromptTokens: content.Usage.PromptTokens, CompletionTokens: content.Usage.CompletionTokens, TotalTokens: content.Usage.TotalTokens},
+				ChatCompletionStreamResponse: openai.ChatCompletionStreamResponse{
+					ID:      fmt.Sprintf("cmpl-%s", shortuuid.New()),
+					Object:  "chat.completion.chunk",
+					Created: now,
+					Model:   req.Model,
+					Choices: []openai.ChatCompletionStreamChoice{
+						{
+							FinishReason: openai.FinishReason(content.FinishReason),
+							Delta: openai.ChatCompletionStreamChoiceDelta{
+								Content: content.Text,
+								Role:    "assistant",
+							},
 						},
 					},
 				},
 			}
 		}
 	}()
+
 	return dot, nil
 }
 
@@ -530,30 +541,27 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 
 	dot := make(chan openai.ChatCompletionStreamResponse)
-	defer func() {
-		close(dot)
-	}()
-
 	modelInfo, err := s.repository.Model().FindByModelId(ctx, req.Model)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to find model")
 		_ = level.Warn(logger).Log("msg", "failed to find model", "err", err)
-		return dot, nil
+		return dot, err
 	}
-
+	isError := true
+	finished := false
 	b, _ := json.Marshal(req.Messages)
 	stop, _ := json.Marshal(req.Stop)
 	msgData := &types.ChatMessages{
 		ModelName:        req.Model,
 		ChannelId:        channelId,
 		Prompt:           req.Messages[len(req.Messages)-1].Content,
-		Finished:         false,
+		Finished:         &finished,
 		Temperature:      req.Temperature,
 		TopP:             req.TopP,
 		N:                req.N,
 		User:             req.User,
 		Messages:         string(b),
-		Error:            true,
+		Error:            &isError,
 		PresencePenalty:  req.PresencePenalty,
 		FrequencyPenalty: req.FrequencyPenalty,
 		MaxTokens:        req.MaxTokens,
@@ -576,19 +584,25 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 	}
 
 	go func() {
+		defer close(dot)
 		for content := range completionStream {
 			if content.Choices[0].FinishReason == openai.FinishReasonStop {
+				isError = false
+				finished = true
 				// 更新数据库
 				msgData.Response = content.Choices[0].Delta.Content
-				msgData.Error = false
+				msgData.Error = &isError
 				msgData.Created = content.Created
 				msgData.TimeCost = time.Since(msgData.CreatedAt).String()
-				msgData.Finished = true
+				msgData.Finished = &finished
+				msgData.PromptTokens = content.Usage.PromptTokens
+				msgData.ResponseTokens = content.Usage.CompletionTokens
 				if err = s.repository.Messages().Update(ctx, msgData); err != nil {
 					_ = level.Warn(logger).Log("msg", "failed to update message", "err", err)
 				}
+				_ = level.Info(logger).Log("msg", "chat completion stream finished", "content.", content)
 			}
-			dot <- content
+			dot <- content.ChatCompletionStreamResponse
 		}
 	}()
 

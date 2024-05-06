@@ -224,15 +224,15 @@ const (
 )
 
 var (
-	httpAddr, configPath string
-	webPath              string
-	logger               log.Logger
-	gormDB               *gorm.DB
-	db                   *sql.DB
-	err                  error
-	store                repository.Repository
-	namespace            string
-	webEmbed             bool
+	httpAddr, openApiAddr, configPath string
+	webPath                           string
+	logger                            log.Logger
+	gormDB                            *gorm.DB
+	db                                *sql.DB
+	err                               error
+	store                             repository.Repository
+	namespace                         string
+	webEmbed                          bool
 
 	rootCmd = &cobra.Command{
 		Use:               "aigc-server",

@@ -43,10 +43,11 @@ func (s *fsChatApiClient) Embeddings(ctx context.Context, req openai.EmbeddingRe
 
 func NewFsChatApi(opts ...CreationOption) Service {
 	options := &CreationOptions{
-		endpoints: []endpoint{
+		endpoints: []Endpoint{
 			{
-				Host:  "https://api.openai.com/v1",
-				Token: "",
+				Host:     "http://localhost:8000/v1",
+				Token:    "",
+				Platform: "localai",
 			},
 		},
 	}

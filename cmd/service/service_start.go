@@ -384,7 +384,7 @@ func initCancelInterrupt(ctx context.Context, g *group.Group) {
 		select {
 		case sig := <-c:
 			if err != nil {
-				_ = level.Error(logger).Log("rocketmq", "close", "err", err)
+				_ = level.Error(logger).Log("signal", sig, "err", err.Error())
 				return err
 			}
 			return fmt.Errorf("received signal %s", sig)
