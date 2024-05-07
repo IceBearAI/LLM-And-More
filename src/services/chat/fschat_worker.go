@@ -10,6 +10,42 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
+)
+
+type SeparatorStyle int
+
+const (
+	//_ SeparatorStyle = iota
+	ADD_COLON_SINGLE SeparatorStyle = iota
+	ADD_COLON_TWO
+	ADD_COLON_SPACE_SINGLE
+	NO_COLON_SINGLE
+	NO_COLON_TWO
+	ADD_NEW_LINE_SINGLE
+	LLAMA2
+	LLAMA3
+	CHATGLM
+	CHATML
+	CHATINTERN
+	DOLLY
+	RWKV
+	PHOENIX
+	ROBIN
+	FALCON_CHAT
+	CHATGLM3
+	DEEPSEEK_CHAT
+	METAMATH
+	YUAN2
+	GEMMA
+	CLLM
+	DEFAULT
+	OPENBUDDY_LLAMA3
+)
+
+const (
+	// ImagePlaceholderStr 图片占位符
+	ImagePlaceholderStr = "$$<image>$$"
 )
 
 // WithControllerAddress is the option to set the controller address.
@@ -140,6 +176,10 @@ func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string,
 			n, err := rc.Read(buf)
 			if err != nil {
 				if err == io.EOF {
+					dot <- WorkerGenerateStreamResponse{
+						ErrorCode:    0,
+						FinishReason: "stop",
+					}
 					close(dot)
 					return
 				}
@@ -152,12 +192,9 @@ func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string,
 				close(dot)
 				return
 			}
-			var newBuf = buf[:n]
-			if bytes.HasSuffix(buf[:n], []byte("\x00")) {
-				newBuf = buf[:n-1]
-			}
 			var resp WorkerGenerateStreamResponse
-			if err = json.Unmarshal(newBuf, &resp); err != nil {
+			decoder := json.NewDecoder(strings.NewReader(strings.Replace(string(buf[:n]), "\x00", "", -1)))
+			if err = decoder.Decode(&resp); err != nil {
 				err = errors.Wrap(err, "failed to unmarshal response")
 				dot <- WorkerGenerateStreamResponse{
 					ErrorCode:    1,

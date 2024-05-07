@@ -24,7 +24,10 @@ build:
 	GO111MODULE=on GOPROXY=$(GOPROXY) go build -v -o $(BINARY_UNIX) $(GO_LDFLAGS) ./cmd/main.go
 
 run:
-	GOPROXY=$(GOPROXY) GO111MODULE=on go run ./cmd/main.go start -p :8080 -a $(APPNAME) -n local
+	GOPROXY=$(GOPROXY) GO111MODULE=on go run ./cmd/main.go start -p :8080 -a $(APPNAME)
+
+run-api:
+	GOPROXY=$(GOPROXY) GO111MODULE=on go run ./cmd/main.go start-api -p :8081 -a $(APPNAME)-api
 
 generate:
 	GOPROXY=$(GOPROXY) GO111MODULE=on $(GORUN) ./cmd/main.go generate table all

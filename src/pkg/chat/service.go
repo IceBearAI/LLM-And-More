@@ -107,95 +107,166 @@ func (s *service) processInput(modelName string, inp any) (newInp []string) {
 	return
 }
 
-func (s *service) generateCompletionStreamGenerator(ctx context.Context, worker chat.WorkerService, req openai.CompletionRequest, n int, workerAddress string) {
-	//modeName := req.Model
-	//id := fmt.Sprintf("cmpl-%s", shortuuid.random())
-	//finishStreamEvents := make([]openai.CompletionStreamResponse, 0)
-	//prompts := req.Prompt.([]string)
-	//for _, prompt := range prompts {
-	//	for i := 0; i < n; i++ {
-	//		previousText := ""
-	//		genParams := chat.GenerateParams{
-	//			Model:            req.Model,
-	//			Prompt:           prompt,
-	//			Temperature:      req.Temperature,
-	//			TopP:             req.TopP,
-	//			FrequencyPenalty: req.FrequencyPenalty,
-	//			PresencePenalty:  req.PresencePenalty,
-	//			MaxNewTokens:     req.MaxTokens,
-	//			Logprobs:         req.LogProbs,
-	//			Echo:             req.Echo,
-	//			StopTokenIds:     nil,
-	//			BestOf:           req.BestOf,
-	//			Stop:             req.Stop,
-	//		}
-	//		content, err := worker.WorkerGenerate(ctx, workerAddress, genParams)
-	//		if err != nil {
-	//			_ = level.Warn(s.logger).Log("msg", "failed to generate completion", "err", err)
-	//			return
-	//		}
-	//		decodedUnicode := content.Text
-	//}
-	// model_name = request.model
-	//    id = f"cmpl-{shortuuid.random()}"
-	//    finish_stream_events = []
-	//    for text in request.prompt:
-	//        for i in range(n):
-	//            previous_text = ""
-	//            gen_params = await get_gen_params(
-	//                request.model,
-	//                worker_addr,
-	//                text,
-	//                temperature=request.temperature,
-	//                top_p=request.top_p,
-	//                top_k=request.top_k,
-	//                presence_penalty=request.presence_penalty,
-	//                frequency_penalty=request.frequency_penalty,
-	//                max_tokens=request.max_tokens,
-	//                logprobs=request.logprobs,
-	//                echo=request.echo,
-	//                stop=request.stop,
-	//            )
-	//            async for content in generate_completion_stream(gen_params, worker_addr):
-	//                if content["error_code"] != 0:
-	//                    yield f"data: {json.dumps(content, ensure_ascii=False)}\n\n"
-	//                    yield "data: [DONE]\n\n"
-	//                    return
-	//                decoded_unicode = content["text"].replace("\ufffd", "")
-	//                delta_text = decoded_unicode[len(previous_text) :]
-	//                previous_text = (
-	//                    decoded_unicode
-	//                    if len(decoded_unicode) > len(previous_text)
-	//                    else previous_text
-	//                )
-	//                # todo: index is not apparent
-	//                choice_data = CompletionResponseStreamChoice(
-	//                    index=i,
-	//                    text=delta_text,
-	//                    logprobs=create_openai_logprobs(content.get("logprobs", None)),
-	//                    finish_reason=content.get("finish_reason", None),
-	//                )
-	//                chunk = CompletionStreamResponse(
-	//                    id=id,
-	//                    object="text_completion",
-	//                    choices=[choice_data],
-	//                    model=model_name,
-	//                )
-	//                if len(delta_text) == 0:
-	//                    if content.get("finish_reason", None) is not None:
-	//                        finish_stream_events.append(chunk)
-	//                    continue
-	//                yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
-	//    # There is not "content" field in the last delta message, so exclude_none to exclude field "content".
-	//    for finish_chunk in finish_stream_events:
-	//        yield f"data: {finish_chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
-	//    yield "data: [DONE]\n\n"
+func (s *service) getPrompt(ctx context.Context, req openai.ChatCompletionRequest, convTemplate chat.ModelConvTemplate) (prompt string) {
+	// todo 应该从数据库模型模版获取
+
+	var reqSystemMessage string
+	for _, v := range req.Messages {
+		if v.Role == "system" {
+			reqSystemMessage = v.Content
+			break
+		}
+	}
+	if convTemplate.Conv.SystemTemplate == "" {
+		convTemplate.Conv.SystemTemplate = "{system_message}"
+	}
+	var systemMessage = strings.ReplaceAll(convTemplate.Conv.SystemTemplate, "{system_message}", reqSystemMessage)
+	var ret string
+	switch chat.SeparatorStyle(convTemplate.Conv.SepStyle) {
+	case chat.LLAMA2:
+		seps := []string{convTemplate.Conv.Sep, convTemplate.Conv.Sep2}
+		if systemMessage != "" {
+			ret = systemMessage
+		} else {
+			ret = "[INST] "
+		}
+		for i, v := range req.Messages {
+			tag := convTemplate.Conv.Roles[i%2]
+			if v.Content != "" {
+				if i == 0 {
+					ret += v.Content + " "
+				} else {
+					ret += tag + " " + v.Content + seps[i%2]
+				}
+			} else {
+				ret += tag
+			}
+		}
+	case chat.LLAMA3:
+		ret = systemMessage
+		for _, v := range req.Messages {
+			if v.Content != "" {
+				ret += fmt.Sprintf("<|start_header_id|>%s<|end_header_id|>\n\n%s<|eot_id|>", v.Role, v.Content)
+			} else {
+				ret += fmt.Sprintf("<|start_header_id|>%s<|end_header_id|>\n\n", v.Role)
+			}
+		}
+	case chat.CHATML:
+		if systemMessage != "" {
+			ret += systemMessage + convTemplate.Conv.Sep + "\n"
+		}
+		for _, v := range req.Messages {
+			if v.MultiContent != nil {
+				for _, content := range v.MultiContent {
+					if content.Type == openai.ChatMessagePartTypeImageURL {
+						if content.ImageURL != nil {
+							ret += chat.ImagePlaceholderStr + content.ImageURL.URL
+						}
+					} else {
+						ret += content.Text
+					}
+				}
+			} else if v.Content != "" {
+				if v.Role == "user" {
+					ret += fmt.Sprintf("%s\n%s%s\n", convTemplate.Conv.Roles[0], v.Content, convTemplate.Conv.Sep)
+				} else if v.Role == "assistant" {
+					ret += fmt.Sprintf("%s\n%s%s\n", convTemplate.Conv.Roles[1], v.Content, convTemplate.Conv.Sep)
+				} else {
+					ret += fmt.Sprintf("%s\n%s%s\n", v.Role, v.Content, convTemplate.Conv.Sep)
+				}
+			} else {
+				ret += fmt.Sprintf("%s\n", convTemplate.Conv.Roles[1])
+			}
+		}
+	case chat.OPENBUDDY_LLAMA3:
+		ret = systemMessage + "\n"
+		for _, v := range req.Messages {
+			if v.Content != "" {
+				ret += fmt.Sprintf("<|role|>%s<|says|>%s<|end|>\n", v.Role, v.Content)
+			} else {
+				ret += fmt.Sprintf("<|role|>%s<|says|>\n", v.Role)
+			}
+		}
+	case chat.NO_COLON_SINGLE:
+		ret = systemMessage
+		for _, v := range req.Messages {
+			if v.Content != "" {
+				ret += v.Role + v.Content + convTemplate.Conv.Sep
+			} else {
+				ret += v.Role
+			}
+		}
+	case chat.CHATGLM3:
+		if systemMessage != "" {
+			ret += systemMessage + convTemplate.Conv.Sep
+		}
+		for _, v := range req.Messages {
+			if v.Content != "" {
+				ret += fmt.Sprintf("%s\n%s%s\n", v.Role, v.Content, convTemplate.Conv.Sep)
+			} else {
+				ret += fmt.Sprintf("%s\n", v.Role)
+			}
+		}
+	case chat.CHATGLM:
+		// source: https://huggingface.co/THUDM/chatglm-6b/blob/1d240ba371910e9282298d4592532d7f0f3e9f3e/modeling_chatglm.py#L1302-L1308
+		// source2: https://huggingface.co/THUDM/chatglm2-6b/blob/e186c891cf64310ac66ef10a87e6635fa6c2a579/modeling_chatglm.py#L926
+		roundAddN := 1
+		if strings.Contains(req.Model, "chatglm2") {
+			roundAddN = 0
+		}
+		if systemMessage != "" {
+			ret = systemMessage + convTemplate.Conv.Sep
+		}
+		for i, v := range req.Messages {
+			if i%2 == 0 {
+				ret += fmt.Sprintf("[Round %d]%s", i/2+roundAddN, convTemplate.Conv.Sep)
+			}
+			if v.Content != "" {
+				ret += fmt.Sprintf("%s：%s%s", v.Role, v.Content, convTemplate.Conv.Sep)
+			} else {
+				ret += fmt.Sprintf("%s：", v.Role)
+			}
+		}
+	}
+
+	return ret
+}
+
+func (s *service) genParams(ctx context.Context, req openai.ChatCompletionRequest, workerAddress string) (params chat.GenerateStreamParams, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+
+	convTemplate, err := s.options.workerSvc.WorkerGetConvTemplate(ctx, workerAddress, req.Model)
+	if err != nil {
+		err = errors.WithMessage(err, "failed to get conv template")
+		_ = level.Warn(logger).Log("msg", "failed to get conv template", "err", err)
+		return
+	}
+	_ = level.Debug(logger).Log("conv.SystemTemplate", convTemplate.Conv.SystemTemplate)
+	prompt := s.getPrompt(ctx, req, convTemplate)
+	prompt += convTemplate.Conv.Roles[1]
+
+	_ = level.Info(logger).Log("conv.SepStyle", convTemplate.Conv.SepStyle, "prompt", prompt)
+
+	return chat.GenerateStreamParams{
+		Model:            req.Model,
+		Prompt:           prompt,
+		Temperature:      req.Temperature,
+		Logprobs:         req.LogProbs,
+		TopP:             req.TopP,
+		TopK:             -1,
+		PresencePenalty:  req.PresencePenalty,
+		FrequencyPenalty: req.FrequencyPenalty,
+		MaxNewTokens:     req.MaxTokens,
+		StopTokenIds:     convTemplate.Conv.StopTokenIds,
+		Images:           nil,
+		UseBeamSearch:    false,
+		Stop:             req.Stop,
+	}, nil
 }
 
 func (s *service) localAIChatCompletionStream(ctx context.Context, req openai.ChatCompletionRequest) (res <-chan CompletionStreamResponse, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
-	svc := chat.NewFastChatWorker(chat.WithControllerAddress("http://localhost:21001"))
-	models, err := svc.ListModels(ctx)
+	models, err := s.options.workerSvc.ListModels(ctx)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to list models")
 		_ = level.Warn(logger).Log("msg", "failed to list models", "err", err)
@@ -213,7 +284,7 @@ func (s *service) localAIChatCompletionStream(ctx context.Context, req openai.Ch
 		_ = level.Warn(logger).Log("msg", "model not found", "err", err)
 		return
 	}
-	workerAddress, err := svc.GetWorkerAddress(ctx, req.Model)
+	workerAddress, err := s.options.workerSvc.GetWorkerAddress(ctx, req.Model)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to get worker address")
 		_ = level.Warn(logger).Log("msg", "failed to get worker address", "err", err)
@@ -221,16 +292,16 @@ func (s *service) localAIChatCompletionStream(ctx context.Context, req openai.Ch
 	}
 	_ = level.Info(logger).Log("msg", "worker address", "workerAddress", workerAddress)
 	var maxTokens int
-	prompts := s.processInput(req.Model, req.Messages)
-	for _, prompt := range prompts {
-		maxTokens, err = svc.WorkerCheckLength(ctx, workerAddress, req.Model, req.MaxTokens, prompt)
-		if err != nil {
-			err = errors.WithMessage(err, "failed to check length")
-			_ = level.Warn(logger).Log("msg", "failed to check length", "err", err)
-			return res, err
-		}
-	}
-	_ = level.Info(logger).Log("msg", "max tokens", "maxTokens", maxTokens)
+	//prompts := s.processInput(req.Model, req.Messages)
+	//for _, prompt := range prompts {
+	//	maxTokens, err = s.options.workerSvc.WorkerCheckLength(ctx, workerAddress, req.Model, req.MaxTokens, prompt)
+	//	if err != nil {
+	//		err = errors.WithMessage(err, "failed to check length")
+	//		_ = level.Warn(logger).Log("msg", "failed to check length", "err", err)
+	//		return res, err
+	//	}
+	//}
+	//_ = level.Info(logger).Log("msg", "max tokens", "maxTokens", maxTokens)
 	if maxTokens != 0 && maxTokens < req.MaxTokens {
 		req.MaxTokens = maxTokens
 	}
@@ -238,69 +309,24 @@ func (s *service) localAIChatCompletionStream(ctx context.Context, req openai.Ch
 		req.MaxTokens = 2048
 	}
 
-	convTemplate, err := svc.WorkerGetConvTemplate(ctx, workerAddress, req.Model)
+	dot := make(chan CompletionStreamResponse)
+	genParams, err := s.genParams(ctx, req, workerAddress)
 	if err != nil {
-		err = errors.WithMessage(err, "failed to get conv template")
-		_ = level.Warn(logger).Log("msg", "failed to get conv template", "err", err)
+		err = errors.WithMessage(err, "failed to get gen params")
+		_ = level.Warn(logger).Log("msg", "failed to get gen params", "err", err)
 		return
 	}
-
-	var systemMessage = convTemplate.Conv.SystemMessage
-	for _, msg := range req.Messages {
-		if msg.Role == "system" {
-			systemMessage = msg.Content
-			break
-		}
-	}
-
-	if req.Stop == nil {
-		// todo 应该多模型模版获取
-		req.Stop = []string{convTemplate.Conv.StopStr}
-	}
-	stopTokenIds := convTemplate.Conv.StopTokenIds
-
-	prompt := strings.ReplaceAll(convTemplate.Conv.SystemTemplate, "{system_message}", systemMessage)
-	prompt += convTemplate.Conv.Sep
-	for _, msg := range req.Messages {
-		if msg.Role == "user" {
-			prompt += convTemplate.Conv.Roles[0] + "\n"
-			prompt += msg.Content + convTemplate.Conv.Sep
-		} else if msg.Role == "assistant" {
-			prompt += convTemplate.Conv.Roles[1] + "\n"
-			prompt += msg.Content + convTemplate.Conv.Sep
-		}
-	}
-	prompt += convTemplate.Conv.Roles[1]
-	_ = level.Debug(logger).Log("msg", "prompt", "prompt", prompt)
-
-	dot := make(chan CompletionStreamResponse)
-
-	// todo: 获取模版，并处理面prompt
-	stream, err := svc.WorkerGenerateStream(ctx, workerAddress, chat.GenerateStreamParams{
-		Model:            req.Model,
-		Prompt:           prompt,
-		Temperature:      req.Temperature,
-		Logprobs:         req.LogProbs,
-		TopP:             req.TopP,
-		TopK:             -1,
-		PresencePenalty:  req.PresencePenalty,
-		FrequencyPenalty: req.FrequencyPenalty,
-		MaxNewTokens:     req.MaxTokens,
-		StopTokenIds:     stopTokenIds,
-		Images:           nil,
-		UseBeamSearch:    false,
-		Stop:             req.Stop,
-	})
+	stream, err := s.options.workerSvc.WorkerGenerateStream(ctx, workerAddress, genParams)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to generate stream")
+		_ = level.Error(logger).Log("msg", "failed to generate stream", "err", err)
 		return
 	}
 
 	go func() {
 		now := time.Now().UnixMilli()
-		defer func() {
-			close(dot)
-		}()
+		defer close(dot)
+		streamId := fmt.Sprintf("cmpl-%s", shortuuid.New())
 		for {
 			content, ok := <-stream
 			if !ok {
@@ -318,7 +344,7 @@ func (s *service) localAIChatCompletionStream(ctx context.Context, req openai.Ch
 					TotalTokens      int `json:"total_tokens"`
 				}{PromptTokens: content.Usage.PromptTokens, CompletionTokens: content.Usage.CompletionTokens, TotalTokens: content.Usage.TotalTokens},
 				ChatCompletionStreamResponse: openai.ChatCompletionStreamResponse{
-					ID:      fmt.Sprintf("cmpl-%s", shortuuid.New()),
+					ID:      streamId,
 					Object:  "chat.completion.chunk",
 					Created: now,
 					Model:   req.Model,
@@ -337,149 +363,6 @@ func (s *service) localAIChatCompletionStream(ctx context.Context, req openai.Ch
 	}()
 
 	return dot, nil
-}
-
-func (s *service) localAIChatCompletion(ctx context.Context, modelInfo types.Models, req openai.CompletionRequest) (res <-chan openai.ChatCompletionResponse, err error) {
-	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
-	svc := chat.NewFastChatWorker()
-	models, err := svc.ListModels(ctx)
-	if err != nil {
-		err = errors.WithMessage(err, "failed to list models")
-		_ = level.Warn(logger).Log("msg", "failed to list models", "err", err)
-		return
-	}
-	var exists bool
-	for _, model := range models {
-		if model.ID == req.Model {
-			exists = true
-			break
-		}
-	}
-	if !exists {
-		err = errors.New("model not found")
-		_ = level.Warn(logger).Log("msg", "model not found", "err", err)
-		return
-	}
-	workerAddress, err := svc.GetWorkerAddress(ctx, modelInfo.ModelName)
-	if err != nil {
-		err = errors.WithMessage(err, "failed to get worker address")
-		_ = level.Warn(logger).Log("msg", "failed to get worker address", "err", err)
-		return
-	}
-	var maxTokens int
-	prompts := s.processInput(req.Model, req.Prompt)
-	for _, prompt := range prompts {
-		maxTokens, err = svc.WorkerCheckLength(ctx, workerAddress, req.Model, req.MaxTokens, prompt)
-		if err != nil {
-			err = errors.WithMessage(err, "failed to check length")
-			_ = level.Warn(logger).Log("msg", "failed to check length", "err", err)
-			return
-		}
-	}
-	if maxTokens < req.MaxTokens {
-		req.MaxTokens = maxTokens
-	}
-	req.Prompt = prompts
-	// todo: 获取模版，并处理面prompt
-	wsrStream, err := svc.WorkerGenerate(ctx, workerAddress, chat.GenerateParams{
-		Model:            req.Model,
-		Prompt:           "<|im_start|>system\nYou are a helpful assistant.<|im_end|><|im_start|>user\n您好!你叫什么名字？<|im_end|><|im_start|>assistant\n",
-		Temperature:      req.Temperature,
-		Logprobs:         req.LogProbs,
-		TopP:             req.TopP,
-		TopK:             -1,
-		PresencePenalty:  req.PresencePenalty,
-		FrequencyPenalty: req.FrequencyPenalty,
-		MaxNewTokens:     req.MaxTokens,
-		Echo:             req.Echo,
-		StopTokenIds:     nil,
-		Images:           nil,
-		BestOf:           req.BestOf,
-		UseBeamSearch:    false,
-		Stop:             req.Stop,
-	})
-	if err != nil {
-		err = errors.WithMessage(err, "failed to generate stream")
-		return
-	}
-	now := time.Now().UnixMilli()
-	dot := make(chan openai.CompletionResponse)
-	for content := range wsrStream {
-		if content.ErrorCode != 0 {
-			err = errors.New(content.Text)
-			return
-		}
-		dot <- openai.CompletionResponse{
-			ID:      fmt.Sprintf("cmpl-%s", shortuuid.New()),
-			Object:  "chat.completion.chunk",
-			Created: now,
-			Model:   req.Model,
-			Choices: []openai.CompletionChoice{
-				{
-					Index:        0,
-					FinishReason: content.FinishReason,
-					Text:         content.Text,
-					LogProbs: openai.LogprobResult{
-						Tokens:        content.Logprobs.Tokens,
-						TokenLogprobs: content.Logprobs.TokenLogprobs,
-						TopLogprobs:   content.Logprobs.TopLogprobs,
-						TextOffset:    content.Logprobs.TextOffset,
-					},
-				},
-			},
-		}
-	}
-
-	// text_completions = []
-	//        for text in request.prompt:
-	//            gen_params = await get_gen_params(
-	//                request.model,
-	//                worker_addr,
-	//                text,
-	//                temperature=request.temperature,
-	//                top_p=request.top_p,
-	//                top_k=request.top_k,
-	//                frequency_penalty=request.frequency_penalty,
-	//                presence_penalty=request.presence_penalty,
-	//                max_tokens=request.max_tokens,
-	//                logprobs=request.logprobs,
-	//                echo=request.echo,
-	//                stop=request.stop,
-	//                best_of=request.best_of,
-	//                use_beam_search=request.use_beam_search,
-	//            )
-	//            for i in range(request.n):
-	//                content = asyncio.create_task(
-	//                    generate_completion(gen_params, worker_addr)
-	//                )
-	//                text_completions.append(content)
-	//
-	//        try:
-	//            all_tasks = await asyncio.gather(*text_completions)
-	//        except Exception as e:
-	//            return create_error_response(ErrorCode.INTERNAL_ERROR, str(e))
-	//
-	//        choices = []
-	//        usage = UsageInfo()
-	//        for i, content in enumerate(all_tasks):
-	//            if content["error_code"] != 0:
-	//                return create_error_response(content["error_code"], content["text"])
-	//            choices.append(
-	//                CompletionResponseChoice(
-	//                    index=i,
-	//                    text=content["text"],
-	//                    logprobs=create_openai_logprobs(content.get("logprobs", None)),
-	//                    finish_reason=content.get("finish_reason", "stop"),
-	//                )
-	//            )
-	//            task_usage = UsageInfo.parse_obj(content["usage"])
-	//            for usage_key, usage_value in task_usage.dict().items():
-	//                setattr(usage, usage_key, getattr(usage, usage_key) + usage_value)
-	//
-	//        return CompletionResponse(
-	//            model=request.model, choices=choices, usage=UsageInfo.parse_obj(usage)
-	//        )
-	return
 }
 
 func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (res openai.ChatCompletionResponse, err error) {
@@ -541,6 +424,11 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 
 	dot := make(chan openai.ChatCompletionStreamResponse)
+	defer func() {
+		if err != nil {
+			close(dot)
+		}
+	}()
 	modelInfo, err := s.repository.Model().FindByModelId(ctx, req.Model)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to find model")
@@ -583,6 +471,31 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 		return dot, err
 	}
 
+	if !req.Stream {
+		defer close(dot)
+		var chatCompletionStreamResponse openai.ChatCompletionStreamResponse
+		for content := range completionStream {
+			if content.Choices[0].FinishReason == openai.FinishReasonStop {
+				isError = false
+				finished = true
+				// 更新数据库
+				msgData.Response = content.Choices[0].Delta.Content
+				msgData.Error = &isError
+				msgData.Created = content.Created
+				msgData.TimeCost = time.Since(msgData.CreatedAt).String()
+				msgData.Finished = &finished
+				msgData.PromptTokens = content.Usage.PromptTokens
+				msgData.ResponseTokens = content.Usage.CompletionTokens
+				if err = s.repository.Messages().Update(ctx, msgData); err != nil {
+					_ = level.Warn(logger).Log("msg", "failed to update message", "err", err)
+				}
+				_ = level.Info(logger).Log("msg", "chat completion stream finished", "usage", fmt.Sprintf("%+v", content.Usage))
+			}
+		}
+		dot <- chatCompletionStreamResponse
+		return dot, nil
+	}
+
 	go func() {
 		defer close(dot)
 		for content := range completionStream {
@@ -600,7 +513,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 				if err = s.repository.Messages().Update(ctx, msgData); err != nil {
 					_ = level.Warn(logger).Log("msg", "failed to update message", "err", err)
 				}
-				_ = level.Info(logger).Log("msg", "chat completion stream finished", "content.", content)
+				_ = level.Info(logger).Log("msg", "chat completion stream finished", "usage", fmt.Sprintf("%+v", content.Usage))
 			}
 			dot <- content.ChatCompletionStreamResponse
 		}

@@ -91,6 +91,13 @@ func WithWorkerCreationOptionHTTPClientOpts(opts ...kithttp.ClientOption) Worker
 	}
 }
 
+// WithWorkerCreationOptionControllerAddress is the option to set the controller address.
+func WithWorkerCreationOptionControllerAddress(controllerAddress string) WorkerCreationOption {
+	return func(o *WorkerCreationOptions) {
+		o.controllerAddress = controllerAddress
+	}
+}
+
 // ModelPermission 模型权限
 type ModelPermission struct {
 	ID                 string `json:"id"`

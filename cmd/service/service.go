@@ -333,12 +333,12 @@ Platform: ` + goOS + "/" + goArch + `
 	startCmd.PersistentFlags().StringVar(&corsExposeHeaders, "cors.expose.headers", DefaultCORSExposeHeaders, "允许跨域访问的头部")
 	startCmd.PersistentFlags().BoolVar(&corsAllowCredentials, "cors.allow.credentials", DefaultCORSAllowCredentials, "是否允许跨域访问的凭证")
 	// [tracer]
-	startCmd.PersistentFlags().BoolVar(&tracerEnable, "tracer.enable", DefaultJaegerEnable, "是否启用Tracer")
-	startCmd.PersistentFlags().StringVar(&tracerDrive, "tracer.drive", DefaultJaegerDrive, "Tracer驱动")
-	startCmd.PersistentFlags().StringVar(&tracerJaegerHost, "tracer.jaeger.host", DefaultJaegerHost, "Tracer Jaeger Host")
-	startCmd.PersistentFlags().Float64Var(&tracerJaegerParam, "tracer.jaeger.param", DefaultJaegerParam, "Tracer Jaeger Param")
-	startCmd.PersistentFlags().StringVar(&tracerJaegerType, "tracer.jaeger.type", DefaultJaegerType, "采样器的类型 const: 固定采样, probabilistic: 随机取样, ratelimiting: 速度限制取样, remote: 基于Jaeger代理的取样")
-	startCmd.PersistentFlags().BoolVar(&tracerJaegerLogSpans, "tracer.jaeger.log.spans", DefaultJaegerLogSpans, "Tracer Jaeger Log Spans")
+	rootCmd.PersistentFlags().BoolVar(&tracerEnable, "tracer.enable", DefaultJaegerEnable, "是否启用Tracer")
+	rootCmd.PersistentFlags().StringVar(&tracerDrive, "tracer.drive", DefaultJaegerDrive, "Tracer驱动")
+	rootCmd.PersistentFlags().StringVar(&tracerJaegerHost, "tracer.jaeger.host", DefaultJaegerHost, "Tracer Jaeger Host")
+	rootCmd.PersistentFlags().Float64Var(&tracerJaegerParam, "tracer.jaeger.param", DefaultJaegerParam, "Tracer Jaeger Param")
+	rootCmd.PersistentFlags().StringVar(&tracerJaegerType, "tracer.jaeger.type", DefaultJaegerType, "采样器的类型 const: 固定采样, probabilistic: 随机取样, ratelimiting: 速度限制取样, remote: 基于Jaeger代理的取样")
+	rootCmd.PersistentFlags().BoolVar(&tracerJaegerLogSpans, "tracer.jaeger.log.spans", DefaultJaegerLogSpans, "Tracer Jaeger Log Spans")
 
 	// [database]
 	rootCmd.PersistentFlags().StringVar(&dbDrive, "db.drive", DefaultDbDrive, "数据库驱动")
@@ -433,7 +433,7 @@ Platform: ` + goOS + "/" + goArch + `
 	cronJobCmd.AddCommand(cronJobStartCmd)
 
 	addFlags(rootCmd)
-	rootCmd.AddCommand(startCmd, generateCmd, jobCmd, cronJobCmd, accountCmd, tenantCmd)
+	rootCmd.AddCommand(startCmd, generateCmd, jobCmd, cronJobCmd, accountCmd, tenantCmd, apiV1StartCmd)
 
 }
 

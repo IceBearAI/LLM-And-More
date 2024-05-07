@@ -25,7 +25,7 @@ func MakeHTTPHandler(s Service, mdw []endpoint.Middleware, opts []kithttp.Server
 	kitopts = append(opts, kitopts...)
 
 	eps := MakeEndpoints(s, map[string][]endpoint.Middleware{
-		"Assistants": ems,
+		"Chat": ems,
 	})
 
 	r := mux.NewRouter()
@@ -66,8 +66,6 @@ func encodeChatCompletionStreamResponse(ctx context.Context, writer http.Respons
 	}
 	writer.WriteHeader(code)
 	writer.Header().Set("Content-Type", "application/octet-stream")
-	writer.Header().Set("Paas-model", "chat/stream")
-	//writer.Header().Set("Transfer-Encoding", "chunked")
 	traceId, _ := ctx.Value("traceId").(string)
 	writer.Header().Set("TraceId", traceId)
 	if code == http.StatusNoContent {
@@ -85,8 +83,13 @@ func encodeChatCompletionStreamResponse(ctx context.Context, writer http.Respons
 				return nil
 			}
 			streamData, _ := json.Marshal(item)
-			_, _ = writer.Write([]byte(fmt.Sprintf("data: %s\n\n", streamData)))
-			flushWriter.Flush()
+			if resp.Stream {
+				_, _ = writer.Write([]byte(fmt.Sprintf("data: %s\n\n", streamData)))
+				flushWriter.Flush()
+			} else {
+				writer.Header().Set("Content-Type", "application/json")
+				_, _ = writer.Write(streamData)
+			}
 		case <-time.After(time.Minute * 20):
 			return nil
 		}

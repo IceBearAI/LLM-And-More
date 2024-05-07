@@ -167,6 +167,7 @@ func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Trac
 		tenantSvc = tenant.NewLogging(logger, traceId)(tenantSvc)
 		datasetTaskSvc = datasettask.NewLogging(logger, traceId)(datasetTaskSvc)
 		modelEvaluateSvc = modelevaluate.NewLogging(logger, traceId)(modelEvaluateSvc)
+		channelSvc = channel.NewLogging(logger, traceId)(channelSvc)
 	}
 
 	if tracer != nil {
@@ -183,6 +184,7 @@ func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Trac
 		tenantSvc = tenant.NewTracing(tracer)(tenantSvc)
 		datasetTaskSvc = datasettask.NewTracing(tracer)(datasetTaskSvc)
 		modelEvaluateSvc = modelevaluate.NewTracing(tracer)(modelEvaluateSvc)
+		channelSvc = channel.NewTracing(tracer)(channelSvc)
 	}
 
 	return &repository{

@@ -7,8 +7,8 @@ import (
 	tiktoken2 "github.com/IceBearAI/aigc/src/helpers/tiktoken"
 	"github.com/IceBearAI/aigc/src/logging"
 	"github.com/IceBearAI/aigc/src/middleware"
-	"github.com/IceBearAI/aigc/src/pkg/auth"
 	"github.com/IceBearAI/aigc/src/pkg/chat"
+	"github.com/IceBearAI/aigc/src/repository/types"
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/tracing/opentracing"
 	kithttp "github.com/go-kit/kit/transport/http"
@@ -18,18 +18,53 @@ import (
 	"github.com/oklog/oklog/pkg/group"
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/spf13/cobra"
 	"golang.org/x/time/rate"
 	"net/http"
 	"net/http/httputil"
 	"os"
 	"time"
+
+	servicesChat "github.com/IceBearAI/aigc/src/services/chat"
 )
 
 var (
 	chatApi chat.Service
+
+	apiV1StartCmd = &cobra.Command{
+		Use:   "start-api",
+		Short: "启动http api服务",
+		Example: `## 启动命令
+aigc-server start-api -p :8081
+`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return startApiHttpServer(cmd.Context())
+		},
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := prepare(cmd.Context()); err != nil {
+				_ = level.Error(logger).Log("cmd", "start.PreRunE", "err", err.Error())
+				return err
+			}
+
+			// 判断是否需要初始化数据，如果没有则初始化数据
+			if !gormDB.Migrator().HasTable(types.ChatMessages{}) {
+				_ = generateTable()
+				if err = initData(); err != nil {
+					_ = level.Error(logger).Log("cmd.start.PreRunE", "initData", "err", err.Error())
+					return err
+				}
+			}
+			return nil
+		},
+	}
 )
 
-func startApiHttpServer(ctx context.Context, g *group.Group) {
+func init() {
+	apiV1StartCmd.PersistentFlags().StringVarP(&openApiAddr, "openapi.port", "p", ":8081", "服务启动的http api 端口")
+	apiV1StartCmd.PersistentFlags().BoolVar(&webEmbed, "web.embed", true, "是否使用embed.FS")
+}
+
+func startApiHttpServer(ctx context.Context) error {
 	var clientOptions []kithttp.ClientOption
 	if serverDebug {
 		clientOptions = append(clientOptions, kithttp.ClientBefore(func(ctx context.Context, request *http.Request) context.Context {
@@ -46,6 +81,16 @@ func startApiHttpServer(ctx context.Context, g *group.Group) {
 
 	tiktoken.SetBpeLoader(tiktoken2.NewBpeLoader(DataFs))
 
+	chatApi = chat.New(logger, "traceId", store, apiSvc,
+		chat.WithWorkerService(
+			servicesChat.NewFastChatWorker(
+				servicesChat.WithControllerAddress(fsChatControllerAddress),
+				//servicesChat.WithWorkerCreationOptionHTTPClientOpts(clientOptions...),
+			),
+		),
+		chat.WithHTTPClientOpts(clientOptions...),
+	)
+
 	if logger != nil {
 	}
 
@@ -57,7 +102,7 @@ func startApiHttpServer(ctx context.Context, g *group.Group) {
 	initApiHttpHandler(ctx, apiGroup)
 	initCancelInterrupt(ctx, apiGroup)
 
-	_ = level.Error(logger).Log("server exit", g.Run())
+	return apiGroup.Run()
 }
 
 func initApiHttpHandler(ctx context.Context, g *group.Group) {
@@ -98,6 +143,7 @@ func initApiHttpHandler(ctx context.Context, g *group.Group) {
 	}
 
 	ems := []endpoint.Middleware{
+		chat.CheckChatMiddleware(store, tracer),
 		middleware.TracingMiddleware(tracer),                                                      // 2
 		middleware.TokenBucketLimitter(rate.NewLimiter(rate.Every(time.Second*1), rateBucketNum)), // 1
 	}
@@ -105,7 +151,7 @@ func initApiHttpHandler(ctx context.Context, g *group.Group) {
 	r := mux.NewRouter()
 
 	// auth模块
-	r.PathPrefix("/v1/chat").Handler(http.StripPrefix("/v1/chat", auth.MakeHTTPHandler(authSvc, ems, opts)))
+	r.PathPrefix("/v1/chat").Handler(http.StripPrefix("/v1/chat", chat.MakeHTTPHandler(chatApi, ems, opts)))
 	// 对外metrics
 	r.Handle("/metrics", promhttp.Handler())
 	// 心跳检测
@@ -113,9 +159,11 @@ func initApiHttpHandler(ctx context.Context, g *group.Group) {
 		_, _ = writer.Write([]byte("ok"))
 	})
 
+	http.Handle("/", accessControl(r, httpLogger))
+
 	g.Add(func() error {
 		_ = level.Debug(httpLogger).Log("transport", "HTTP", "openapi.addr", openApiAddr)
-		return http.ListenAndServe(httpAddr, nil)
+		return http.ListenAndServe(openApiAddr, nil)
 	}, func(e error) {
 		closeConnection(ctx)
 		_ = level.Error(httpLogger).Log("transport", "HTTP", "httpListener.Close", "http", "err", e)
