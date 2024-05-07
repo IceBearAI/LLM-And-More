@@ -28,9 +28,14 @@ func makeChatCompletionStreamEndpoint(s Service) endpoint.Endpoint {
 		if !ok {
 			return nil, encode.ErrChatChannelApiKey.Error()
 		}
-
 		req := request.(openai.ChatCompletionRequest)
-		res, err := s.ChatCompletionStream(ctx, channelId, req)
+		var res interface{}
+		if req.Stream {
+			res, err = s.ChatCompletionStream(ctx, channelId, req)
+		} else {
+			res, err = s.ChatCompletion(ctx, channelId, req)
+		}
+
 		return encode.Response{
 			Success: true,
 			Code:    200,

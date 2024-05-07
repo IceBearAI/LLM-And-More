@@ -48,7 +48,7 @@ type Service interface {
 	// ChatCompletion 聊天处理
 	ChatCompletion(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (res openai.ChatCompletionResponse, err error)
 	// ChatCompletionStream 聊天处理流传输
-	ChatCompletionStream(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (stream <-chan openai.ChatCompletionStreamResponse, err error)
+	ChatCompletionStream(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (stream <-chan CompletionStreamResponse, err error)
 	// Models 模型列表
 	Models(ctx context.Context, channelId uint) (res []openai.Model, err error)
 	// Embeddings 向量化处理
@@ -420,10 +420,10 @@ func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai
 	return
 }
 
-func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (stream <-chan openai.ChatCompletionStreamResponse, err error) {
+func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (stream <-chan CompletionStreamResponse, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 
-	dot := make(chan openai.ChatCompletionStreamResponse)
+	dot := make(chan CompletionStreamResponse)
 	defer func() {
 		if err != nil {
 			close(dot)
@@ -455,12 +455,13 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 		MaxTokens:        req.MaxTokens,
 		Stop:             string(stop),
 	}
-	defer func() {
-		if err = s.repository.Messages().Create(ctx, msgData); err != nil {
-			err = errors.WithMessage(err, "failed to create message")
-			_ = level.Warn(logger).Log("msg", "failed to create message", "err", err)
-		}
-	}()
+
+	if err = s.repository.Messages().Create(ctx, msgData); err != nil {
+		err = errors.WithMessage(err, "failed to create message")
+		_ = level.Warn(logger).Log("msg", "failed to create message", "err", err)
+		return
+	}
+
 	if modelInfo.BaseModelName != "" {
 		req.Model = modelInfo.BaseModelName
 	}
@@ -469,31 +470,6 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 		msgData.ErrorMessage = err.Error()
 		_ = level.Warn(logger).Log("msg", "failed to get completion stream", "err", err)
 		return dot, err
-	}
-
-	if !req.Stream {
-		defer close(dot)
-		var chatCompletionStreamResponse openai.ChatCompletionStreamResponse
-		for content := range completionStream {
-			if content.Choices[0].FinishReason == openai.FinishReasonStop {
-				isError = false
-				finished = true
-				// 更新数据库
-				msgData.Response = content.Choices[0].Delta.Content
-				msgData.Error = &isError
-				msgData.Created = content.Created
-				msgData.TimeCost = time.Since(msgData.CreatedAt).String()
-				msgData.Finished = &finished
-				msgData.PromptTokens = content.Usage.PromptTokens
-				msgData.ResponseTokens = content.Usage.CompletionTokens
-				if err = s.repository.Messages().Update(ctx, msgData); err != nil {
-					_ = level.Warn(logger).Log("msg", "failed to update message", "err", err)
-				}
-				_ = level.Info(logger).Log("msg", "chat completion stream finished", "usage", fmt.Sprintf("%+v", content.Usage))
-			}
-		}
-		dot <- chatCompletionStreamResponse
-		return dot, nil
 	}
 
 	go func() {
@@ -515,7 +491,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 				}
 				_ = level.Info(logger).Log("msg", "chat completion stream finished", "usage", fmt.Sprintf("%+v", content.Usage))
 			}
-			dot <- content.ChatCompletionStreamResponse
+			dot <- content
 		}
 	}()
 

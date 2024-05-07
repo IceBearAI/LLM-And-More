@@ -71,24 +71,49 @@ func encodeChatCompletionStreamResponse(ctx context.Context, writer http.Respons
 	if code == http.StatusNoContent {
 		return nil
 	}
-	stream, ok := resp.Data.(<-chan openai.ChatCompletionStreamResponse)
+	stream, ok := resp.Data.(<-chan CompletionStreamResponse)
 	if !ok {
 		return encode.InvalidParams.Wrap(errors.New("invalid response type"))
 	}
 	flushWriter := writer.(http.Flusher)
+	var respData CompletionStreamResponse
 	for {
 		select {
 		case item, ok := <-stream:
 			if !ok {
+				writer.Header().Set("Content-Type", "application/json")
+				b, _ := json.Marshal(openai.ChatCompletionResponse{
+					ID:      respData.ID,
+					Object:  respData.Object,
+					Created: respData.Created,
+					Model:   respData.Model,
+					Choices: []openai.ChatCompletionChoice{
+						{
+							Message: openai.ChatCompletionMessage{
+								Role:    respData.Choices[0].Delta.Role,
+								Content: respData.Choices[0].Delta.Content,
+							},
+							FinishReason: openai.FinishReasonStop,
+						},
+					},
+					Usage: openai.Usage{
+						PromptTokens:     respData.Usage.PromptTokens,
+						CompletionTokens: respData.Usage.CompletionTokens,
+						TotalTokens:      respData.Usage.TotalTokens,
+					},
+					SystemFingerprint: respData.SystemFingerprint,
+				})
+				_, _ = writer.Write(b)
 				return nil
 			}
-			streamData, _ := json.Marshal(item)
+			streamData, _ := json.Marshal(item.ChatCompletionStreamResponse)
 			if resp.Stream {
 				_, _ = writer.Write([]byte(fmt.Sprintf("data: %s\n\n", streamData)))
 				flushWriter.Flush()
 			} else {
-				writer.Header().Set("Content-Type", "application/json")
-				_, _ = writer.Write(streamData)
+				if item.Choices[0].Delta.Content != "" {
+					respData = item
+				}
 			}
 		case <-time.After(time.Minute * 20):
 			return nil

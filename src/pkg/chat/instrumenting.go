@@ -27,7 +27,7 @@ func (s *instrumentingService) ChatCompletion(ctx context.Context, channelId uin
 	return s.next.ChatCompletion(ctx, channelId, req)
 }
 
-func (s *instrumentingService) ChatCompletionStream(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (stream <-chan openai.ChatCompletionStreamResponse, err error) {
+func (s *instrumentingService) ChatCompletionStream(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (stream <-chan CompletionStreamResponse, err error) {
 	defer func(begin time.Time) {
 		s.requestCount.With("method", "ChatCompletionStream").Add(1)
 		s.requestLatency.With("method", "ChatCompletionStream").Observe(time.Since(begin).Seconds())

@@ -195,7 +195,6 @@ func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string,
 			var resp WorkerGenerateStreamResponse
 			decoder := json.NewDecoder(strings.NewReader(strings.Replace(string(buf[:n]), "\x00", "", -1)))
 			if err = decoder.Decode(&resp); err != nil {
-				err = errors.Wrap(err, "failed to unmarshal response")
 				dot <- WorkerGenerateStreamResponse{
 					ErrorCode:    1,
 					Text:         err.Error(),
