@@ -10,6 +10,7 @@ import (
 	"github.com/IceBearAI/aigc/src/pkg/chat"
 	"github.com/IceBearAI/aigc/src/repository/types"
 	"github.com/go-kit/kit/endpoint"
+	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/go-kit/kit/tracing/opentracing"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
@@ -17,6 +18,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/oklog/oklog/pkg/group"
 	"github.com/pkoukk/tiktoken-go"
+	prometheus2 "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"golang.org/x/time/rate"
@@ -57,6 +59,8 @@ aigc-server start-api -p :8081
 			return nil
 		},
 	}
+
+	chatWorkerSvc servicesChat.WorkerService
 )
 
 func init() {
@@ -80,16 +84,28 @@ func startApiHttpServer(ctx context.Context) error {
 	}
 
 	tiktoken.SetBpeLoader(tiktoken2.NewBpeLoader(DataFs))
-
+	chatWorkerSvc = servicesChat.NewFastChatWorker(
+		servicesChat.WithControllerAddress(fsChatControllerAddress),
+		//servicesChat.WithWorkerCreationOptionHTTPClientOpts(clientOptions...),
+	)
 	chatApi = chat.New(logger, "traceId", store, apiSvc,
-		chat.WithWorkerService(
-			servicesChat.NewFastChatWorker(
-				servicesChat.WithControllerAddress(fsChatControllerAddress),
-				//servicesChat.WithWorkerCreationOptionHTTPClientOpts(clientOptions...),
-			),
-		),
+		chat.WithWorkerService(chatWorkerSvc),
 		chat.WithHTTPClientOpts(clientOptions...),
 	)
+	fieldKeys := []string{"method"}
+	chatApi = chat.NewInstrumentingService(
+		prometheus.NewCounterFrom(prometheus2.CounterOpts{
+			Namespace: "chat",
+			Subsystem: "service",
+			Name:      "request_count",
+			Help:      "Number of requests received.",
+		}, fieldKeys),
+		prometheus.NewSummaryFrom(prometheus2.SummaryOpts{
+			Namespace: "chat",
+			Subsystem: "service",
+			Name:      "request_latency_microseconds",
+			Help:      "Total duration of requests in microseconds.",
+		}, fieldKeys))(chatApi)
 
 	if logger != nil {
 	}
@@ -153,6 +169,10 @@ func initApiHttpHandler(ctx context.Context, g *group.Group) {
 	// auth模块
 	r.PathPrefix("/v1/chat").Handler(http.StripPrefix("/v1/chat", chat.MakeHTTPHandler(chatApi, ems, opts)))
 	// 对外metrics
+	prometheus2.MustRegister(
+		chat.NewChatQueueGaugeService(logger, chatWorkerSvc),
+		chat.NewChatAvgSpeedGaugeService(logger, chatWorkerSvc),
+	)
 	r.Handle("/metrics", promhttp.Handler())
 	// 心跳检测
 	r.HandleFunc("/health", func(writer http.ResponseWriter, request *http.Request) {

@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+type Middleware func(Service) Service
+
 type contextKey string
 
 const (

@@ -20,7 +20,7 @@ func TestHTTP_ChatCompletionStream(t *testing.T) {
 		Messages: []openai.ChatCompletionMessage{
 			{
 				Role:    "user",
-				Content: "您好，你是谁?",
+				Content: "What is the meaning of life?",
 			},
 		},
 	})
