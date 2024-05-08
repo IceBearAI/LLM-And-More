@@ -6,14 +6,13 @@ import argparse
 import math
 import os
 # DeepSpeed Team
+import shutil
 import subprocess
 import sys
 import time
 import warnings
 
-import deepspeed
 import torch
-from deepspeed.ops.adam import DeepSpeedCPUAdam, FusedAdam
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 from transformers import (
@@ -23,6 +22,8 @@ from transformers import (
     get_scheduler,
 )
 
+import deepspeed
+from deepspeed.ops.adam import DeepSpeedCPUAdam, FusedAdam
 from utils.data.data_utils import create_prompt_dataset
 from utils.ds_utils import get_train_ds_config
 from utils.model.model_utils import create_hf_model
@@ -46,13 +47,12 @@ def log_info(Rank, epoch, step, train_loss, learning_rate, eval_loss=None):
         'loss': train_loss,
         'learning_rate': learning_rate,
     }
-    
+
     # 如果提供了eval_loss，则添加到字典中
     if eval_loss is not None:
         log_dict['eval_loss'] = eval_loss
 
     return log_dict
-
 
 
 def parse_args():
@@ -199,7 +199,8 @@ def parse_args():
     )
     # save per steps
     parser.add_argument('--save_per_steps', type=int,
-                        help='save per x steps', default=100)
+                        help='save per x steps', default=200)
+    parser.add_argument('--save_total_limit', type=int, default=1)
     # start from step
     parser.add_argument('--start_from_step', type=int,
                         help='skip first x steps', default=-1)
@@ -243,7 +244,7 @@ def notexists_mkdir(args):
     # 不存在即创建tensorboard目录
     try:
         os.rmdir(args.tensorboard_path)
-    except :
+    except:
         print("tensorboard_path not exists.")
     try:
         os.makedirs(args.tensorboard_path)
@@ -285,7 +286,7 @@ def main():
     set_random_seed(args.seed)
 
     torch.distributed.barrier()
-    print_rank_0('finished setting torch.')
+    print_rank_0('finished setting torch.', args.global_rank)
 
     tokenizer = load_hf_tokenizer(args.model_name_or_path, fast_tokenizer=True)
     model = create_hf_model(AutoModelForCausalLM,
@@ -301,16 +302,16 @@ def main():
 
         model = convert_linear_layer_to_lora(model, lora_module_name,
                                              args.lora_dim)
-        print_rank_0('using LoRA.')
+        print_rank_0('using LoRA.', args.global_rank)
         if args.only_optimize_lora:
             model = only_optimize_lora_parameters(model)
             model = make_model_gradient_checkpointing_compatible(model)
-            print_rank_0('only optimizing LoRA parameters.')
+            print_rank_0('only optimizing LoRA parameters.', args.global_rank)
     else:
-        print_rank_0('not using LoRA.')
+        print_rank_0('not using LoRA.', args.global_rank)
     # model = model.to(device)
     # Prepare the data
-    print_rank_0('start preparing dataset...')
+    print_rank_0('start preparing dataset...', args.global_rank)
     train_phase = 1
     train_dataset, eval_dataset = create_prompt_dataset(
         args.local_rank,
@@ -322,9 +323,9 @@ def main():
         tokenizer,
         args.max_seq_len,
         sft_only_data_path=args.sft_only_data_path)
-    print_rank_0('dataset prepared.')
+    print_rank_0('dataset prepared.', args.global_rank)
     # DataLoaders creation:
-    print_rank_0('preparing dataloader...')
+    print_rank_0('preparing dataloader...', args.global_rank)
     if args.local_rank == -1:
         train_sampler = RandomSampler(train_dataset)
         eval_sampler = SequentialSampler(eval_dataset)
@@ -366,16 +367,16 @@ def main():
             perplexity, float) else perplexity
         return average_loss, perplexity
 
-    print_rank_0('finished defining evaluation function.')
+    print_rank_0('finished defining evaluation function.', args.global_rank)
     # Split weights in two groups, one with weight decay and the other not.
     optimizer_grouped_parameters = get_optimizer_grouped_parameters(
         model, args.weight_decay, args.lora_learning_rate)
-    print_rank_0('finished weights splitting.')
+    print_rank_0('finished weights splitting.', args.global_rank)
     AdamOptimizer = DeepSpeedCPUAdam if args.offload else FusedAdam
     optimizer = AdamOptimizer(optimizer_grouped_parameters,
                               lr=args.learning_rate,
                               betas=(0.9, 0.95))
-    print_rank_0('finished optimizer init.')
+    print_rank_0('finished optimizer init.', args.global_rank)
     num_update_steps_per_epoch = math.ceil(
         len(train_dataloader) / args.gradient_accumulation_steps)
     lr_scheduler = get_scheduler(
@@ -384,7 +385,7 @@ def main():
         num_warmup_steps=args.num_warmup_steps,
         num_training_steps=args.num_train_epochs * num_update_steps_per_epoch,
     )
-    print_rank_0('finished scheduler init.')
+    print_rank_0('finished scheduler init.', args.global_rank)
     model, optimizer, _, lr_scheduler = deepspeed.initialize(
         model=model,
         optimizer=optimizer,
@@ -392,16 +393,18 @@ def main():
         config=ds_config,
         lr_scheduler=lr_scheduler,
         dist_init_required=True)
-    print_rank_0('finished deepspeed init.')
+    print_rank_0('finished deepspeed init.', args.global_rank)
     if args.gradient_checkpointing:
         model.gradient_checkpointing_enable()
-    print_rank_0('start training...')
+    print_rank_0('start training...', args.global_rank)
     # Train!
     print_rank_0("***** Running training *****", args.global_rank)
-    print_rank_0(
-        f"***** Evaluating perplexity, Epoch {0}/{args.num_train_epochs} *****",
-        args.global_rank)
     rounds = len(train_dataloader)
+    saved_checkpoints = []
+    checkpoints_path = os.path.join(args.output_dir, f"checkpoint")
+    saved_models = []
+    best_perplexity_eval = 9999999.9
+    best_epoch = args.num_train_epochs
     for epoch in range(args.num_train_epochs):
         print_rank_0(
             f"Beginning of Epoch {epoch + 1}/{args.num_train_epochs}, Total Micro Batches {rounds}",
@@ -413,24 +416,71 @@ def main():
 
         for step, batch in enumerate(train_dataloader):
             if step < args.start_from_step:
-                print_rank_0(f'skipping {step}-th step of {rounds}.')
+                print_rank_0(f'skipping {step + 1}-th step of {rounds}.', args.global_rank)
                 continue
-            print_rank_0(f'training {step}-th step of {rounds}.',args.global_rank)
+            print_rank_0(f'training {step + 1}-th step of {rounds}.', args.global_rank)
             start = time.time()
             batch = to_device(batch, device)
             outputs = model(**batch, use_cache=False)
             loss = outputs.loss
             learning_rate = model.optimizer.param_groups[0]['lr']
             progress = epoch + (step + 1) / rounds
-            log_data = log_info(args.global_rank, progress, step, loss.item(), learning_rate)
-            print_rank_0(log_data,args.global_rank)
+            log_data = log_info(args.global_rank, progress, step + 1, loss.item(), learning_rate)
+            print_rank_0(log_data, args.global_rank)
             model.backward(loss)
             total_train_loss += loss.item()
             num_train_steps += 1
             model.step()
             last_learning_rate = model.optimizer.param_groups[0]['lr']
             end = time.time()
-            print_rank_0(f'finished step {step}, used {end - start} seconds.',args.global_rank)
+            print_rank_0(f'finished step {step + 1}, used {end - start} seconds.', args.global_rank)
+            # 保存检测点
+            if step > 0 and (step + 1) % args.save_per_steps == 0:
+                print_rank_0(f'saving checkpoint at step {step + 1}...', args.global_rank)
+                # if args.train_type == "lora":
+                #     save_dir = os.path.join(checkpoints_path, f"lora-step-{step+1}")
+                #     if args.global_rank <= 0:
+                #         model.save_pretrained(
+                #             save_dir,
+                #             state_dict=model._zero3_consolidated_16bit_state_dict() if args.zero_stage == 3 else None)
+                #         tokenizer.save_pretrained(save_dir)
+                #     saved_checkpoints.append(save_dir)
+                # else:
+                model.save_checkpoint(checkpoints_path, client_state={
+                    "step": step + 1,
+                    "epoch": epoch,
+                    "learning_rate": learning_rate
+                })
+
+                if args.global_rank == 0:
+                    saved_checkpoints.append(os.path.join(checkpoints_path, f"global_step{model.global_steps}"))
+                    if len(saved_checkpoints) > args.save_total_limit:
+                        # 删除最旧的检测点
+                        old_checkpoint_path = saved_checkpoints.pop(0)
+                        if os.path.exists(old_checkpoint_path):
+                            shutil.rmtree(old_checkpoint_path)
+        # 每个epoch保存一次模型
+        base_model = convert_lora_to_linear_layer(model)
+        sub_folder = f"epoch-{epoch+1}"
+        output_dir = os.path.join(args.output_dir, sub_folder)
+        if args.global_rank == 0:
+            save_hf_format(base_model, tokenizer, args, sub_folder=sub_folder)
+            saved_models.append(output_dir)
+        if args.zero_stage == 3:
+            save_zero_three_model(base_model,
+                                  args.global_rank,
+                                  output_dir,
+                                  zero_stage=args.zero_stage)
+        print_rank_0(f"Saving to {output_dir}", args.global_rank)
+
+        if args.global_rank == 0:
+            while len(saved_models) > 2:
+                old_model_dir = saved_models.pop(0)
+                if os.path.exists(old_model_dir) and f"epoch-{best_epoch}" not in old_model_dir:
+                    shutil.rmtree(old_model_dir)
+                    print(f"Deleted {old_model_dir}")
+                else:
+                    saved_models.append(old_model_dir)
 
         # 计算平均训练损失
         average_train_loss = total_train_loss / num_train_steps
@@ -438,10 +488,7 @@ def main():
         print_rank_0(
             f"***** Evaluating perplexity, Epoch {epoch + 1}/{args.num_train_epochs} *****",
             args.global_rank)
-        if "baichuan" and ("7b" or "13b") in args.model_name_or_path.lower():
-            print_rank_0('skipping eval on sft dataset...', args.global_rank)
-            pass
-        else:
+        try:
             print_rank_0("evaluating on sft dataset...", args.global_rank)
             eval_loss, perplexity = evaluation_loss_perplexity(
                 model, eval_dataloader, device)
@@ -457,22 +504,31 @@ def main():
             )
             print_rank_0(log_data, args.global_rank)
             print_rank_0(
-            f"Epoch {epoch + 1} finished, Training Loss: {average_train_loss}, Evaluation Loss: {eval_loss}, Perplexity: {perplexity}", args.global_rank)
+                f"Epoch {epoch + 1} finished, Training Loss: {average_train_loss}, Evaluation Loss: {eval_loss}, Perplexity: {perplexity}",
+                args.global_rank)
+            perplexity_eval=(perplexity+eval_loss)/2
+            print(f"perplexity_eval_{args.global_rank}:", perplexity_eval)
+            print(f"eval_{args.global_rank}:",eval_loss)
+            print(f"perplexity_:{args.global_rank}:", perplexity)
+        except Exception as e:
+            print_rank_0(f"Evaluation failed: {e}", args.global_rank)
+        if not perplexity_eval:
+            perplexity_eval= best_perplexity_eval - 0.001
+            best_epoch = epoch + 1
+            print_rank_0(f"Best model found at epoch:{best_epoch}", args.global_rank)
+        elif perplexity_eval <= best_perplexity_eval:
+            best_perplexity_eval = perplexity_eval
+            best_epoch = epoch + 1
+            print_rank_0(f"Best model found at epoch:{best_epoch}")
         model.tput_timer.update_epoch_count()
-
-    if args.output_dir is not None:
-        print_rank_0('saving the final model ...', args.global_rank)
-        model = convert_lora_to_linear_layer(model)
-
-        if args.global_rank == 0:
-            save_hf_format(model, tokenizer, args)
-
-        if args.zero_stage == 3:
-            # For zero stage 3, each gpu only has a part of the model, so we need a special save function
-            save_zero_three_model(model,
-                                  args.global_rank,
-                                  args.output_dir,
-                                  zero_stage=args.zero_stage)
+    best_model_dir = os.path.join(args.output_dir, f"epoch-{best_epoch}")
+    if args.global_rank == 0:
+        shutil.copytree(best_model_dir, args.output_dir, dirs_exist_ok=True)
+        # 删除之前保存的模型
+        for model_dir in saved_models:
+            if os.path.exists(model_dir):
+                shutil.rmtree(model_dir)
+    print_rank_0('finished training.', args.global_rank)
 
 
 if __name__ == "__main__":

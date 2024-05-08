@@ -50,25 +50,36 @@ def diagnosis_monitoring(log_path):
     # 计算平均变化率
     total_train_loss_change = 0
     total_eval_loss_change = 0
-    for i in range(len(results) - 1):
-        total_train_loss_change += results[i +
-                                           1]["train_loss"] - results[i]["train_loss"]
-        total_eval_loss_change += results[i +
-                                          1]["eval_loss"] - results[i]["eval_loss"]
-    avg_train_loss_change = total_train_loss_change / (len(results) - 1)
-    avg_eval_loss_change = total_eval_loss_change / (len(results) - 1)
-    # 检查过拟合
-    if float(results[-1]["eval_loss"]) > float(results[-2]["eval_loss"]):
-        current_risks['overfitting'] = "High"
-        recommendations['overfitting'] = "建议停止训练，降低学习率，增大dropout，增大数据量，降低训练周期数，并重新训练。"
-    # 检查欠拟合
-    if float(results[-1]["train_loss"]) > _thresholds['underfitting']:
-        current_risks['underfitting'] = "High"
-        recommendations['underfitting'] = "建议增大学习率，减小dropout，增大训练周期数，并重新训练。"
-    # 检查灾难性遗忘
-    if avg_train_loss_change > _thresholds['catastrophic_forgetting']:
-        current_risks['catastrophic_forgetting'] = "High"
-        recommendations['catastrophic_forgetting'] = "建议回退到上个版本并调整参数。"
+    if len(results) > 1:
+        for i in range(len(results) - 1):
+            total_train_loss_change += results[i +
+                                               1]["train_loss"] - results[i]["train_loss"]
+            total_eval_loss_change += results[i +
+                                              1]["eval_loss"] - results[i]["eval_loss"]
+        avg_train_loss_change = total_train_loss_change / (len(results) - 1)
+        # avg_eval_loss_change = total_eval_loss_change / (len(results) - 1)
+        # 检查过拟合
+        if float(results[-1]["eval_loss"]) > float(results[-2]["eval_loss"]):
+            current_risks['overfitting'] = "High"
+            recommendations['overfitting'] = "建议停止训练，降低学习率，增大dropout，增大数据量，降低训练周期数，并重新训练。"
+        # 检查欠拟合
+        elif float(results[-1]["train_loss"]) > _thresholds['underfitting']:
+            current_risks['underfitting'] = "High"
+            recommendations['underfitting'] = "建议增大学习率，减小dropout，增大训练周期数，并重新训练。"
+        # 检查灾难性遗忘
+        if avg_train_loss_change > _thresholds['catastrophic_forgetting']:
+            current_risks['catastrophic_forgetting'] = "High"
+            recommendations['catastrophic_forgetting'] = "建议回退到上个版本并调整参数。"
+    elif len(results) == 1:
+        # 检查过拟合
+        if float(results[-1]["train_loss"])< 0.009:
+            current_risks['overfitting'] = "High"
+            recommendations['overfitting'] = "建议停止训练，降低学习率，增大dropout，增大数据量，降低训练周期数，并重新训练。"
+        # 检查欠拟合
+        elif float(results[-1]["train_loss"]) > _thresholds['underfitting']:
+            current_risks['underfitting'] = "High"
+            recommendations['underfitting'] = "建议增大学习率，减小dropout，增大训练周期数，并重新训练。"
+
     # 准备返回的数据
     response_data = {
         "code": 0,

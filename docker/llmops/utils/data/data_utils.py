@@ -174,8 +174,19 @@ def create_dataset_split(current_dataset, raw_dataset, train_phase, tokenizer,
             chosen_sentence = raw_dataset.get_prompt_and_chosen(
                 tmp_data)  # the accept response
             if chosen_sentence is not None:
-                chosen_sentence += end_of_conversation_token
-                chosen_token = tokenizer(chosen_sentence,
+                try:
+                    chosen = tokenizer.apply_chat_template(
+                        chosen_sentence,
+                        tokenize=False,
+                        add_generation_prompt=False)
+                    chosen += end_of_conversation_token
+                    if i==0:
+                        print("数据0：",chosen)
+                except Exception as e:
+                    print(
+                        f"Error apply_chat_template {chosen_sentence} with error {e}")
+                    continue
+                chosen_token = tokenizer(chosen,
                                          max_length=max_seq_len,
                                          padding="max_length",
                                          truncation=True,
