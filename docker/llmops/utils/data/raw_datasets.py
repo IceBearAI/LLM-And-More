@@ -108,13 +108,24 @@ class FormattedDataset(PromptRawDataset):
 
     # The prompt should be in the format of: " Human: " + actual_prompt_sentence + " Assistant:"
     def get_prompt(self, sample):
-        return sample['input']
+        if sample['messages'][0]['role'] == "system":
+            res=sample['messages'][0]['content']+ "\n" + sample['messages'][1]['content']
+        print("数据prompt:", res)
+        return res
 
     def get_prompt_and_chosen(self, sample):
-        return sample['input']+sample['output']
+        # if sample['messages'][0]['role'] == "system":
+        #     sample['messages'][0]['content'] = sample['messages'][0]['content'] + "\n" + sample['messages'][1][
+        #         'content']
+        #     sample['messages'][0]['role'] = "user"
+        #     # 移除sample['messages'][1]['content']
+        #     sample['messages'].pop(1)
+        return sample['messages']
 
     def get_chosen(self, sample):
-        return sample['output']
+        res = sample['messages'][2]['content']
+        print("数据chosen:", res)
+        return res
 
     # NO CHANGE FROM HERE BELOW
     def get_rejected(self, sample):
