@@ -20,7 +20,7 @@ args = parser.parse_args()
 
 def jsonl_to_dataframe(file_path):
     if not file_path or not os.path.exists(file_path):
-        return pd.DataFrame({'input': [''], 'output': ['']})
+        return pd.DataFrame({'messages': [[]]})  # 返回一个空列表
 
     with open(file_path, 'r', encoding='utf-8') as file:
         data = [json.loads(line) for line in file]
@@ -29,30 +29,34 @@ def jsonl_to_dataframe(file_path):
     for item in data:
         messages = item.get('messages', [])
         if messages and len(messages) >= 2:
+            mes=[]
+            if messages[0]['role'] == 'system':
+                mes.append({"role": 'system', "content": messages[0]['content']})
             for i in range(len(messages) - 1):
                 if messages[i]['role'] == 'user' and messages[i + 1]['role'] == 'assistant':
-                    input_text = '\n'.join(m['content'] for m in messages[:i + 1])
-                    output_text = messages[i + 1]['content']
-                    modified_dataset.append({"input": input_text, "output": output_text})
+                    mes.append({"role": 'user', "content": messages[i]['content']})
+                    mes.append({"role": 'assistant', "content": messages[i+1]['content']})
                 elif messages[i]['role'] == 'assistant' and (i == len(messages) - 2):
                     try:
-                        input_text = '\n'.join(m['content'] for m in messages[:i + 1])
-                        output_text = messages[i + 2]['content']
+                        mes.append({"role": 'user', "content": messages[i+1]['content']})
                     except:
-                        input_text = '\n'.join(m['content'] for m in messages[:i + 2])
-                        output_text = ""
-                    modified_dataset.append({"input": input_text, "output": output_text})
+                        mes.append({"role": 'user', "content":" "})
+
+            modified_dataset.append({'messages': mes})
         else:
-            instruction=item.get('instruction', '')
-            input_text=item.get('input', '')
-            output_text=item.get('output', '')
+            instruction = item.get('instruction', '')
+            input_text = item.get('input', '')
+            output_text = item.get('output', '')
             if not input_text or not output_text:
                 continue
             if instruction:
-                input_text=instruction+"\n"+input_text
-
-            modified_dataset.append({"input": input_text, "output": output_text})
-
+                messages = [{"role": "system", "content": instruction},
+                            {"role": "user", "content": input_text},
+                            {"role": "assistant", "content": output_text}]
+            else:
+                messages = [{"role": "user", "content": input_text},
+                            {"role": "assistant", "content": output_text}]
+            modified_dataset.append({'messages': messages})
     return pd.DataFrame(modified_dataset)
 
 
@@ -109,9 +113,10 @@ def convert_dataset_split(dataset_path, output_folder, split_ratio):
 os.makedirs(args.output_path, exist_ok=True)
 
 # 创建dataset_info.json和dataset_dict.json
+# pa_type_str = "list<struct<system: string?,role: string?, content: string?>>"
 dataset_info = {
     "citation": "", "description": "Converted dataset from JSONL to Arrow format.",
-    "features": {"input": {"dtype": "string", "_type": "Value"}, "output": {"dtype": "string", "_type": "Value"}},
+    "features": {"messages": [{"role": {"dtype": "string", "_type": "Value"}, "content": {"dtype": "string", "_type": "Value"}}]},
     "homepage": "", "license": ""
 }
 dataset_dict = {"splits": ["train", "test"]}
