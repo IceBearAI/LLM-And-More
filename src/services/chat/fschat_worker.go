@@ -16,8 +16,8 @@ import (
 type SeparatorStyle int
 
 const (
-	//_ SeparatorStyle = iota
-	ADD_COLON_SINGLE SeparatorStyle = iota
+	_ SeparatorStyle = iota
+	ADD_COLON_SINGLE
 	ADD_COLON_TWO
 	ADD_COLON_SPACE_SINGLE
 	NO_COLON_SINGLE
@@ -152,7 +152,6 @@ func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string,
 
 	ep := kithttp.NewClient(http.MethodPost, u, func(ctx context.Context, r *http.Request, request interface{}) error {
 		r.Header.Set("Content-Type", "application/json; charset=utf-8")
-		r.Header.Set("Content-Type", "application/json")
 		r.Header.Set("Accept", "text/event-stream")
 		r.Header.Set("Cache-Control", "no-cache")
 		r.Header.Set("Connection", "keep-alive")
@@ -384,7 +383,6 @@ func NewFastChatWorker(opts ...WorkerCreationOption) WorkerService {
 	for _, opt := range opts {
 		opt(options)
 	}
-
 	return &worker{
 		options: options,
 	}

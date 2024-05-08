@@ -153,9 +153,12 @@ func (s *service) getPrompt(ctx context.Context, req openai.ChatCompletionReques
 		}
 	case chat.CHATML:
 		if systemMessage != "" {
-			ret += systemMessage + convTemplate.Conv.Sep + "\n"
+			ret = systemMessage + convTemplate.Conv.Sep + "\n"
 		}
 		for _, v := range req.Messages {
+			if v.Role == "system" {
+				continue
+			}
 			if v.MultiContent != nil {
 				for _, content := range v.MultiContent {
 					if content.Type == openai.ChatMessagePartTypeImageURL {
@@ -243,7 +246,7 @@ func (s *service) genParams(ctx context.Context, req openai.ChatCompletionReques
 	}
 	_ = level.Debug(logger).Log("conv.SystemTemplate", convTemplate.Conv.SystemTemplate)
 	prompt := s.getPrompt(ctx, req, convTemplate)
-	prompt += convTemplate.Conv.Roles[1]
+	prompt += convTemplate.Conv.Roles[1] + "\n"
 
 	_ = level.Info(logger).Log("conv.SepStyle", convTemplate.Conv.SepStyle, "prompt", prompt)
 
@@ -367,56 +370,88 @@ func (s *service) localAIChatCompletionStream(ctx context.Context, req openai.Ch
 
 func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (res openai.ChatCompletionResponse, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+
 	modelInfo, err := s.repository.Model().FindByModelId(ctx, req.Model)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to find model")
 		_ = level.Warn(logger).Log("msg", "failed to find model", "err", err)
+		return res, err
+	}
+	isError := true
+	finished := false
+	b, _ := json.Marshal(req.Messages)
+	stop, _ := json.Marshal(req.Stop)
+	msgData := &types.ChatMessages{
+		ModelName:        req.Model,
+		ChannelId:        channelId,
+		Prompt:           req.Messages[len(req.Messages)-1].Content,
+		Finished:         &finished,
+		Temperature:      req.Temperature,
+		TopP:             req.TopP,
+		N:                req.N,
+		User:             req.User,
+		Messages:         string(b),
+		Error:            &isError,
+		PresencePenalty:  req.PresencePenalty,
+		FrequencyPenalty: req.FrequencyPenalty,
+		MaxTokens:        req.MaxTokens,
+		Stop:             string(stop),
+	}
+
+	if err = s.repository.Messages().Create(ctx, msgData); err != nil {
+		err = errors.WithMessage(err, "failed to create message")
+		_ = level.Warn(logger).Log("msg", "failed to create message", "err", err)
 		return
 	}
-	svc := chat.NewFastChatWorker()
-	if modelInfo.ProviderName == types.ModelProviderLocalAI {
-		models, err := svc.ListModels(ctx)
-		if err != nil {
-			err = errors.WithMessage(err, "failed to list models")
-			_ = level.Warn(logger).Log("msg", "failed to list models", "err", err)
-			return res, err
-		}
-		var exists bool
-		for _, model := range models {
-			if model.ID == req.Model {
-				exists = true
-				break
+
+	if modelInfo.BaseModelName != "" {
+		req.Model = modelInfo.BaseModelName
+	}
+	completionStream, err := s.localAIChatCompletionStream(ctx, req)
+	if err != nil {
+		msgData.ErrorMessage = err.Error()
+		_ = level.Warn(logger).Log("msg", "failed to get completion stream", "err", err)
+		return
+	}
+
+	for content := range completionStream {
+		if content.Choices[0].FinishReason == openai.FinishReasonStop {
+			isError = false
+			finished = true
+			// 更新数据库
+			msgData.Response = content.Choices[0].Delta.Content
+			msgData.Error = &isError
+			msgData.Created = content.Created
+			msgData.TimeCost = time.Since(msgData.CreatedAt).String()
+			msgData.Finished = &finished
+			msgData.PromptTokens = content.Usage.PromptTokens
+			msgData.ResponseTokens = content.Usage.CompletionTokens
+			if err = s.repository.Messages().Update(ctx, msgData); err != nil {
+				_ = level.Warn(logger).Log("msg", "failed to update message", "err", err)
+			}
+			_ = level.Info(logger).Log("msg", "chat completion stream finished", "usage", fmt.Sprintf("%+v", content.Usage))
+			res = openai.ChatCompletionResponse{
+				ID:      content.ID,
+				Object:  content.Object,
+				Created: content.Created,
+				Model:   content.Model,
+				Choices: []openai.ChatCompletionChoice{
+					{
+						Message: openai.ChatCompletionMessage{
+							Role:    content.Choices[0].Delta.Role,
+							Content: content.Choices[0].Delta.Content,
+						},
+					},
+				},
+				Usage: openai.Usage{
+					PromptTokens:     content.Usage.PromptTokens,
+					CompletionTokens: content.Usage.CompletionTokens,
+					TotalTokens:      content.Usage.TotalTokens,
+				},
 			}
 		}
-		if !exists {
-			err = errors.New("model not found")
-			_ = level.Warn(logger).Log("msg", "model not found", "err", err)
-			return res, err
-		}
-		workerAddress, err := svc.GetWorkerAddress(ctx, modelInfo.ModelName)
-		if err != nil {
-			err = errors.WithMessage(err, "failed to get worker address")
-			_ = level.Warn(logger).Log("msg", "failed to get worker address", "err", err)
-			return res, err
-		}
-		workerResult, err := svc.WorkerGenerate(ctx, workerAddress, chat.GenerateParams{
-			Model:            req.Model,
-			Prompt:           "",
-			Temperature:      req.Temperature,
-			Logprobs:         req.TopLogProbs,
-			TopP:             req.TopP,
-			PresencePenalty:  req.PresencePenalty,
-			FrequencyPenalty: req.FrequencyPenalty,
-			MaxNewTokens:     0,
-			Echo:             false,
-			StopTokenIds:     nil,
-			Images:           nil,
-			BestOf:           0,
-			UseBeamSearch:    false,
-			Stop:             req.Stop,
-		})
-		fmt.Println(workerResult)
 	}
+
 	return
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
 	"net/http"
+	"reflect"
 	"time"
 )
 
@@ -65,16 +66,22 @@ func encodeChatCompletionStreamResponse(ctx context.Context, writer http.Respons
 		code = sc.StatusCode()
 	}
 	writer.WriteHeader(code)
-	writer.Header().Set("Content-Type", "application/octet-stream")
 	traceId, _ := ctx.Value("traceId").(string)
 	writer.Header().Set("TraceId", traceId)
 	if code == http.StatusNoContent {
+		return nil
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	if reflect.TypeOf(resp.Data) == reflect.TypeOf(openai.ChatCompletionResponse{}) {
+		b, _ := json.Marshal(resp.Data)
+		_, _ = writer.Write(b)
 		return nil
 	}
 	stream, ok := resp.Data.(<-chan CompletionStreamResponse)
 	if !ok {
 		return encode.InvalidParams.Wrap(errors.New("invalid response type"))
 	}
+	writer.Header().Set("Content-Type", "application/octet-stream")
 	flushWriter := writer.(http.Flusher)
 	var respData CompletionStreamResponse
 	for {
@@ -82,6 +89,10 @@ func encodeChatCompletionStreamResponse(ctx context.Context, writer http.Respons
 		case item, ok := <-stream:
 			if !ok {
 				writer.Header().Set("Content-Type", "application/json")
+				var content string
+				if len(respData.Choices) > 0 {
+					content = respData.Choices[0].Delta.Content
+				}
 				b, _ := json.Marshal(openai.ChatCompletionResponse{
 					ID:      respData.ID,
 					Object:  respData.Object,
@@ -90,8 +101,8 @@ func encodeChatCompletionStreamResponse(ctx context.Context, writer http.Respons
 					Choices: []openai.ChatCompletionChoice{
 						{
 							Message: openai.ChatCompletionMessage{
-								Role:    respData.Choices[0].Delta.Role,
-								Content: respData.Choices[0].Delta.Content,
+								Role:    "assistant",
+								Content: content,
 							},
 							FinishReason: openai.FinishReasonStop,
 						},
@@ -107,14 +118,8 @@ func encodeChatCompletionStreamResponse(ctx context.Context, writer http.Respons
 				return nil
 			}
 			streamData, _ := json.Marshal(item.ChatCompletionStreamResponse)
-			if resp.Stream {
-				_, _ = writer.Write([]byte(fmt.Sprintf("data: %s\n\n", streamData)))
-				flushWriter.Flush()
-			} else {
-				if item.Choices[0].Delta.Content != "" {
-					respData = item
-				}
-			}
+			_, _ = writer.Write([]byte(fmt.Sprintf("data: %s\n\n", streamData)))
+			flushWriter.Flush()
 		case <-time.After(time.Minute * 20):
 			return nil
 		}

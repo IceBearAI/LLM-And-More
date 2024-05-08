@@ -665,11 +665,12 @@ func (s *service) CreateModel(ctx context.Context, request CreateModelRequest) (
 			BaseModelPath: modelPath,
 			ScriptFile:    "/app/start.sh",
 			OutputDir:     "/data/ft-model",
+			MaxTokens:     request.MaxTokens,
 			Enabled:       true,
 		}); err != nil {
 			_ = level.Warn(logger).Log("store.FineTuning", "CreateFineTuningTemplate", "err", err.Error())
 		}
-		trainShell, _ := s.options.dataFs.ReadFile("data/inference.sh")
+		trainShell, _ := s.options.dataFs.ReadFile("data/train.sh")
 		// 自动添加模版
 		if err = s.store.Sys().SaveFineTuningTemplate(ctx, &types.FineTuningTemplate{
 			TemplateType:  types.TemplateTypeTrain,
@@ -680,6 +681,7 @@ func (s *service) CreateModel(ctx context.Context, request CreateModelRequest) (
 			BaseModelPath: modelPath,
 			ScriptFile:    "/app/train.sh",
 			OutputDir:     "/data/ft-model",
+			MaxTokens:     request.MaxTokens,
 			Enabled:       true,
 		}); err != nil {
 			_ = level.Warn(logger).Log("store.FineTuning", "CreateFineTuningTemplate", "err", err.Error())
