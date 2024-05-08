@@ -235,6 +235,7 @@ if [ "$SCENARIO" == "general" ]; then
       --deepspeed \
       --output_dir $OUTPUT_DIR \
       --start_from_step -1 \
+      --save_total_limit 1 \
       --save_per_steps 200  > >(tee "$temp_file") 2>&1
 elif [ "$SCENARIO" == "faq" ]; then
   formatted_datasets_path=/data/train-data/faq_formatted_datasets
