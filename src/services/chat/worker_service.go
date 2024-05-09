@@ -160,6 +160,7 @@ type Conv struct {
 	Sep2           string     `json:"sep2"`
 	StopStr        string     `json:"stop_str"`
 	StopTokenIds   []int      `json:"stop_token_ids"`
+	Template       string     `json:"template"`
 }
 
 // ModelConvTemplate 对话模板

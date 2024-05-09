@@ -85,6 +85,14 @@ func (s *service) GetModel(ctx context.Context, modelName string) (res modelInfo
 
 func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompletionRequest) (stream <-chan CompletionsStreamResult, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "ChatCompletionStream")
+	modelInfo, err := s.store.Model().FindByModelId(ctx, request.Model)
+	if err != nil {
+		_ = level.Warn(logger).Log("store.Model", "FindByModelId", "err", err.Error())
+		return stream, err
+	}
+	if modelInfo.BaseModelName != "" {
+		request.Model = modelInfo.BaseModelName
+	}
 	completionStream, err := s.apiSvc.FastChat().CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
 		Model:       request.Model,
 		Messages:    request.Messages,

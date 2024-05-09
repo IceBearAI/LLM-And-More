@@ -17,7 +17,7 @@ func initOpenAiSvc() Service {
 func TestOpenAIService_ChatCompletionStream(t *testing.T) {
 	svc := initOpenAiSvc()
 	ctx := context.Background()
-	stream, _, err := svc.ChatCompletionStream(ctx, openai.ChatCompletionRequest{
+	stream, err := svc.ChatCompletionStream(ctx, openai.ChatCompletionRequest{
 		Model: "gpt-4-turbo",
 		Messages: []openai.ChatCompletionMessage{
 			{
@@ -30,12 +30,7 @@ func TestOpenAIService_ChatCompletionStream(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	for {
-		res, err := stream.Recv()
-		if err != nil {
-			t.Error(err)
-			return
-		}
+	for res := range stream {
 		t.Log(res.Choices[0].Delta.Content)
 	}
 }
