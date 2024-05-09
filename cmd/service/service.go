@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/IceBearAI/aigc/src/services"
+	"github.com/IceBearAI/aigc/src/services/chat"
 	"github.com/IceBearAI/aigc/src/services/fastchat"
 	"github.com/IceBearAI/aigc/src/services/ldapcli"
 	runtime2 "github.com/IceBearAI/aigc/src/services/runtime"
@@ -585,6 +586,15 @@ func prepare(ctx context.Context) error {
 		runtime2.WithWorkspace(runtimeDockerWorkspace),
 		runtime2.WithGpuNum(runtimeGpuNum),
 	)
+	fschatWorker := chat.NewFastChatWorker(
+		chat.WithWorkerCreationOptionControllerAddress(fsChatControllerAddress),
+		chat.WithWorkerCreationOptionLogger(logger),
+	)
+
+	if logger != nil {
+		fschatWorker = chat.NewFsChatWorkerLogging(logger, traceId)(fschatWorker)
+	}
+
 	apiSvc = services.NewApi(ctx, logger, traceId, serverDebug, tracer, &services.Config{
 		Namespace: namespace, ServiceName: serverName,
 		FastChat: fastchat.Config{
@@ -608,6 +618,20 @@ func prepare(ctx context.Context) error {
 		},
 		Runtime:         runtimeOpts,
 		RuntimePlatform: runtimePlatform,
+		ChatOptions: []chat.CreationOption{
+			chat.WithWorkerService(fschatWorker),
+			chat.WithEndpoints(chat.Endpoint{
+				Platform: "openai",
+				Host:     serviceOpenAiHost,
+				Token:    serviceOpenAiToken,
+			},
+			// chat.Endpoint{
+			//	Platform: "localai",
+			//	Host:     serviceLocalAiHost,
+			//	Token:    serviceLocalAiToken,
+			//}
+			),
+		},
 	}, clientOpts)
 
 	// 如果是docker来台，查询fschat-controller 和 fschat-api是否启动，如果没有则创建

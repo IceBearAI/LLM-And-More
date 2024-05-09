@@ -2,7 +2,6 @@ package chat
 
 import (
 	"context"
-	"github.com/IceBearAI/aigc/src/services/chat"
 	"github.com/IceBearAI/aigc/tests"
 	"github.com/go-kit/log"
 	"github.com/sashabaranov/go-openai"
@@ -19,7 +18,7 @@ func initSvc() Service {
 		panic(err)
 	}
 	logger := log.NewLogfmtLogger(os.Stdout)
-	return New(logger, "traceId", tests.Store, services, WithWorkerService(chat.NewFastChatWorker(chat.WithControllerAddress("http://fschat-controller:21001"))))
+	return New(logger, "traceId", tests.Store, services)
 }
 
 func TestService_ChatCompletionStream(t *testing.T) {

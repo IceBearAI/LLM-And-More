@@ -27,7 +27,7 @@ run:
 	GOPROXY=$(GOPROXY) GO111MODULE=on go run ./cmd/main.go start -p :8080 -a $(APPNAME)
 
 run-api:
-	GOPROXY=$(GOPROXY) GO111MODULE=on go run ./cmd/main.go start-api -p :8081 -a $(APPNAME)-api
+	GOPROXY=$(GOPROXY) GO111MODULE=on go run ./cmd/main.go start-api -p :8000 -a $(APPNAME)-api
 
 generate:
 	GOPROXY=$(GOPROXY) GO111MODULE=on $(GORUN) ./cmd/main.go generate table all

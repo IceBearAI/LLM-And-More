@@ -55,6 +55,8 @@ func WithControllerAddress(addr string) WorkerCreationOption {
 	}
 }
 
+// WithHTTPClientOpts is the option to set the http client options.
+
 type worker struct {
 	options *WorkerCreationOptions
 }

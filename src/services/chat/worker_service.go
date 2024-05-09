@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	kithttp "github.com/go-kit/kit/transport/http"
+	"github.com/go-kit/log"
 )
 
 // EmbeddingPayload 嵌入载荷
@@ -54,6 +55,7 @@ type GenerateStreamParams struct {
 	BestOf           int     `json:"best_of"`
 	UseBeamSearch    bool    `json:"use_beam_search"`
 	Stop             any     `json:"stop"`
+	N                int     `json:"n"`
 }
 
 // GenerateParams 生成流参数
@@ -79,6 +81,7 @@ type GenerateParams struct {
 type WorkerCreationOptions struct {
 	httpClientOpts    []kithttp.ClientOption
 	controllerAddress string
+	logger            log.Logger
 }
 
 // WorkerCreationOption is the option for the chat service.
@@ -95,6 +98,13 @@ func WithWorkerCreationOptionHTTPClientOpts(opts ...kithttp.ClientOption) Worker
 func WithWorkerCreationOptionControllerAddress(controllerAddress string) WorkerCreationOption {
 	return func(o *WorkerCreationOptions) {
 		o.controllerAddress = controllerAddress
+	}
+}
+
+// WithWorkerCreationOptionLogger is the option to set the logger.
+func WithWorkerCreationOptionLogger(logger log.Logger) WorkerCreationOption {
+	return func(o *WorkerCreationOptions) {
+		o.logger = logger
 	}
 }
 
@@ -182,6 +192,8 @@ type WorkerGenerateStreamResponse struct {
 	FinishReason string    `json:"finish_reason"`
 	Logprobs     Logprobs  `json:"logprobs"`
 }
+
+type FsChatWorkerMiddleware func(WorkerService) WorkerService
 
 // WorkerService 服务接口
 type WorkerService interface {

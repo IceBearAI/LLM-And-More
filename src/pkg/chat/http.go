@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/IceBearAI/aigc/src/encode"
+	"github.com/IceBearAI/aigc/src/services/chat"
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/gorilla/mux"
@@ -31,6 +32,11 @@ func MakeHTTPHandler(s Service, mdw []endpoint.Middleware, opts []kithttp.Server
 
 	r := mux.NewRouter()
 
+	r.Handle("/chat/completions", kithttp.NewServer(
+		eps.ChatCompletionStreamEndpoint,
+		decodeChatCompletionStreamRequest,
+		encodeChatCompletionStreamResponse,
+		kitopts...)).Methods(http.MethodPost)
 	r.Handle("/completions", kithttp.NewServer(
 		eps.ChatCompletionStreamEndpoint,
 		decodeChatCompletionStreamRequest,
@@ -77,49 +83,23 @@ func encodeChatCompletionStreamResponse(ctx context.Context, writer http.Respons
 		_, _ = writer.Write(b)
 		return nil
 	}
-	stream, ok := resp.Data.(<-chan CompletionStreamResponse)
+	stream, ok := resp.Data.(<-chan chat.CompletionStreamResponse)
 	if !ok {
 		return encode.InvalidParams.Wrap(errors.New("invalid response type"))
 	}
 	writer.Header().Set("Content-Type", "application/octet-stream")
 	flushWriter := writer.(http.Flusher)
-	var respData CompletionStreamResponse
 	for {
 		select {
 		case item, ok := <-stream:
 			if !ok {
-				writer.Header().Set("Content-Type", "application/json")
-				var content string
-				if len(respData.Choices) > 0 {
-					content = respData.Choices[0].Delta.Content
-				}
-				b, _ := json.Marshal(openai.ChatCompletionResponse{
-					ID:      respData.ID,
-					Object:  respData.Object,
-					Created: respData.Created,
-					Model:   respData.Model,
-					Choices: []openai.ChatCompletionChoice{
-						{
-							Message: openai.ChatCompletionMessage{
-								Role:    "assistant",
-								Content: content,
-							},
-							FinishReason: openai.FinishReasonStop,
-						},
-					},
-					Usage: openai.Usage{
-						PromptTokens:     respData.Usage.PromptTokens,
-						CompletionTokens: respData.Usage.CompletionTokens,
-						TotalTokens:      respData.Usage.TotalTokens,
-					},
-					SystemFingerprint: respData.SystemFingerprint,
-				})
-				_, _ = writer.Write(b)
 				return nil
 			}
-			streamData, _ := json.Marshal(item.ChatCompletionStreamResponse)
-			_, _ = writer.Write([]byte(fmt.Sprintf("data: %s\n\n", streamData)))
-			flushWriter.Flush()
+			if item.ChatCompletionStreamResponse.Choices[0].Delta.Content != "" {
+				streamData, _ := json.Marshal(item.ChatCompletionStreamResponse)
+				_, _ = writer.Write([]byte(fmt.Sprintf("data: %s\n\n", streamData)))
+				flushWriter.Flush()
+			}
 		case <-time.After(time.Minute * 20):
 			return nil
 		}

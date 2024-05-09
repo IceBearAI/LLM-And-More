@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/IceBearAI/aigc/src/middleware"
+	"github.com/IceBearAI/aigc/src/services/chat"
 	"github.com/IceBearAI/aigc/src/services/fastchat"
 	"github.com/IceBearAI/aigc/src/services/ldapcli"
 	"github.com/IceBearAI/aigc/src/services/runtime"
@@ -24,7 +25,15 @@ type Config struct {
 	StorageType            string
 	Runtime                []runtime.CreationOption
 	RuntimePlatform        string
+	ChatOptions            []chat.CreationOption
 }
+
+type ProviderName string
+
+const (
+	ProviderOpenAI ProviderName = "openai"
+	ProviderFsChat ProviderName = "fschat"
+)
 
 type ContextKey string
 
@@ -36,6 +45,8 @@ type Service interface {
 	Ldap() ldapcli.Service
 	// Runtime runtime服务
 	Runtime() runtime.Service
+	// Chat chat服务
+	Chat(providerName ProviderName) chat.Service
 }
 
 type api struct {
@@ -45,6 +56,14 @@ type api struct {
 	fastChatSvc fastchat.Service
 	ldapSvc     ldapcli.Service
 	runtimeSvc  runtime.Service
+	chatSvc     map[ProviderName]chat.Service
+}
+
+func (s *api) Chat(providerName ProviderName) chat.Service {
+	if svc, ok := s.chatSvc[providerName]; ok {
+		return svc
+	}
+	return s.chatSvc[ProviderOpenAI]
 }
 
 func (s *api) Runtime() runtime.Service {
@@ -93,6 +112,11 @@ func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tr
 		_ = level.Error(logger).Log("runtime.New", "err", err.Error())
 	}
 
+	// 初始化chat服务
+	chatSvc := make(map[ProviderName]chat.Service)
+	chatSvc[ProviderOpenAI] = chat.NewOpenAI(cfg.ChatOptions...)
+	chatSvc[ProviderFsChat] = chat.NewFsChatApi(cfg.ChatOptions...)
+
 	if logger != nil {
 		ldapSvc = ldapcli.NewLogging(logger, traceId)(ldapSvc)
 		//s3Cli = s3.NewLogging(logger, traceId)(s3Cli)
@@ -105,6 +129,8 @@ func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tr
 			//b, _ = json.Marshal(cfg.S3)
 			//_ = level.Debug(logger).Log("s3.config", string(b))
 		}
+		chatSvc[ProviderFsChat] = chat.NewLogging(logger, traceId)(chatSvc[ProviderFsChat])
+		chatSvc[ProviderOpenAI] = chat.NewLogging(logger, traceId)(chatSvc[ProviderOpenAI])
 	}
 
 	// 如果tracer有的话
@@ -120,5 +146,6 @@ func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tr
 		ldapSvc:     ldapSvc,
 		//s3Client:    s3Cli,
 		runtimeSvc: runtimeSvc,
+		chatSvc:    chatSvc,
 	}
 }

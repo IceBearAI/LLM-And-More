@@ -18,6 +18,15 @@ type instrumentingService struct {
 	next           Service
 }
 
+func (s *instrumentingService) Completion(ctx context.Context, channelId uint, req openai.CompletionRequest) (res openai.CompletionResponse, err error) {
+	defer func(begin time.Time) {
+		s.requestCount.With("method", "Completion").Add(1)
+		s.requestLatency.With("method", "Completion").Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	return s.next.Completion(ctx, channelId, req)
+}
+
 func (s *instrumentingService) ChatCompletion(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (res openai.ChatCompletionResponse, err error) {
 	defer func(begin time.Time) {
 		s.requestCount.With("method", "ChatCompletion").Add(1)
@@ -27,7 +36,7 @@ func (s *instrumentingService) ChatCompletion(ctx context.Context, channelId uin
 	return s.next.ChatCompletion(ctx, channelId, req)
 }
 
-func (s *instrumentingService) ChatCompletionStream(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (stream <-chan CompletionStreamResponse, err error) {
+func (s *instrumentingService) ChatCompletionStream(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (stream <-chan chat.CompletionStreamResponse, err error) {
 	defer func(begin time.Time) {
 		s.requestCount.With("method", "ChatCompletionStream").Add(1)
 		s.requestLatency.With("method", "ChatCompletionStream").Observe(time.Since(begin).Seconds())

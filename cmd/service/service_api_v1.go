@@ -88,10 +88,7 @@ func startApiHttpServer(ctx context.Context) error {
 		servicesChat.WithControllerAddress(fsChatControllerAddress),
 		//servicesChat.WithWorkerCreationOptionHTTPClientOpts(clientOptions...),
 	)
-	chatApi = chat.New(logger, "traceId", store, apiSvc,
-		chat.WithWorkerService(chatWorkerSvc),
-		chat.WithHTTPClientOpts(clientOptions...),
-	)
+	chatApi = chat.New(logger, "traceId", store, apiSvc)
 	fieldKeys := []string{"method"}
 	chatApi = chat.NewInstrumentingService(
 		prometheus.NewCounterFrom(prometheus2.CounterOpts{
@@ -167,7 +164,7 @@ func initApiHttpHandler(ctx context.Context, g *group.Group) {
 	r := mux.NewRouter()
 
 	// auth模块
-	r.PathPrefix("/v1/chat").Handler(http.StripPrefix("/v1/chat", chat.MakeHTTPHandler(chatApi, ems, opts)))
+	r.PathPrefix("/v1/chat").Handler(http.StripPrefix("/v1", chat.MakeHTTPHandler(chatApi, ems, opts)))
 	// 对外metrics
 	prometheus2.MustRegister(
 		chat.NewChatQueueGaugeService(logger, chatWorkerSvc),
