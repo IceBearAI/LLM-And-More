@@ -13,16 +13,75 @@ import (
 )
 
 type fsChatApiClient struct {
-	options *CreationOptions
+	options  *CreationOptions
+	template Templates
 }
 
 func (s *fsChatApiClient) Completion(ctx context.Context, req openai.CompletionRequest) (res openai.CompletionResponse, err error) {
+	streamResp, err := s.ChatCompletionStream(ctx, openai.ChatCompletionRequest{})
+	if err != nil {
+		err = errors.WithMessage(err, "failed to generate stream")
+		return
+	}
+	var content CompletionStreamResponse
+	for {
+		rs, ok := <-streamResp
+		if !ok {
+			break
+		}
+		content = rs
+	}
+	res = openai.CompletionResponse{
+		Usage: content.Usage,
+		Choices: []openai.CompletionChoice{
+			{
+				FinishReason: string(content.Choices[0].FinishReason),
+				Text:         content.Choices[0].Delta.Content,
+			},
+		},
+	}
 	return
 }
 
-func (s *fsChatApiClient) ChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (res CompletionStreamResponse, err error) {
-	//TODO implement me
-	panic("implement me")
+func (s *fsChatApiClient) ChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (res CompletionResponse, err error) {
+	streamResp, err := s.ChatCompletionStream(ctx, req)
+	if err != nil {
+		err = errors.WithMessage(err, "failed to generate stream")
+		return
+	}
+	var content CompletionStreamResponse
+	for {
+		rs, ok := <-streamResp
+		if !ok {
+			break
+		}
+		if len(rs.Choices) > 0 && rs.Choices[0].Delta.Content != "" {
+			content = rs
+		}
+	}
+	res = CompletionResponse{
+		Usage: openai.Usage{
+			PromptTokens:     content.Usage.PromptTokens,
+			CompletionTokens: content.Usage.CompletionTokens,
+			TotalTokens:      content.Usage.TotalTokens,
+		},
+		ChatCompletionResponse: openai.ChatCompletionResponse{
+			ID:      fmt.Sprintf("cmpl-%s", shortuuid.New()),
+			Object:  "chat.completion",
+			Created: time.Now().UnixMilli(),
+			Model:   req.Model,
+			Choices: []openai.ChatCompletionChoice{
+				{
+					FinishReason: content.Choices[0].FinishReason,
+					Message: openai.ChatCompletionMessage{
+						Role:    "assistant",
+						Content: content.Choices[0].Delta.Content,
+					},
+				},
+			},
+		},
+	}
+	return
 }
 
 func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.ChatCompletionRequest) (stream <-chan CompletionStreamResponse, err error) {
@@ -150,22 +209,76 @@ func NewFsChatApi(opts ...CreationOption) Service {
 	for _, opt := range opts {
 		opt(options)
 	}
+	tp := NewTemplates()
 	return &fsChatApiClient{
-		options: options,
+		options:  options,
+		template: register(tp),
 	}
+}
+
+func register(tp Templates) Templates {
+	tp.Register(context.Background(), "llama-3", Conv{
+		StopStr:        "<|eot_id|>",
+		Sep:            "",
+		Sep2:           "",
+		StopTokenIds:   []int{128001, 128009},
+		Name:           "llama-3",
+		SepStyle:       int(LLAMA3),
+		Roles:          []string{"user", "assistant"},
+		SystemTemplate: "<|start_header_id|>system<|end_header_id|>\n\n{system_message}<|eot_id|>",
+		SystemMessage:  "You are a helpful assistant.",
+	})
+	tp.Register(context.Background(), "qwen", Conv{
+		SystemMessage:  "You are a helpful assistant.",
+		SystemTemplate: "<|im_start|>system\n{system_message}",
+		StopTokenIds:   []int{151643, 151644, 151645},
+		Name:           "qwen",
+		SepStyle:       int(CHATML),
+		Sep:            "<|im_end|>",
+		Roles:          []string{"<|im_start|>user", "<|im_start|>assistant"},
+		StopStr:        "<|endoftext|>",
+	})
+	tp.Register(context.Background(), "chatglm3", Conv{
+		SystemMessage:  "You are a helpful assistant.",
+		SystemTemplate: "<|system|>\n{system_message}",
+		StopTokenIds:   []int{64795, 64797, 2},
+		Name:           "chatglm3",
+		SepStyle:       int(CHATGLM3),
+		Sep:            "",
+		Roles:          []string{"<|user|>", "<|assistant|>"},
+		StopStr:        "",
+	})
+	tp.Register(context.Background(), "openbuddy-llama3", Conv{
+		SystemMessage:  "<|role|>system<|says|>You(assistant) are a helpful, respectful and honest INTP-T AI Assistant named Buddy. You are talking to a human(user).\nAlways answer as helpfully and logically as possible, while being safe. Your answers should not include any harmful, political, religious, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\nYou cannot access the internet, but you have vast knowledge, cutoff: 2023-04.\nYou are trained by OpenBuddy team, (https://openbuddy.ai, https://github.com/OpenBuddy/OpenBuddy), not related to GPT or OpenAI.<|end|>\n<|role|>user<|says|>History input 1<|end|>\n<|role|>assistant<|says|>History output 1<|end|>\n<|role|>user<|says|>History input 2<|end|>\n<|role|>assistant<|says|>History output 2<|end|>\n<|role|>user<|says|>Current input<|end|>\n<|role|>assistant<|says|>",
+		SystemTemplate: "",
+		StopTokenIds:   []int{},
+		Name:           "openbuddy-llama3",
+		SepStyle:       int(OPENBUDDY_LLAMA3),
+		Sep:            "\n",
+		Roles:          []string{"user", "assistant"},
+		StopStr:        "",
+	})
+	return tp
 }
 
 func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompletionRequest, workerAddress string) (params GenerateStreamParams, err error) {
 
-	convTemplate, err := s.options.workerSvc.WorkerGetConvTemplate(ctx, workerAddress, req.Model)
-	if err != nil {
-		err = errors.WithMessage(err, "failed to get conv template")
+	conv, ok := s.template.GetByModelName(ctx, req.Model)
+	if !ok {
+		err = errors.New("failed to get conv template")
 		return
 	}
+	convTemplate := ModelConvTemplate{Conv: conv}
+	//convTemplate, err := s.options.workerSvc.WorkerGetConvTemplate(ctx, workerAddress, req.Model)
+	//if err != nil {
+	//	err = errors.WithMessage(err, "failed to get conv template")
+	//	return
+	//}
 	prompt := s.getPrompt(ctx, req, convTemplate)
-	prompt += convTemplate.Conv.Roles[1] + "\n"
+	//prompt += convTemplate.Conv.Roles[1] + "\n"
 
-	if req.Stop == nil {
+	if req.Stop == nil && convTemplate.Conv.StopStr != "" {
+		req.Stop = append(req.Stop, "<|im_end|>", "<|im_start|>")
 		req.Stop = append(req.Stop, convTemplate.Conv.StopStr)
 	}
 
@@ -190,16 +303,18 @@ func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompleti
 
 func (s *fsChatApiClient) getPrompt(ctx context.Context, req openai.ChatCompletionRequest, convTemplate ModelConvTemplate) (prompt string) {
 	// todo 应该从数据库模型模版获取
-
+	req.Messages = append(req.Messages, openai.ChatCompletionMessage{
+		Role: "assistant",
+	})
 	var reqSystemMessage string
 	for _, v := range req.Messages {
 		if v.Role == "system" {
-			reqSystemMessage = v.Content
+			reqSystemMessage = strings.TrimSpace(v.Content)
 			break
 		}
 	}
 	if convTemplate.Conv.SystemTemplate == "" {
-		convTemplate.Conv.SystemTemplate = "{system_message}"
+		//convTemplate.Conv.SystemTemplate = "{system_message}"
 	}
 	var systemMessage = strings.ReplaceAll(convTemplate.Conv.SystemTemplate, "{system_message}", reqSystemMessage)
 	var ret string
@@ -263,7 +378,7 @@ func (s *fsChatApiClient) getPrompt(ctx context.Context, req openai.ChatCompleti
 			}
 		}
 	case OPENBUDDY_LLAMA3:
-		ret = systemMessage + "\n"
+		ret = systemMessage
 		for _, v := range req.Messages {
 			if v.Content != "" {
 				ret += fmt.Sprintf("<|role|>%s<|says|>%s<|end|>\n", v.Role, v.Content)

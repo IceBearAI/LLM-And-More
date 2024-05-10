@@ -30,19 +30,3 @@ services:
       - --port
       - '21001'
     network_mode: host
-  fschat-api:
-    image: dudulu/fschat:v0.2.36
-    restart: always
-    ports:
-      - "8000:8000"
-    command:
-      - python3
-      - -m
-      - fastchat.serve.openai_api_server
-      - --host
-      - '0.0.0.0'
-      - --port
-      - '8000'
-      - --controller-address
-      - http://localhost:21001
-    network_mode: host

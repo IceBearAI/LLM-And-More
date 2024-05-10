@@ -2,7 +2,6 @@ package chat
 
 import (
 	"context"
-	"fmt"
 	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
 	"log"
@@ -41,7 +40,7 @@ func (s *openAIService) getClient() *openai.Client {
 	return openai.NewClientWithConfig(config)
 }
 
-func (s *openAIService) ChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (res CompletionStreamResponse, err error) {
+func (s *openAIService) ChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (res CompletionResponse, err error) {
 	client := s.getClient()
 	resp, err := client.CreateChatCompletion(ctx, req)
 	if err != nil {
@@ -51,8 +50,10 @@ func (s *openAIService) ChatCompletion(ctx context.Context, req openai.ChatCompl
 		}
 		return res, err
 	}
-	fmt.Println(resp.Choices[0])
-	res = CompletionStreamResponse{}
+	res = CompletionResponse{
+		ChatCompletionResponse: resp,
+		Usage:                  resp.Usage,
+	}
 
 	return res, nil
 }

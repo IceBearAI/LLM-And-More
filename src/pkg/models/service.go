@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"io"
 	"math/rand"
 	"os"
 	"strconv"
@@ -203,7 +202,15 @@ func (s *service) ModelInfo(ctx context.Context, modelName string) (res modelInf
 
 func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompletionRequest) (stream <-chan CompletionsStreamResult, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "ChatCompletionStream")
-	completionStream, err := s.apiSvc.FastChat().CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
+	modelInfo, err := s.store.Model().FindByModelId(ctx, request.Model)
+	if err != nil {
+		_ = level.Warn(logger).Log("store.Model", "FindByModelId", "err", err.Error())
+		return stream, err
+	}
+	if modelInfo.BaseModelName != "" {
+		request.Model = modelInfo.BaseModelName
+	}
+	completionStream, err := s.apiSvc.Chat(services.ProviderName(modelInfo.ProviderName)).ChatCompletionStream(ctx, openai.ChatCompletionRequest{
 		Model:       request.Model,
 		Messages:    request.Messages,
 		MaxTokens:   request.MaxTokens,
@@ -216,26 +223,21 @@ func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompleti
 	}
 
 	dot := make(chan CompletionsStreamResult)
-	go func(completionStream *openai.ChatCompletionStream, dot chan CompletionsStreamResult) {
+	go func() {
 		var fullContent string
 		defer func() {
-			completionStream.Close()
 			close(dot)
 		}()
+		begin := time.Now()
 		for {
-			completion, err := completionStream.Recv()
-			if errors.Is(err, io.EOF) {
+			result, ok := <-completionStream
+			if !ok {
 				return
 			}
-			if err != nil {
-				_ = level.Error(logger).Log("completionStream", "Recv", "err", err.Error())
-				return
-			}
-			begin := time.Now()
-			fullContent += completion.Choices[0].Delta.Content
+			fullContent += result.Choices[0].Delta.Content
 			dot <- CompletionsStreamResult{
 				FullContent: fullContent,
-				Content:     completion.Choices[0].Delta.Content,
+				Content:     result.Choices[0].Delta.Content,
 				CreatedAt:   begin,
 				ContentType: "text",
 				MessageId:   "",
@@ -245,7 +247,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompleti
 				MaxTokens:   0,
 			}
 		}
-	}(completionStream, dot)
+	}()
 	return dot, nil
 }
 

@@ -42,8 +42,25 @@ func (s *service) Completion(ctx context.Context, channelId uint, req openai.Com
 }
 
 func (s *service) Models(ctx context.Context, channelId uint) (res []openai.Model, err error) {
-	//TODO implement me
-	panic("implement me")
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+
+	channelInfo, err := s.repository.Channel().FindChannelById(ctx, channelId, "ChannelModels")
+	if err != nil {
+		err = errors.WithMessage(err, "failed to find channel")
+		_ = level.Warn(logger).Log("msg", "failed to find channel", "err", err)
+		return nil, err
+	}
+
+	for _, v := range channelInfo.ChannelModels {
+		res = append(res, openai.Model{
+			ID:        v.ModelName,
+			Object:    "model",
+			Root:      v.ModelName,
+			CreatedAt: v.CreatedAt.Unix(),
+		})
+	}
+
+	return
 }
 
 func (s *service) Embeddings(ctx context.Context, channelId uint, req openai.EmbeddingRequest) (res openai.EmbeddingResponse, err error) {
@@ -112,7 +129,8 @@ func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai
 		if content.Usage.TotalTokens > 0 {
 			usage = content.Usage
 		}
-		if content.Choices[0].FinishReason == openai.FinishReasonStop {
+		//fmt.Println(content.Choices[0].FinishReason, content.Choices[0].Delta.Content)
+		if content.Choices[0].FinishReason == openai.FinishReasonStop && content.Choices[0].Delta.Content != "" {
 			isError = false
 			finished = true
 			// 更新数据库

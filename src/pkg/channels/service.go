@@ -13,9 +13,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
-	"io"
 	"time"
 )
 
@@ -93,7 +91,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompleti
 	if modelInfo.BaseModelName != "" {
 		request.Model = modelInfo.BaseModelName
 	}
-	completionStream, err := s.apiSvc.FastChat().CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
+	completionStream, err := s.apiSvc.Chat(services.ProviderName(modelInfo.ProviderName)).ChatCompletionStream(ctx, openai.ChatCompletionRequest{
 		Model:       request.Model,
 		Messages:    request.Messages,
 		MaxTokens:   request.MaxTokens,
@@ -106,26 +104,21 @@ func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompleti
 	}
 
 	dot := make(chan CompletionsStreamResult)
-	go func(completionStream *openai.ChatCompletionStream, dot chan CompletionsStreamResult) {
+	go func() {
 		var fullContent string
 		defer func() {
-			completionStream.Close()
 			close(dot)
 		}()
+		begin := time.Now()
 		for {
-			completion, err := completionStream.Recv()
-			if errors.Is(err, io.EOF) {
+			result, ok := <-completionStream
+			if !ok {
 				return
 			}
-			if err != nil {
-				_ = level.Error(logger).Log("completionStream", "Recv", "err", err.Error())
-				return
-			}
-			begin := time.Now()
-			fullContent += completion.Choices[0].Delta.Content
+			fullContent += result.Choices[0].Delta.Content
 			dot <- CompletionsStreamResult{
 				FullContent: fullContent,
-				Content:     completion.Choices[0].Delta.Content,
+				Content:     result.Choices[0].Delta.Content,
 				CreatedAt:   begin,
 				ContentType: "text",
 				MessageId:   "",
@@ -135,7 +128,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompleti
 				MaxTokens:   0,
 			}
 		}
-	}(completionStream, dot)
+	}()
 	return dot, nil
 }
 

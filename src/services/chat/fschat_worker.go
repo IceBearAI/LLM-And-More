@@ -172,16 +172,24 @@ func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string,
 	go func() {
 		rc := resStream.(io.ReadCloser)
 		defer rc.Close()
+		defer close(dot)
 		for {
-			buf := make([]byte, 102400)
+			var resp WorkerGenerateStreamResponse
+			buf := make([]byte, 32768)
 			n, err := rc.Read(buf)
 			if err != nil {
 				if err == io.EOF {
-					dot <- WorkerGenerateStreamResponse{
-						ErrorCode:    0,
-						FinishReason: "stop",
+					decoder := json.NewDecoder(strings.NewReader(strings.Replace(string(buf[:n]), "\x00", "", -1)))
+					if err = decoder.Decode(&resp); err != nil {
+						dot <- WorkerGenerateStreamResponse{
+							ErrorCode:    1,
+							Text:         err.Error(),
+							FinishReason: "stop",
+						}
+						return
 					}
-					close(dot)
+					resp.FinishReason = "stop"
+					dot <- resp
 					return
 				}
 				err = errors.Wrap(err, "failed to read response")
@@ -190,10 +198,8 @@ func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string,
 					Text:         err.Error(),
 					FinishReason: "stop",
 				}
-				close(dot)
 				return
 			}
-			var resp WorkerGenerateStreamResponse
 			decoder := json.NewDecoder(strings.NewReader(strings.Replace(string(buf[:n]), "\x00", "", -1)))
 			if err = decoder.Decode(&resp); err != nil {
 				dot <- WorkerGenerateStreamResponse{
@@ -201,7 +207,6 @@ func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string,
 					Text:         err.Error(),
 					FinishReason: "stop",
 				}
-				close(dot)
 				return
 			}
 			dot <- resp

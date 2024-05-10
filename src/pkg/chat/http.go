@@ -50,6 +50,18 @@ func decodeChatCompletionStreamRequest(ctx context.Context, r *http.Request) (re
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return nil, encode.InvalidParams.Wrap(err)
 	}
+	if req.Temperature == 0 {
+		req.Temperature = 1e-45
+	}
+	if req.TopP == 0 {
+		req.TopP = 1e-45
+	}
+	if req.FrequencyPenalty == 0 {
+		req.FrequencyPenalty = 1e-45
+	}
+	if req.PresencePenalty == 0 {
+		req.PresencePenalty = 1e-45
+	}
 	return req, nil
 
 }

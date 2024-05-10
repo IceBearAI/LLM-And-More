@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"github.com/IceBearAI/aigc/src/services"
 	"github.com/IceBearAI/aigc/src/services/chat"
-	"github.com/IceBearAI/aigc/src/services/fastchat"
 	"github.com/IceBearAI/aigc/src/services/ldapcli"
 	runtime2 "github.com/IceBearAI/aigc/src/services/runtime"
 	"github.com/IceBearAI/aigc/src/util"
@@ -597,15 +596,6 @@ func prepare(ctx context.Context) error {
 
 	apiSvc = services.NewApi(ctx, logger, traceId, serverDebug, tracer, &services.Config{
 		Namespace: namespace, ServiceName: serverName,
-		FastChat: fastchat.Config{
-			OpenAiEndpoint:  serviceOpenAiHost,
-			OpenAiToken:     serviceOpenAiToken,
-			OpenAiModel:     serviceOpenAiModel,
-			OpenAiOrgId:     serviceOpenAiOrgId,
-			LocalAiEndpoint: serviceLocalAiHost,
-			LocalAiToken:    serviceLocalAiToken,
-			Debug:           serverDebug,
-		},
 		Ldap: ldapcli.Config{
 			Host:         ldapHost,
 			Port:         ldapPort,

@@ -15,7 +15,7 @@ type logging struct {
 	traceId string
 }
 
-func (s *logging) ChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (res CompletionStreamResponse, err error) {
+func (s *logging) ChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (res CompletionResponse, err error) {
 	defer func(begin time.Time) {
 		_ = s.logger.Log(
 			s.traceId, ctx.Value(s.traceId),
@@ -124,6 +124,7 @@ func (s *fschatWorker) WorkerGetConvTemplate(ctx context.Context, workerAddress,
 
 func (s *fschatWorker) WorkerGenerateStream(ctx context.Context, workerAddress string, params GenerateStreamParams) (res <-chan WorkerGenerateStreamResponse, err error) {
 	defer func(begin time.Time) {
+		//b, _ := json.Marshal(params)
 		_ = s.logger.Log(
 			s.traceId, ctx.Value(s.traceId),
 			"method", "WorkerGenerateStream",

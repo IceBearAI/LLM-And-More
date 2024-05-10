@@ -20,7 +20,6 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/sashabaranov/go-openai"
 	"gorm.io/gorm"
 	"io"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -123,55 +122,55 @@ func (s *service) _createJob(ctx context.Context, tenantId, channelId uint, trai
 	}
 
 	// 判断是否是gpt模型
-	if strings.Contains(baseModel, "gpt-3.5") || strings.Contains(baseModel, "gpt-4") {
-		// 1. 获取文件上传到openai
-		fileId, err := s.uploadFileToOpenAi(ctx, &fileInfo)
-		if err != nil {
-			_ = level.Error(logger).Log("service", "uploadFileToOpenAi", "err", err.Error())
-			return res, err
-		}
-		// 2. 调用openai 创建微调任务
-		openAiFtJob, err := s.api.FastChat().CreateFineTuningJob(ctx, openai.FineTuningJobRequest{
-			TrainingFile:    fileId,
-			ValidationFile:  "",
-			Model:           baseModel,
-			Hyperparameters: &openai.Hyperparameters{Epochs: epochs},
-			Suffix:          suffix,
-		})
-		if err != nil {
-			_ = level.Error(logger).Log("api.FastChat", "CreateFineTuningJob", "err", err.Error())
-			return res, errors.Wrap(err, "api.FastChat.CreateFineTuningJob")
-		}
-		// 3. 入库
-		// 创建job
-		ftJob := &types.FineTuningTrainJob{
-			JobId:          openAiFtJob.ID,
-			ChannelId:      channelId,
-			BaseModel:      baseModel,
-			FineTunedModel: openAiFtJob.FineTunedModel,
-			ValidationFile: openAiFtJob.ValidationFile,
-			TrainEpoch:     epochs,
-			FileUrl:        fileInfo.S3Url,
-			TrainStatus:    types.TrainStatusWaiting,
-			TenantID:       tenantId,
-		}
-		if err = s.store.FineTuning().CreateFineTuningJob(ctx, ftJob); err != nil {
-			res.Error = err.Error()
-			_ = level.Error(logger).Log("repository.FineTuningJob", "CreateFineTuningJob", "err", err.Error())
-			return res, err
-		}
-
-		res.CreatedAt = openAiFtJob.CreatedAt
-		res.Id = openAiFtJob.ID
-		res.Model = openAiFtJob.Model
-		res.TrainingFile = openAiFtJob.TrainingFile
-		res.ValidationFile = openAiFtJob.ValidationFile
-		res.HyperParameters.NEpochs = ftJob.TrainEpoch
-		//res.Status = ftJob.TrainStatus
-		res.FineTunedModel = openAiFtJob.FineTunedModel
-
-		return res, nil
-	}
+	//if strings.Contains(baseModel, "gpt-3.5") || strings.Contains(baseModel, "gpt-4") {
+	//	// 1. 获取文件上传到openai
+	//	fileId, err := s.uploadFileToOpenAi(ctx, &fileInfo)
+	//	if err != nil {
+	//		_ = level.Error(logger).Log("service", "uploadFileToOpenAi", "err", err.Error())
+	//		return res, err
+	//	}
+	//	// 2. 调用openai 创建微调任务
+	//	openAiFtJob, err := s.api.FastChat().CreateFineTuningJob(ctx, openai.FineTuningJobRequest{
+	//		TrainingFile:    fileId,
+	//		ValidationFile:  "",
+	//		Model:           baseModel,
+	//		Hyperparameters: &openai.Hyperparameters{Epochs: epochs},
+	//		Suffix:          suffix,
+	//	})
+	//	if err != nil {
+	//		_ = level.Error(logger).Log("api.FastChat", "CreateFineTuningJob", "err", err.Error())
+	//		return res, errors.Wrap(err, "api.FastChat.CreateFineTuningJob")
+	//	}
+	//	// 3. 入库
+	//	// 创建job
+	//	ftJob := &types.FineTuningTrainJob{
+	//		JobId:          openAiFtJob.ID,
+	//		ChannelId:      channelId,
+	//		BaseModel:      baseModel,
+	//		FineTunedModel: openAiFtJob.FineTunedModel,
+	//		ValidationFile: openAiFtJob.ValidationFile,
+	//		TrainEpoch:     epochs,
+	//		FileUrl:        fileInfo.S3Url,
+	//		TrainStatus:    types.TrainStatusWaiting,
+	//		TenantID:       tenantId,
+	//	}
+	//	if err = s.store.FineTuning().CreateFineTuningJob(ctx, ftJob); err != nil {
+	//		res.Error = err.Error()
+	//		_ = level.Error(logger).Log("repository.FineTuningJob", "CreateFineTuningJob", "err", err.Error())
+	//		return res, err
+	//	}
+	//
+	//	res.CreatedAt = openAiFtJob.CreatedAt
+	//	res.Id = openAiFtJob.ID
+	//	res.Model = openAiFtJob.Model
+	//	res.TrainingFile = openAiFtJob.TrainingFile
+	//	res.ValidationFile = openAiFtJob.ValidationFile
+	//	res.HyperParameters.NEpochs = ftJob.TrainEpoch
+	//	//res.Status = ftJob.TrainStatus
+	//	res.FineTunedModel = openAiFtJob.FineTunedModel
+	//
+	//	return res, nil
+	//}
 
 	panUrl, err := s._fileConvertAlpaca(ctx, baseModel, fileInfo.S3Url)
 	if err != nil {
@@ -286,12 +285,12 @@ func (s *service) uploadFileToOpenAi(ctx context.Context, fileInfo *types.Files)
 	}(tmpfile.Name())
 
 	// 上传到openai
-	openAiRes, err := s.api.FastChat().UploadFile(ctx, openai.GPT3Dot5Turbo, fileInfo.Name, tmpfile.Name(), fileInfo.Purpose)
-	if err != nil {
-		_ = level.Error(logger).Log("api.FastChat", "UploadFile", "err", err.Error())
-		return
-	}
-	return openAiRes.ID, nil
+	//openAiRes, err := s.api.FastChat().UploadFile(ctx, openai.GPT3Dot5Turbo, fileInfo.Name, tmpfile.Name(), fileInfo.Purpose)
+	//if err != nil {
+	//	_ = level.Error(logger).Log("api.FastChat", "UploadFile", "err", err.Error())
+	//	return
+	//}
+	return "", nil
 }
 
 func (s *service) _cancelJob(ctx context.Context, channelId uint, fineTuningJob string) (res jobResult, err error) {

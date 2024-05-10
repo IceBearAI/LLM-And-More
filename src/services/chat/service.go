@@ -49,27 +49,23 @@ type CompletionStreamResponse struct {
 	openai.ChatCompletionStreamResponse
 }
 
+// CompletionResponse 聊天处理响应
+type CompletionResponse struct {
+	Usage openai.Usage `json:"usage"`
+	openai.ChatCompletionResponse
+}
+
 // Middleware 中间件
 type Middleware func(Service) Service
 
 // Service chat service interface
 type Service interface {
 	// ChatCompletion 聊天处理
-	ChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (res CompletionStreamResponse, err error)
+	ChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (res CompletionResponse, err error)
 	// ChatCompletionStream 聊天处理流传输
 	ChatCompletionStream(ctx context.Context, req openai.ChatCompletionRequest) (stream <-chan CompletionStreamResponse, err error)
 	// Models 模型列表
 	Models(ctx context.Context) (res []openai.Model, err error)
-	// Embeddings 创建图片
+	// Embeddings 创建embedding
 	Embeddings(ctx context.Context, req openai.EmbeddingRequest) (res openai.EmbeddingResponse, err error)
-}
-
-func New(platform string, opts ...CreationOption) Service {
-	if platform == "openai" {
-		return NewOpenAI(opts...)
-	}
-	if platform == "fschat" {
-		return NewFsChatApi(opts...)
-	}
-	return NewFsChatApi(opts...)
 }

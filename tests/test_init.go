@@ -9,13 +9,11 @@ import (
 	"github.com/IceBearAI/aigc/src/logging"
 	"github.com/IceBearAI/aigc/src/repository"
 	"github.com/IceBearAI/aigc/src/services"
-	"github.com/IceBearAI/aigc/src/services/fastchat"
 	"github.com/IceBearAI/aigc/src/services/ldapcli"
 	runtime2 "github.com/IceBearAI/aigc/src/services/runtime"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/sashabaranov/go-openai"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -65,11 +63,11 @@ const (
 	EnvNameServiceAlarmHost    = "AIGC_SERVICE_ALARM_HOST"     // 告警相关
 	EnvNameServiceLocalAIHost  = "AIGC_SERVICE_CHAT_API_HOST"  // chat-api 地址
 	EnvNameServiceLocalAIToken = "AIGC_SERVICE_CHAT_API_TOKEN" // chat-api token
-	EnvNameServiceOpenAiEnable = "AIGC_SERVICE_OPENAI_ENABLE"  // openai相关
-	EnvNameServiceOpenAiHost   = "AIGC_SERVICE_OPENAI_HOST"
-	EnvNameServiceOpenAiToken  = "AIGC_SERVICE_OPENAI_TOKEN"
-	EnvNameServiceOpenAiModel  = "AIGC_SERVICE_OPENAI_MODEL"
-	EnvNameServiceOpenAiOrgId  = "AIGC_SERVICE_OPENAI_ORG_ID"
+	//EnvNameServiceOpenAiEnable = "AIGC_SERVICE_OPENAI_ENABLE"  // openai相关
+	EnvNameServiceOpenAiHost  = "AIGC_SERVICE_OPENAI_HOST"
+	EnvNameServiceOpenAiToken = "AIGC_SERVICE_OPENAI_TOKEN"
+	//EnvNameServiceOpenAiModel = "AIGC_SERVICE_OPENAI_MODEL"
+	//EnvNameServiceOpenAiOrgId = "AIGC_SERVICE_OPENAI_ORG_ID"
 	//EnvNameServiceS3Host         = "AIGC_SERVICE_S3_HOST" // S3对象存储相当
 	//EnvNameServiceS3AccessKey    = "AIGC_SERVICE_S3_ACCESS_KEY"
 	//EnvNameServiceS3SecretKey    = "AIGC_SERVICE_S3_SECRET_KEY"
@@ -181,12 +179,12 @@ const (
 	DefaultJaegerLogSpans         = false
 
 	// [chat]相关
-	DefaultServiceChatApiHost  = "http://fschat-api:8000/v1"
+	DefaultServiceChatApiHost  = "http://localhost:8000/v1"
 	DefaultServiceChatApiToken = "sk-001"
 	DefaultServiceOpenAiHost   = "https://api.openai.com/v1"
 	DefaultServiceOpenAiToken  = "sk-001"
-	DefaultServiceOpenAiModel  = openai.GPT3Dot5Turbo
-	DefaultServiceOpenAiOrgId  = ""
+	//DefaultServiceOpenAiModel  = openai.GPT3Dot5Turbo
+	//DefaultServiceOpenAiOrgId  = ""
 
 	// [ldap相关]
 	DefaultLdapHost        = "ldap://ldap"
@@ -243,9 +241,9 @@ var (
 	serverChannelKey                                                                                       string
 
 	// [gpt]
-	serviceOpenAiEnable                                                           bool
-	serviceLocalAiHost, serviceLocalAiToken                                       string
-	serviceOpenAiHost, serviceOpenAiToken, serviceOpenAiModel, serviceOpenAiOrgId string
+	//serviceOpenAiEnable                                                           bool
+	serviceLocalAiHost, serviceLocalAiToken string
+	serviceOpenAiHost, serviceOpenAiToken   string
 
 	// [s3]
 	//serviceS3Host, serviceS3AccessKey, serviceS3SecretKey, serviceS3Bucket, serviceS3BucketPublic, serviceS3Region, serviceS3ProjectName string
@@ -339,11 +337,11 @@ func preRun() {
 	cronJobAuto, _ = strconv.ParseBool(envString(EnvNameCronJobAuto, "true"))
 
 	// [service.gpt]
-	serviceOpenAiEnable, _ = strconv.ParseBool(envString(EnvNameServiceOpenAiEnable, "false"))
+	//serviceOpenAiEnable, _ = strconv.ParseBool(envString(EnvNameServiceOpenAiEnable, "false"))
 	serviceOpenAiHost = envString(EnvNameServiceOpenAiHost, DefaultServiceOpenAiHost)
 	serviceOpenAiToken = envString(EnvNameServiceOpenAiToken, DefaultServiceOpenAiToken)
-	serviceOpenAiModel = envString(EnvNameServiceOpenAiModel, DefaultServiceOpenAiModel)
-	serviceOpenAiOrgId = envString(EnvNameServiceOpenAiOrgId, DefaultServiceOpenAiOrgId)
+	//serviceOpenAiModel = envString(EnvNameServiceOpenAiModel, DefaultServiceOpenAiModel)
+	//serviceOpenAiOrgId = envString(EnvNameServiceOpenAiOrgId, DefaultServiceOpenAiOrgId)
 	serviceLocalAiHost = envString(EnvNameServiceLocalAIHost, DefaultServiceChatApiHost)
 	serviceLocalAiToken = envString(EnvNameServiceLocalAIToken, DefaultServiceChatApiToken)
 
@@ -540,14 +538,6 @@ func prepare(ctx context.Context) error {
 	// 实例化外部API
 	apiSvc = services.NewApi(ctx, logger, logging.TraceId, serverDebug, nil, &services.Config{
 		Namespace: namespace, ServiceName: serverName,
-		FastChat: fastchat.Config{
-			OpenAiEndpoint: serviceOpenAiHost,
-			OpenAiToken:    serviceOpenAiToken,
-			OpenAiModel:    serviceOpenAiModel,
-			OpenAiOrgId:    serviceOpenAiOrgId,
-			//chatapiEndpoint: serviceGPTHost,
-			//chat - apiModel:    serviceGPTModel,
-		},
 		Ldap: ldapcli.Config{
 			Host:         ldapHost,
 			Port:         ldapPort,
