@@ -1,0 +1,15 @@
+{
+  "added_tokens_decoder": {},
+  "auto_map": {
+    "AutoTokenizer": [
+      "THUDM/chatglm3-6b-32k--tokenization_chatglm.ChatGLMTokenizer",
+      null
+    ]
+  },
+  "chat_template": "{% for message in messages %}{% if loop.first %}[gMASK]sop<|{{ message['role'] }}|> \n {{ message['content'] }}{% else %}<|{{ message['role'] }}|> \n {{ message['content'] }}{% endif %}{% endfor %}{% if add_generation_prompt %}<|assistant|>{% endif %}",
+  "do_lower_case": false,
+  "model_max_length": 1000000000000000019884624838656,
+  "padding_side": "left",
+  "remove_space": false,
+  "tokenizer_class": "ChatGLMTokenizer"
+}

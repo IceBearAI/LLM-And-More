@@ -200,7 +200,7 @@ def parse_args():
     # save per steps
     parser.add_argument('--save_per_steps', type=int,
                         help='save per x steps', default=200)
-    parser.add_argument('--save_total_limit', type=int, default=1)
+    parser.add_argument('--save_total_limit', type=int, default=0)
     # start from step
     parser.add_argument('--start_from_step', type=int,
                         help='skip first x steps', default=-1)
@@ -435,7 +435,7 @@ def main():
             end = time.time()
             print_rank_0(f'finished step {step + 1}, used {end - start} seconds.', args.global_rank)
             # 保存检测点
-            if step > 0 and (step + 1) % args.save_per_steps == 0:
+            if step > 0 and args.save_total_limit>0 and args.save_per_steps>0 and (step + 1) % args.save_per_steps == 0:
                 print_rank_0(f'saving checkpoint at step {step + 1}...', args.global_rank)
                 # if args.train_type == "lora":
                 #     save_dir = os.path.join(checkpoints_path, f"lora-step-{step+1}")
@@ -451,9 +451,9 @@ def main():
                     "epoch": epoch,
                     "learning_rate": learning_rate
                 })
+                saved_checkpoints.append(os.path.join(checkpoints_path, f"global_step{model.global_steps}"))
 
                 if args.global_rank == 0:
-                    saved_checkpoints.append(os.path.join(checkpoints_path, f"global_step{model.global_steps}"))
                     if len(saved_checkpoints) > args.save_total_limit:
                         # 删除最旧的检测点
                         old_checkpoint_path = saved_checkpoints.pop(0)
@@ -512,7 +512,7 @@ def main():
             print(f"perplexity_:{args.global_rank}:", perplexity)
         except Exception as e:
             print_rank_0(f"Evaluation failed: {e}", args.global_rank)
-        if not perplexity_eval:
+        if 'perplexity_eval' not in locals():
             perplexity_eval= best_perplexity_eval - 0.001
             best_epoch = epoch + 1
             print_rank_0(f"Best model found at epoch:{best_epoch}", args.global_rank)
