@@ -99,7 +99,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompleti
 		TopP:        request.TopP,
 	})
 	if err != nil {
-		_ = level.Error(logger).Log("apiSvc.PaasChat", "ChatCompletionStream", "err", err.Error())
+		_ = level.Error(logger).Log("apiSvc.Chat", "ChatCompletionStream", "err", err.Error())
 		return stream, err
 	}
 

@@ -25,13 +25,13 @@ type QA struct {
 
 func getOpenAIClient() (*openai.Client, string) {
 	config := openai.DefaultConfig("sk-7H3vT1nB4gM9xK2jD6qF8sZ0cW5rY7lP2mN1bV3kX9yG4wJ6")
-	config.BaseURL = "http://aigc-server:8080/v1"
+	config.BaseURL = "http://localhost:8080/v1"
 	return openai.NewClientWithConfig(config), openai.GPT3Dot5Turbo16K
 }
 
 func getLocalOpenAIClient() (*openai.Client, string) {
-	config := openai.DefaultConfig("sk-q8oSE4F7ANJPI7L60NBEENAGYXbYdS6J7gPFDPIFx24")
-	config.BaseURL = "http://paas-chat-api.paas.paas.test/v1"
+	config := openai.DefaultConfig("sk-001")
+	config.BaseURL = "http://localhost:8000/v1"
 	client := openai.NewClientWithConfig(config)
 	return client, openai.GPT3Dot5Turbo
 }

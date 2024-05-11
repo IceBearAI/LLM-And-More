@@ -55,11 +55,19 @@ type CompletionResponse struct {
 	openai.ChatCompletionResponse
 }
 
+// CompletionResult 聊天处理结果
+type CompletionResult struct {
+	Usage openai.Usage `json:"usage"`
+	openai.CompletionResponse
+}
+
 // Middleware 中间件
 type Middleware func(Service) Service
 
 // Service chat service interface
 type Service interface {
+	// Completion 生成
+	Completion(ctx context.Context, req openai.CompletionRequest) (res openai.CompletionResponse, err error)
 	// ChatCompletion 聊天处理
 	ChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (res CompletionResponse, err error)
 	// ChatCompletionStream 聊天处理流传输

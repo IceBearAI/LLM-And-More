@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 type SeparatorStyle int
@@ -173,21 +172,12 @@ func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string,
 		rc := resStream.(io.ReadCloser)
 		defer rc.Close()
 		defer close(dot)
+		resp := WorkerGenerateStreamResponse{}
 		for {
-			var resp WorkerGenerateStreamResponse
-			buf := make([]byte, 32768)
-			n, err := rc.Read(buf)
+			buf := make([]byte, 327680)
+			_, err = rc.Read(buf)
 			if err != nil {
 				if err == io.EOF {
-					decoder := json.NewDecoder(strings.NewReader(strings.Replace(string(buf[:n]), "\x00", "", -1)))
-					if err = decoder.Decode(&resp); err != nil {
-						dot <- WorkerGenerateStreamResponse{
-							ErrorCode:    1,
-							Text:         err.Error(),
-							FinishReason: "stop",
-						}
-						return
-					}
 					resp.FinishReason = "stop"
 					dot <- resp
 					return
@@ -200,16 +190,38 @@ func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string,
 				}
 				return
 			}
-			decoder := json.NewDecoder(strings.NewReader(strings.Replace(string(buf[:n]), "\x00", "", -1)))
-			if err = decoder.Decode(&resp); err != nil {
-				dot <- WorkerGenerateStreamResponse{
-					ErrorCode:    1,
-					Text:         err.Error(),
-					FinishReason: "stop",
+			//decoder := json.NewDecoder(bytes.NewReader(buf[:n]))
+			//if err = decoder.Decode(&resp); err != nil {
+			//	dot <- WorkerGenerateStreamResponse{
+			//		ErrorCode:    1,
+			//		Text:         err.Error(),
+			//		FinishReason: "stop",
+			//	}
+			//	return
+			//}
+			//dot <- resp
+			delimiter := []byte("\x00")
+			for {
+				chunkEnd := bytes.Index(buf, delimiter)
+				if chunkEnd < 0 {
+					break
 				}
-				return
+				chunk := buf[:chunkEnd]
+				buf = buf[chunkEnd+1:]
+				if len(chunk) == 0 {
+					continue
+				}
+				decoder := json.NewDecoder(bytes.NewReader(chunk))
+				if err = decoder.Decode(&resp); err != nil {
+					dot <- WorkerGenerateStreamResponse{
+						ErrorCode:    1,
+						Text:         err.Error(),
+						FinishReason: "stop",
+					}
+					return
+				}
+				dot <- resp
 			}
-			dot <- resp
 		}
 	}()
 	return dot, nil
@@ -226,7 +238,6 @@ func (s *worker) WorkerGenerate(ctx context.Context, workerAddress string, param
 
 	ep := kithttp.NewClient(http.MethodPost, u, func(ctx context.Context, r *http.Request, request interface{}) error {
 		r.Header.Set("Content-Type", "application/json; charset=utf-8")
-		r.Header.Set("Content-Type", "application/json")
 		r.Header.Set("Accept", "text/event-stream")
 		r.Header.Set("Cache-Control", "no-cache")
 		r.Header.Set("Connection", "keep-alive")
@@ -282,11 +293,19 @@ func (s *worker) WorkerGenerate(ctx context.Context, workerAddress string, param
 }
 
 func (s *worker) WorkerGetEmbeddings(ctx context.Context, workerAddress string, payload EmbeddingPayload) (res EmbeddingsResponse, err error) {
-	u, err := url.Parse(fmt.Sprintf("%s/get_embeddings", workerAddress))
+	u, err := url.Parse(fmt.Sprintf("%s/worker_get_embeddings", workerAddress))
 	if err != nil {
 		err = errors.Wrap(err, "failed to parse url")
 		return
 	}
+
+	ep := kithttp.NewClient(http.MethodPost, u, kithttp.EncodeJSONRequest, decodeJsonResponse(&res), s.options.httpClientOpts...).Endpoint()
+	_, err = ep(ctx, payload)
+	if err != nil {
+		err = errors.Wrap(err, "failed to call endpoint")
+		return
+	}
+	return
 
 	// request.input = process_input(request.model, request.input)
 	//
@@ -324,13 +343,6 @@ func (s *worker) WorkerGetEmbeddings(ctx context.Context, workerAddress string, 
 	//            completion_tokens=None,
 	//        ),
 	//    ).dict(exclude_none=True)
-
-	ep := kithttp.NewClient(http.MethodPost, u, kithttp.EncodeJSONRequest, decodeJsonResponse(&res), s.options.httpClientOpts...).Endpoint()
-	_, err = ep(ctx, map[string]any{"model": payload.Model})
-	if err != nil {
-		err = errors.Wrap(err, "failed to call endpoint")
-		return
-	}
 	return
 }
 

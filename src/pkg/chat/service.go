@@ -16,6 +16,7 @@ import (
 	"time"
 )
 
+// Service 聊天服务接口
 type Service interface {
 	// Completion 生成
 	Completion(ctx context.Context, channelId uint, req openai.CompletionRequest) (res openai.CompletionResponse, err error)
@@ -37,8 +38,57 @@ type service struct {
 }
 
 func (s *service) Completion(ctx context.Context, channelId uint, req openai.CompletionRequest) (res openai.CompletionResponse, err error) {
-	//TODO implement me
-	panic("implement me")
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	now := time.Now()
+	modelInfo, err := s.repository.Model().FindByModelId(ctx, req.Model)
+	if err != nil {
+		err = errors.WithMessage(err, "failed to find model")
+		_ = level.Warn(logger).Log("msg", "failed to find model", "err", err)
+		return
+	}
+
+	if modelInfo.BaseModelName != "" {
+		req.Model = modelInfo.BaseModelName
+	}
+	providerName := services.ProviderOpenAI
+	if modelInfo.ProviderName == types.ModelProviderLocalAI {
+		providerName = services.ProviderFsChat
+	}
+	res, err = s.services.Chat(providerName).Completion(ctx, req)
+	if err != nil {
+		_ = level.Warn(logger).Log("msg", "failed to get completion", "err", err)
+		return
+	}
+	var finished = true
+	prompt, _ := json.Marshal(req.Prompt)
+	stop, _ := json.Marshal(req.Stop)
+	msgData := &types.ChatMessages{
+		ModelName:        req.Model,
+		ChannelId:        channelId,
+		Prompt:           string(prompt),
+		Finished:         &finished,
+		Temperature:      req.Temperature,
+		TopP:             req.TopP,
+		N:                req.N,
+		User:             req.User,
+		PresencePenalty:  req.PresencePenalty,
+		FrequencyPenalty: req.FrequencyPenalty,
+		MaxTokens:        req.MaxTokens,
+		Stop:             string(stop),
+		Response:         res.Choices[0].Text,
+		Created:          res.Created,
+		TimeCost:         time.Since(now).String(),
+		PromptTokens:     res.Usage.PromptTokens,
+		ResponseTokens:   res.Usage.CompletionTokens,
+	}
+
+	if err = s.repository.Messages().Create(ctx, msgData); err != nil {
+		err = errors.WithMessage(err, "failed to create message")
+		_ = level.Warn(logger).Log("msg", "failed to create message", "err", err)
+		return
+	}
+
+	return
 }
 
 func (s *service) Models(ctx context.Context, channelId uint) (res []openai.Model, err error) {
@@ -237,7 +287,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 					resContent += content.Choices[0].Delta.Content
 				}
 			}
-			if content.Choices[0].FinishReason == openai.FinishReasonStop {
+			if content.Choices[0].FinishReason == openai.FinishReasonStop && content.Choices[0].Delta.Content != "" {
 				isError = false
 				finished = true
 				// 更新数据库

@@ -176,7 +176,7 @@ const state = reactive<{
 }>({
   operateType: "add",
   disabledField: false,
-  maxTokens: 500000,
+  maxTokens: 5000000,
   formData: {
     id: "",
     modelName: "",

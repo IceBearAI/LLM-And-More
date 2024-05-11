@@ -1,7 +1,7 @@
 version: "3"
 services:
   aigc-server:
-    image: dudulu/aigc-server:v0.0.0-beta05
+    image: dudulu/aigc-server:latest
     restart: always
     build:
       context: .
@@ -15,6 +15,20 @@ services:
       - start
     volumes:
       - storage:/usr/local/aigc-server/storage
+    network_mode: host
+  aigc-api:
+    image: dudulu/aigc-server:latest
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    command:
+      - aigc-server
+      - start-api
     network_mode: host
   fschat-controller:
     image: dudulu/fschat:v0.2.36

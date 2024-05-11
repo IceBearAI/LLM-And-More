@@ -37,7 +37,7 @@ var (
 		Use:   "start-api",
 		Short: "启动http api服务",
 		Example: `## 启动命令
-aigc-server start-api -p :8081
+aigc-server start-api -p :8000
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return startApiHttpServer(cmd.Context())
@@ -64,7 +64,7 @@ aigc-server start-api -p :8081
 )
 
 func init() {
-	apiV1StartCmd.PersistentFlags().StringVarP(&openApiAddr, "openapi.port", "p", ":8081", "服务启动的http api 端口")
+	apiV1StartCmd.PersistentFlags().StringVarP(&openApiAddr, "openapi.port", "p", ":8000", "服务启动的http api 端口")
 	apiV1StartCmd.PersistentFlags().BoolVar(&webEmbed, "web.embed", true, "是否使用embed.FS")
 }
 
@@ -85,8 +85,9 @@ func startApiHttpServer(ctx context.Context) error {
 
 	tiktoken.SetBpeLoader(tiktoken2.NewBpeLoader(DataFs))
 	chatWorkerSvc = servicesChat.NewFastChatWorker(
+		servicesChat.WithWorkerCreationOptionLogger(logger),
 		servicesChat.WithControllerAddress(fsChatControllerAddress),
-		//servicesChat.WithWorkerCreationOptionHTTPClientOpts(clientOptions...),
+		servicesChat.WithWorkerCreationOptionHTTPClientOpts(clientOptions...),
 	)
 	chatApi = chat.New(logger, "traceId", store, apiSvc)
 	fieldKeys := []string{"method"}

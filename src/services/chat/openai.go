@@ -13,6 +13,19 @@ type openAIService struct {
 	options *CreationOptions
 }
 
+func (s *openAIService) Completion(ctx context.Context, req openai.CompletionRequest) (res openai.CompletionResponse, err error) {
+	client := s.getClient()
+	resp, err := client.CreateCompletion(ctx, req)
+	if err != nil {
+		var er *openai.APIError
+		if errors.As(err, &er) {
+			err = er
+		}
+		return res, err
+	}
+	return resp, nil
+}
+
 func (s *openAIService) getClient() *openai.Client {
 	// 随机取一个endpoint
 	totalEp := len(s.options.endpoints)

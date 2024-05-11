@@ -218,7 +218,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompleti
 		TopP:        request.TopP,
 	})
 	if err != nil {
-		_ = level.Error(logger).Log("apiSvc.PaasChat", "ChatCompletionStream", "err", err.Error())
+		_ = level.Error(logger).Log("apiSvc.Chat", "ChatCompletionStream", "err", err.Error())
 		return stream, err
 	}
 
@@ -260,7 +260,7 @@ func (s *service) GetModelLogs(ctx context.Context, modelName, containerName str
 	}
 	status, err := s.apiSvc.Runtime().GetDeploymentStatus(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(modelName), modelInfo.ID))
 	if err != nil {
-		_ = level.Error(logger).Log("api.PaasChat", "GetDeploymentStatus", "err", err.Error())
+		_ = level.Error(logger).Log("api.Runtime", "GetDeploymentStatus", "err", err.Error())
 		return res, nil
 	}
 	if strings.ToLower(status) != "running" {
@@ -410,7 +410,7 @@ func (s *service) Undeploy(ctx context.Context, id uint) (err error) {
 	// 调用API取消部署模型
 	err = s.apiSvc.Runtime().RemoveDeployment(ctx, deploymentName)
 	if err != nil {
-		_ = level.Error(logger).Log("api.PaasChat", "UndeployModel", "err", err.Error(), "modelName", m.ModelName)
+		_ = level.Error(logger).Log("api.Runtime", "UndeployModel", "err", err.Error(), "modelName", m.ModelName)
 	}
 	_ = level.Info(logger).Log("msg", "undeploy model success")
 
@@ -537,7 +537,7 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 
 	deploymentName, err := s.apiSvc.Runtime().CreateDeployment(ctx, runtimeConfig)
 	if err != nil {
-		_ = level.Error(logger).Log("api.PaasChat", "DeployModel", "err", err.Error(), "modelName", m.Model)
+		_ = level.Error(logger).Log("api.Runtime", "DeployModel", "err", err.Error(), "modelName", m.Model)
 		return err
 	}
 	_ = level.Info(logger).Log("msg", "create deployment success", "deploymentName", deploymentName)
@@ -586,7 +586,7 @@ func (s *service) ListModels(ctx context.Context, request ListModelRequest) (res
 		if v.ModelDeploy.ID > 0 {
 			containers, err = s.apiSvc.Runtime().GetContainers(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(v.ModelName), v.ID))
 			if err != nil {
-				_ = level.Warn(logger).Log("api.PaasChat", "GetDeploymentContainerNames", "err", err.Error())
+				_ = level.Warn(logger).Log("api.Runtime", "GetDeploymentContainerNames", "err", err.Error())
 				continue
 			}
 		}
@@ -713,7 +713,7 @@ func (s *service) GetModel(ctx context.Context, id uint) (res Model, err error) 
 	if m.ModelDeploy.ModelID > 0 {
 		containers, err = s.apiSvc.Runtime().GetContainers(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(m.ModelName), m.ID))
 		if err != nil {
-			_ = level.Warn(logger).Log("api.PaasChat", "GetDeploymentContainerNames", "err", err.Error())
+			_ = level.Warn(logger).Log("api.Runtime", "GetDeploymentContainerNames", "err", err.Error())
 		}
 		res.Deployment = modelDeploymentResult{
 			VLLM:         m.ModelDeploy.Vllm,

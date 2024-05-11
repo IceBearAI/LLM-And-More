@@ -147,7 +147,24 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 			}
 			if content.ErrorCode != 0 {
 				err = errors.New(content.Text)
+				return
 			}
+			text := content.Text
+			var previousText string
+			// 替换所有的Unicode替代字符\ufffd为空字符串
+			decodedUnicode := strings.Replace(text, "\ufffd", "", -1)
+
+			// 获取新的字符串，它是当前文本去掉与之前文本相同部分后的结果
+			deltaText := decodedUnicode
+			if len(previousText) < len(decodedUnicode) {
+				deltaText = decodedUnicode[len(previousText):]
+			}
+
+			// 更新previous_text变量为当前文本，但只在当前文本的长度大于previous_text的长度时
+			if len(decodedUnicode) > len(previousText) {
+				previousText = decodedUnicode
+			}
+
 			dot <- CompletionStreamResponse{
 				Usage: struct {
 					PromptTokens     int `json:"prompt_tokens"`
@@ -163,7 +180,7 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 						{
 							FinishReason: openai.FinishReason(content.FinishReason),
 							Delta: openai.ChatCompletionStreamChoiceDelta{
-								Content: content.Text,
+								Content: deltaText,
 								Role:    "assistant",
 							},
 						},
@@ -278,27 +295,31 @@ func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompleti
 	//prompt += convTemplate.Conv.Roles[1] + "\n"
 
 	if req.Stop == nil && convTemplate.Conv.StopStr != "" {
-		req.Stop = append(req.Stop, "<|im_end|>", "<|im_start|>")
 		req.Stop = append(req.Stop, convTemplate.Conv.StopStr)
 	}
 
-	return GenerateStreamParams{
+	genParams := GenerateStreamParams{
 		Model:            req.Model,
 		Prompt:           prompt,
 		Temperature:      req.Temperature,
-		Logprobs:         req.LogProbs,
 		TopP:             req.TopP,
 		TopK:             -1,
 		PresencePenalty:  req.PresencePenalty,
 		FrequencyPenalty: req.FrequencyPenalty,
 		MaxNewTokens:     req.MaxTokens,
 		StopTokenIds:     convTemplate.Conv.StopTokenIds,
-		Images:           nil,
-		UseBeamSearch:    false,
 		Stop:             req.Stop,
-		N:                1,
-		BestOf:           1,
-	}, nil
+		Echo:             false,
+	}
+	if req.N > 0 {
+		genParams.N = &req.N
+	}
+	if req.LogProbs {
+		logProbs := true
+		genParams.Logprobs = &logProbs
+	}
+
+	return genParams, nil
 }
 
 func (s *fsChatApiClient) getPrompt(ctx context.Context, req openai.ChatCompletionRequest, convTemplate ModelConvTemplate) (prompt string) {
@@ -313,8 +334,9 @@ func (s *fsChatApiClient) getPrompt(ctx context.Context, req openai.ChatCompleti
 			break
 		}
 	}
+	// 去除系统消息
 	if convTemplate.Conv.SystemTemplate == "" {
-		//convTemplate.Conv.SystemTemplate = "{system_message}"
+		convTemplate.Conv.SystemTemplate = "{system_message}"
 	}
 	var systemMessage = strings.ReplaceAll(convTemplate.Conv.SystemTemplate, "{system_message}", reqSystemMessage)
 	var ret string
@@ -330,9 +352,9 @@ func (s *fsChatApiClient) getPrompt(ctx context.Context, req openai.ChatCompleti
 			tag := convTemplate.Conv.Roles[i%2]
 			if v.Content != "" {
 				if i == 0 {
-					ret += v.Content + " "
+					ret += strings.TrimSpace(v.Content) + " "
 				} else {
-					ret += tag + " " + v.Content + seps[i%2]
+					ret += tag + " " + strings.TrimSpace(v.Content) + seps[i%2]
 				}
 			} else {
 				ret += tag
@@ -341,8 +363,11 @@ func (s *fsChatApiClient) getPrompt(ctx context.Context, req openai.ChatCompleti
 	case LLAMA3:
 		ret = systemMessage
 		for _, v := range req.Messages {
+			if v.Role == "system" && v.Content == "" {
+				continue
+			}
 			if v.Content != "" {
-				ret += fmt.Sprintf("<|start_header_id|>%s<|end_header_id|>\n\n%s<|eot_id|>", v.Role, v.Content)
+				ret += fmt.Sprintf("<|start_header_id|>%s<|end_header_id|>\n\n%s<|eot_id|>", v.Role, strings.TrimSpace(v.Content))
 			} else {
 				ret += fmt.Sprintf("<|start_header_id|>%s<|end_header_id|>\n\n", v.Role)
 			}
@@ -369,19 +394,19 @@ func (s *fsChatApiClient) getPrompt(ctx context.Context, req openai.ChatCompleti
 				if v.Role == "user" {
 					ret += fmt.Sprintf("%s\n%s%s\n", convTemplate.Conv.Roles[0], v.Content, convTemplate.Conv.Sep)
 				} else if v.Role == "assistant" {
-					ret += fmt.Sprintf("%s\n%s%s\n", convTemplate.Conv.Roles[1], v.Content, convTemplate.Conv.Sep)
+					ret += fmt.Sprintf("%s\n%s%s\n", convTemplate.Conv.Roles[1], strings.TrimSpace(v.Content), convTemplate.Conv.Sep)
 				} else {
-					ret += fmt.Sprintf("%s\n%s%s\n", v.Role, v.Content, convTemplate.Conv.Sep)
+					ret += fmt.Sprintf("%s\n%s%s\n", v.Role, strings.TrimSpace(v.Content), convTemplate.Conv.Sep)
 				}
 			} else {
 				ret += fmt.Sprintf("%s\n", convTemplate.Conv.Roles[1])
 			}
 		}
 	case OPENBUDDY_LLAMA3:
-		ret = systemMessage
+		//ret = systemMessage
 		for _, v := range req.Messages {
 			if v.Content != "" {
-				ret += fmt.Sprintf("<|role|>%s<|says|>%s<|end|>\n", v.Role, v.Content)
+				ret += fmt.Sprintf("<|role|>%s<|says|>%s<|end|>\n", v.Role, strings.TrimSpace(v.Content))
 			} else {
 				ret += fmt.Sprintf("<|role|>%s<|says|>\n", v.Role)
 			}
@@ -390,7 +415,7 @@ func (s *fsChatApiClient) getPrompt(ctx context.Context, req openai.ChatCompleti
 		ret = systemMessage
 		for _, v := range req.Messages {
 			if v.Content != "" {
-				ret += v.Role + v.Content + convTemplate.Conv.Sep
+				ret += v.Role + strings.TrimSpace(v.Content) + convTemplate.Conv.Sep
 			} else {
 				ret += v.Role
 			}
@@ -401,7 +426,7 @@ func (s *fsChatApiClient) getPrompt(ctx context.Context, req openai.ChatCompleti
 		}
 		for _, v := range req.Messages {
 			if v.Content != "" {
-				ret += fmt.Sprintf("%s\n%s%s\n", v.Role, v.Content, convTemplate.Conv.Sep)
+				ret += fmt.Sprintf("%s\n%s%s\n", v.Role, strings.TrimSpace(v.Content), convTemplate.Conv.Sep)
 			} else {
 				ret += fmt.Sprintf("%s\n", v.Role)
 			}
@@ -421,7 +446,7 @@ func (s *fsChatApiClient) getPrompt(ctx context.Context, req openai.ChatCompleti
 				ret += fmt.Sprintf("[Round %d]%s", i/2+roundAddN, convTemplate.Conv.Sep)
 			}
 			if v.Content != "" {
-				ret += fmt.Sprintf("%s：%s%s", v.Role, v.Content, convTemplate.Conv.Sep)
+				ret += fmt.Sprintf("%s：%s%s", v.Role, strings.TrimSpace(v.Content), convTemplate.Conv.Sep)
 			} else {
 				ret += fmt.Sprintf("%s：", v.Role)
 			}

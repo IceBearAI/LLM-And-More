@@ -9,7 +9,7 @@ import (
 func initOpenAiSvc() Service {
 	return NewOpenAI(WithEndpoints(Endpoint{
 		Platform: "openai",
-		Host:     "http://paas-chat-api.paas.paas.test/v1",
+		Host:     "http://localhost:8000/v1",
 		Token:    "sk-xxx",
 	}))
 }

@@ -12,7 +12,7 @@ func TestMakeHTTPHandler(t *testing.T) {
 
 func TestHTTP_ChatCompletionStream(t *testing.T) {
 	config := openai.DefaultConfig("sk-001")
-	config.BaseURL = "http://localhost:8081/v1"
+	config.BaseURL = "http://localhost:8000/v1"
 	client := openai.NewClientWithConfig(config)
 
 	stream, err := client.CreateChatCompletionStream(context.Background(), openai.ChatCompletionRequest{

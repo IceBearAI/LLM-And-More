@@ -22,10 +22,15 @@ type EmbeddingPayload struct {
 
 // EmbeddingsResponse 嵌入响应
 type EmbeddingsResponse struct {
-	Object string           `json:"object"`
-	Data   []map[string]any `json:"data"`
-	Model  string           `json:"model"`
-	Usage  UsageInfo        `json:"usage"`
+	//Object string           `json:"object"`
+	//Data   []map[string]any `json:"data"`
+	//Model  string           `json:"model"`
+	//Usage  UsageInfo        `json:"usage"`
+	Embedding []interface {
+	} `json:"embedding"`
+	TokenNum  int    `json:"token_num"`
+	Text      string `json:"text"`
+	ErrorCode int    `json:"error_code"`
 }
 
 // UsageInfo 使用信息
@@ -43,7 +48,7 @@ type GenerateStreamParams struct {
 	Model            string  `json:"model"`
 	Prompt           string  `json:"prompt"`
 	Temperature      float32 `json:"temperature"`
-	Logprobs         bool    `json:"logprobs"`
+	Logprobs         *bool   `json:"logprobs,omitempty"`
 	TopP             float32 `json:"top_p"`
 	TopK             int     `json:"top_k"`
 	PresencePenalty  float32 `json:"presence_penalty"`
@@ -51,11 +56,11 @@ type GenerateStreamParams struct {
 	MaxNewTokens     int     `json:"max_new_tokens"`
 	Echo             bool    `json:"echo"`
 	StopTokenIds     []int   `json:"stop_token_ids"`
-	Images           []any   `json:"images"`
-	BestOf           int     `json:"best_of"`
-	UseBeamSearch    bool    `json:"use_beam_search"`
+	Images           []any   `json:"images,omitempty"`
+	BestOf           *int    `json:"best_of,omitempty"`
+	UseBeamSearch    *bool   `json:"use_beam_search,omitempty"`
 	Stop             any     `json:"stop"`
-	N                int     `json:"n"`
+	N                *int    `json:"n,omitempty"`
 }
 
 // GenerateParams 生成流参数

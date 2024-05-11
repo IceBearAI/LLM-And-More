@@ -15,6 +15,19 @@ type logging struct {
 	traceId string
 }
 
+func (s *logging) Completion(ctx context.Context, req openai.CompletionRequest) (res openai.CompletionResponse, err error) {
+	defer func(begin time.Time) {
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "Completion",
+			"req", fmt.Sprintf("%+v", req),
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next.Completion(ctx, req)
+}
+
 func (s *logging) ChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (res CompletionResponse, err error) {
 	defer func(begin time.Time) {
 		_ = s.logger.Log(
