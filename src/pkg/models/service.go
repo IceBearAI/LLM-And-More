@@ -606,6 +606,10 @@ func (s *service) ListModels(ctx context.Context, request ListModelRequest) (res
 
 func (s *service) CreateModel(ctx context.Context, request CreateModelRequest) (res Model, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "CreateModel")
+	modelPath := fmt.Sprintf("/data/base-model/%s", request.ModelName)
+	if request.ModelPath != "" {
+		modelPath = request.ModelPath
+	}
 	m, err := s.store.Model().GetModelByModelName(ctx, request.ModelName)
 	if err == nil && m.ID > 0 {
 		_ = level.Warn(logger).Log("store.Model", "GetModelByModelName", "err", "模型名称已存在", "modelName", request.ModelName)
@@ -658,7 +662,7 @@ func (s *service) CreateModel(ctx context.Context, request CreateModelRequest) (
 			TrainImage:    s.options.defaultTrainImage,
 			Name:          fmt.Sprintf("%s-%s", request.ModelName, types.TemplateTypeInference),
 			BaseModel:     request.ModelName,
-			BaseModelPath: fmt.Sprintf("/data/base-model/%s", request.ModelName),
+			BaseModelPath: modelPath,
 			ScriptFile:    "/app/start.sh",
 			OutputDir:     "/data/ft-model",
 			Enabled:       true,
@@ -673,7 +677,7 @@ func (s *service) CreateModel(ctx context.Context, request CreateModelRequest) (
 			TrainImage:    s.options.defaultTrainImage,
 			Name:          fmt.Sprintf("%s-%s", request.ModelName, types.TemplateTypeTrain),
 			BaseModel:     request.ModelName,
-			BaseModelPath: fmt.Sprintf("/data/base-model/%s", request.ModelName),
+			BaseModelPath: modelPath,
 			ScriptFile:    "/app/train.sh",
 			OutputDir:     "/data/ft-model",
 			Enabled:       true,

@@ -73,6 +73,7 @@ type (
 
 	CreateModelRequest struct {
 		ModelName     string `json:"modelName" validate:"required"`
+		ModelPath     string `json:"modelPath"`
 		ModelType     string `json:"modelType" validate:"required"`
 		BaseModelName string `json:"baseModelName"`
 		MaxTokens     int    `json:"maxTokens" validate:"required"`
