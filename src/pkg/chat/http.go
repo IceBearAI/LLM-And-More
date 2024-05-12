@@ -72,6 +72,8 @@ func decodeChatCompletionStreamRequest(ctx context.Context, r *http.Request) (re
 }
 
 func encodeChatCompletionStreamResponse(ctx context.Context, writer http.ResponseWriter, response interface{}) error {
+	traceId, _ := ctx.Value("traceId").(string)
+	writer.Header().Set("TraceId", traceId)
 	resp, ok := response.(encode.Response)
 	if !ok {
 		writer.WriteHeader(http.StatusInternalServerError)
@@ -89,14 +91,12 @@ func encodeChatCompletionStreamResponse(ctx context.Context, writer http.Respons
 		code = sc.StatusCode()
 	}
 	writer.WriteHeader(code)
-	traceId, _ := ctx.Value("traceId").(string)
-	writer.Header().Set("TraceId", traceId)
 	if code == http.StatusNoContent {
 		return nil
 	}
-	writer.Header().Set("Content-Type", "application/json")
 	if reflect.TypeOf(resp.Data) == reflect.TypeOf(openai.ChatCompletionResponse{}) ||
 		reflect.TypeOf(resp.Data) == reflect.TypeOf(openai.CompletionResponse{}) {
+		writer.Header().Set("Content-Type", "application/json")
 		b, _ := json.Marshal(resp.Data)
 		_, _ = writer.Write(b)
 		return nil
@@ -114,11 +114,9 @@ func encodeChatCompletionStreamResponse(ctx context.Context, writer http.Respons
 			if !ok {
 				return nil
 			}
-			//if item.ChatCompletionStreamResponse.Choices[0].Delta.Content != "" {
 			streamData, _ := json.Marshal(item.ChatCompletionStreamResponse)
 			_, _ = writer.Write([]byte(fmt.Sprintf("data: %s\n\n", streamData)))
 			flushWriter.Flush()
-			//}
 		case <-time.After(time.Minute * 20):
 			return nil
 		}
