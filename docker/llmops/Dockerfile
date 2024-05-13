@@ -33,20 +33,24 @@ RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 WORKDIR /app/
 
-COPY pip.conf /root/.config/pip/
+RUN pip3 install packaging ninja torch install numpy bitsandbytes
 
-RUN pip3 install packaging ninja torch==2.1.2 install numpy
-
-RUN pip3 install vllm bitsandbytes
-# 要安装flash-attn必须在有gpu的机器上构建
-RUN pip3 install flash-attn -i https://pypi.tuna.tsinghua.edu.cn/simple
-
-RUN pip3 install fschat
+# RUN pip3 install fschat
 # 如果需要使用sglang vllm版本0.3.3
-RUN #pip3 sglang zmq rpyc
+# RUN pip3 sglang zmq rpyc
+# 要安装flash-attn必须在有gpu的机器上构建
+RUN pip3 install flash-attn -i https://pypi.tuna.tsinghua.edu.cn/simple --no-build-isolation
 
 COPY ./requirements.txt /app/requirements.txt
 
 RUN pip3 install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
+RUN pip3 install transformers==4.40.2 --no-cache-dir
+RUN pip3 install vllm==0.4.2
+
+ADD fschat /app/fschat
+WORKDIR /app/fschat/
+RUN pip3 install -e .
+
 COPY . /app/
+WORKDIR /app

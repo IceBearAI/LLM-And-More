@@ -422,13 +422,13 @@ func (s *fsChatApiClient) getPrompt(ctx context.Context, req openai.ChatCompleti
 		}
 	case CHATGLM3:
 		if systemMessage != "" {
-			ret += systemMessage + convTemplate.Conv.Sep
+			ret = systemMessage
 		}
 		for _, v := range req.Messages {
 			if v.Content != "" {
-				ret += fmt.Sprintf("%s\n%s%s\n", v.Role, strings.TrimSpace(v.Content), convTemplate.Conv.Sep)
+				ret += v.Role + "\n" + strings.TrimSpace(v.Content)
 			} else {
-				ret += fmt.Sprintf("%s\n", v.Role)
+				ret += v.Role
 			}
 		}
 	case CHATGLM:
