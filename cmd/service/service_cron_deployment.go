@@ -27,7 +27,7 @@ func (s *deploymentStatusCronJob) Run() {
 		return
 	}
 	// 2. 调用fschat modelse status
-	fschatModels, err := s.apiSvc.FastChat().Models(s.ctx)
+	fschatModels, err := s.apiSvc.Chat(services.ProviderFsChat).Models(s.ctx)
 	if err != nil {
 		_ = level.Warn(s.logger).Log("msg", "get fschat models failed", "err", err.Error())
 		return

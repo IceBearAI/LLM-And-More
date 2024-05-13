@@ -284,7 +284,6 @@ func encodeChatCompletionsStreamResponse(ctx context.Context, writer http.Respon
 	}
 	flushWriter := writer.(http.Flusher)
 	writer.Header().Set("Content-Type", "application/octet-stream")
-	writer.Header().Set("Paas-model", "chat/stream")
 	//writer.Header().Set("Transfer-Encoding", "chunked")
 	writer.WriteHeader(http.StatusOK)
 	traceId, _ := ctx.Value("traceId").(string)

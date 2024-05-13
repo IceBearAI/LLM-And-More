@@ -308,30 +308,6 @@ func (s *logging) UpdateChat(ctx context.Context, data *types.Chat) (err error) 
 	return s.next.UpdateChat(ctx, data)
 }
 
-func (s *logging) DeleteRole(ctx context.Context, email, roleName string) (err error) {
-	defer func(begin time.Time) {
-		_ = s.logger.Log(
-			s.traceId, ctx.Value(s.traceId),
-			"method", "DeleteRole", "email", email, "roleName", roleName,
-			"took", time.Since(begin),
-			"err", err,
-		)
-	}(time.Now())
-	return s.next.DeleteRole(ctx, email, roleName)
-}
-
-func (s *logging) UpdateRole(ctx context.Context, email, roleName, roleAlias string) (err error) {
-	defer func(begin time.Time) {
-		_ = s.logger.Log(
-			s.traceId, ctx.Value(s.traceId),
-			"method", "UpdateRole", "email", email, "roleName", roleName, "roleAlias", roleAlias,
-			"took", time.Since(begin),
-			"err", err,
-		)
-	}(time.Now())
-	return s.next.UpdateRole(ctx, email, roleName, roleAlias)
-}
-
 func (s *logging) Create(ctx context.Context, data *types.Chat) (err error) {
 	defer func(begin time.Time) {
 		_ = s.logger.Log(
@@ -366,54 +342,6 @@ func (s *logging) History(ctx context.Context, model types.ChatModel, role uint,
 		)
 	}(time.Now())
 	return s.next.History(ctx, model, role, email, promptType, page, pageSize)
-}
-
-func (s *logging) FindRoleByName(ctx context.Context, name, email string) (res types.ChatRole, err error) {
-	defer func(begin time.Time) {
-		_ = s.logger.Log(
-			s.traceId, ctx.Value(s.traceId),
-			"method", "FindRoleByName", "name", name, "email", email,
-			"took", time.Since(begin),
-			"err", err,
-		)
-	}(time.Now())
-	return s.next.FindRoleByName(ctx, name, email)
-}
-
-func (s *logging) FindOrCreateRole(ctx context.Context, name, email string) (res types.ChatRole, err error) {
-	defer func(begin time.Time) {
-		_ = s.logger.Log(
-			s.traceId, ctx.Value(s.traceId),
-			"method", "FindOrCreateRole", "name", name, "email", email,
-			"took", time.Since(begin),
-			"err", err,
-		)
-	}(time.Now())
-	return s.next.FindOrCreateRole(ctx, name, email)
-}
-
-func (s *logging) CreateRole(ctx context.Context, name, alias, email string) (err error) {
-	defer func(begin time.Time) {
-		_ = s.logger.Log(
-			s.traceId, ctx.Value(s.traceId),
-			"method", "CreateRole", "name", name, "alias", alias, "email", email,
-			"took", time.Since(begin),
-			"err", err,
-		)
-	}(time.Now())
-	return s.next.CreateRole(ctx, name, alias, email)
-}
-
-func (s *logging) RolesByUser(ctx context.Context, email string, limit int) (res []types.ChatRole, err error) {
-	defer func(begin time.Time) {
-		_ = s.logger.Log(
-			s.traceId, ctx.Value(s.traceId),
-			"method", "RolesByUser", "email", email, "limit", limit,
-			"took", time.Since(begin),
-			"err", err,
-		)
-	}(time.Now())
-	return s.next.RolesByUser(ctx, email, limit)
 }
 
 func NewLogging(logger log.Logger, traceId string) Middleware {

@@ -9,6 +9,7 @@ import (
 	"github.com/IceBearAI/aigc/src/repository/files"
 	"github.com/IceBearAI/aigc/src/repository/finetuning"
 	"github.com/IceBearAI/aigc/src/repository/llmeval"
+	"github.com/IceBearAI/aigc/src/repository/messages"
 	"github.com/IceBearAI/aigc/src/repository/model"
 	"github.com/IceBearAI/aigc/src/repository/modelevaluate"
 	"github.com/IceBearAI/aigc/src/repository/sys"
@@ -51,6 +52,8 @@ type Repository interface {
 	DatasetTask() datasettask.Service
 	// ModelEvaluate 模型评测
 	ModelEvaluate() modelevaluate.Service
+	// Messages 消息模块
+	Messages() messages.Service
 }
 
 type repository struct {
@@ -68,6 +71,11 @@ type repository struct {
 	tenantSvc        tenant.Service
 	datasetTaskSvc   datasettask.Service
 	modelEvaluateSvc modelevaluate.Service
+	messagesSvc      messages.Service
+}
+
+func (r *repository) Messages() messages.Service {
+	return r.messagesSvc
 }
 
 func (r *repository) DatasetTask() datasettask.Service {
@@ -143,6 +151,7 @@ func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Trac
 	tenantSvc := tenant.New(db)
 	datasetTaskSvc := datasettask.New(db)
 	modelEvaluateSvc := modelevaluate.New(db)
+	messagesSvc := messages.New(db)
 
 	if logger != nil {
 		chatSvc = chat.NewLogging(logger, traceId)(chatSvc)
@@ -158,6 +167,7 @@ func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Trac
 		tenantSvc = tenant.NewLogging(logger, traceId)(tenantSvc)
 		datasetTaskSvc = datasettask.NewLogging(logger, traceId)(datasetTaskSvc)
 		modelEvaluateSvc = modelevaluate.NewLogging(logger, traceId)(modelEvaluateSvc)
+		channelSvc = channel.NewLogging(logger, traceId)(channelSvc)
 	}
 
 	if tracer != nil {
@@ -174,6 +184,7 @@ func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Trac
 		tenantSvc = tenant.NewTracing(tracer)(tenantSvc)
 		datasetTaskSvc = datasettask.NewTracing(tracer)(datasetTaskSvc)
 		modelEvaluateSvc = modelevaluate.NewTracing(tracer)(modelEvaluateSvc)
+		channelSvc = channel.NewTracing(tracer)(channelSvc)
 	}
 
 	return &repository{
@@ -191,5 +202,6 @@ func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Trac
 		tenantSvc:        tenantSvc,
 		datasetTaskSvc:   datasetTaskSvc,
 		modelEvaluateSvc: modelEvaluateSvc,
+		messagesSvc:      messagesSvc,
 	}
 }
