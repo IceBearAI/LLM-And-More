@@ -39,11 +39,11 @@ RUN pip3 install packaging ninja torch install numpy bitsandbytes
 # 如果需要使用sglang vllm版本0.3.3
 # RUN pip3 sglang zmq rpyc
 # 要安装flash-attn必须在有gpu的机器上构建
-RUN pip3 install flash-attn -i https://pypi.tuna.tsinghua.edu.cn/simple --no-build-isolation
+RUN pip3 install flash-attn --no-build-isolation
 
 COPY ./requirements.txt /app/requirements.txt
 
-RUN pip3 install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 RUN pip3 install transformers==4.40.2 --no-cache-dir
 RUN pip3 install vllm==0.4.2

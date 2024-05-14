@@ -114,6 +114,7 @@ func (s *fschatWorker) GetWorkerAddress(ctx context.Context, model string) (res 
 			s.traceId, ctx.Value(s.traceId),
 			"method", "GetWorkerAddress",
 			"model", model,
+			"address", res,
 			"took", time.Since(begin),
 			"err", err,
 		)
