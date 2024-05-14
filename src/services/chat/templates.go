@@ -90,6 +90,9 @@ func (t *templates) GetByModelName(ctx context.Context, modelName string) (Conve
 
 func (t *templates) Register(ctx context.Context, name string, conv Conversation) {
 	name = strings.ToLower(name)
+	if conv.Name == "" {
+		conv.Name = name
+	}
 	if _, ok := t.conv[name]; ok {
 		return
 	}

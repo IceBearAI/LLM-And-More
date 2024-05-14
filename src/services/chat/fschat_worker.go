@@ -12,36 +12,6 @@ import (
 	"net/url"
 )
 
-type SeparatorStyle int
-
-const (
-	_ SeparatorStyle = iota
-	ADD_COLON_SINGLE
-	ADD_COLON_TWO
-	ADD_COLON_SPACE_SINGLE
-	NO_COLON_SINGLE
-	NO_COLON_TWO
-	ADD_NEW_LINE_SINGLE
-	LLAMA2
-	LLAMA3
-	CHATGLM
-	CHATML
-	CHATINTERN
-	DOLLY
-	RWKV
-	PHOENIX
-	ROBIN
-	FALCON_CHAT
-	CHATGLM3
-	DEEPSEEK_CHAT
-	METAMATH
-	YUAN2
-	GEMMA
-	CLLM
-	DEFAULT
-	OPENBUDDY_LLAMA3
-)
-
 const (
 	// ImagePlaceholderStr 图片占位符
 	ImagePlaceholderStr = "$$<image>$$"

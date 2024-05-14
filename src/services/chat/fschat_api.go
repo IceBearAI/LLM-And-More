@@ -106,7 +106,7 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 		err = errors.WithMessage(err, "failed to get worker address")
 		return
 	}
-	var maxTokens int
+	//var maxTokens int
 	//prompts := s.processInput(req.Model, req.Messages)
 	//for _, prompt := range prompts {
 	//	maxTokens, err = s.options.workerSvc.WorkerCheckLength(ctx, workerAddress, req.Model, req.MaxTokens, prompt)
@@ -117,9 +117,9 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 	//	}
 	//}
 	//_ = level.Info(logger).Log("msg", "max tokens", "maxTokens", maxTokens)
-	if maxTokens != 0 && maxTokens < req.MaxTokens {
-		req.MaxTokens = maxTokens
-	}
+	//if maxTokens != 0 && maxTokens < req.MaxTokens {
+	//	req.MaxTokens = maxTokens
+	//}
 	if req.MaxTokens == 0 {
 		req.MaxTokens = 2048
 	}
@@ -229,61 +229,8 @@ func NewFsChatApi(opts ...CreationOption) Service {
 	tp := NewTemplates()
 	return &fsChatApiClient{
 		options:  options,
-		template: register(tp),
+		template: Register(tp),
 	}
-}
-
-func register(tp Templates) Templates {
-	tp.Register(context.Background(), "llama-3", Conversation{
-		StopStr:        []string{"<|eot_id|>"},
-		Sep:            "",
-		Sep2:           "",
-		StopTokenIds:   []int{128001, 128009},
-		Name:           "llama-3",
-		SepStyle:       int(LLAMA3),
-		Roles:          []string{"user", "assistant"},
-		SystemTemplate: "<|start_header_id|>system<|end_header_id|>\n\n{system_message}<|eot_id|>",
-		SystemMessage:  "You are a helpful assistant.",
-	})
-	tp.Register(context.Background(), "qwen", Conversation{
-		SystemMessage:  "You are a helpful assistant.",
-		SystemTemplate: "<|im_start|>system\n{system_message}",
-		StopTokenIds:   []int{151643, 151644, 151645},
-		Name:           "qwen",
-		SepStyle:       int(CHATML),
-		Sep:            "<|im_end|>",
-		Roles:          []string{"<|im_start|>user", "<|im_start|>assistant"},
-		StopStr:        []string{"<|endoftext|>"},
-	})
-	tp.Register(context.Background(), "chatglm3", Conversation{
-		SystemMessage:  "You are a helpful assistant.",
-		SystemTemplate: "<|system|>\n{system_message}",
-		StopTokenIds:   []int{64795, 64797, 2},
-		Name:           "chatglm3",
-		SepStyle:       int(CHATGLM3),
-		Sep:            "",
-		Roles:          []string{"<|user|>", "<|assistant|>"},
-		StopStr:        []string{"<|observation|>", "<|user|>", "</s>"},
-	})
-	tp.Register(context.Background(), "openbuddy-llama3", Conversation{
-		SystemMessage:  "<|role|>system<|says|>You(assistant) are a helpful, respectful and honest INTP-T AI Assistant named Buddy. You are talking to a human(user).\nAlways answer as helpfully and logically as possible, while being safe. Your answers should not include any harmful, political, religious, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\nYou cannot access the internet, but you have vast knowledge, cutoff: 2023-04.\nYou are trained by OpenBuddy team, (https://openbuddy.ai, https://github.com/OpenBuddy/OpenBuddy), not related to GPT or OpenAI.<|end|>\n<|role|>user<|says|>History input 1<|end|>\n<|role|>assistant<|says|>History output 1<|end|>\n<|role|>user<|says|>History input 2<|end|>\n<|role|>assistant<|says|>History output 2<|end|>\n<|role|>user<|says|>Current input<|end|>\n<|role|>assistant<|says|>",
-		SystemTemplate: "",
-		StopTokenIds:   []int{},
-		Name:           "openbuddy-llama3",
-		SepStyle:       int(OPENBUDDY_LLAMA3),
-		Sep:            "\n",
-		Roles:          []string{"user", "assistant"},
-		StopStr:        nil,
-	})
-	tp.Register(context.Background(), "baichuan2", Conversation{
-		StopTokenIds: []int{},
-		Name:         "baichuan2",
-		SepStyle:     int(NO_COLON_SINGLE),
-		Sep:          "",
-		Roles:        []string{"<reserved_106>", "<reserved_107>"},
-		StopStr:      nil,
-	})
-	return tp
 }
 
 func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompletionRequest, workerAddress string) (params GenerateStreamParams, err error) {
@@ -296,7 +243,7 @@ func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompleti
 
 	for _, v := range req.Messages {
 		if v.Role == "system" {
-			conv.SetSystemMessage(v.Content)
+			conv.SetSystemMessage(strings.TrimSpace(v.Content))
 		} else if v.Role == "user" {
 			if v.MultiContent != nil {
 				var textList []string
@@ -312,10 +259,10 @@ func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompleti
 				text := strings.Join(textList, "\n")
 				conv.AppendMessage(conv.Roles[0], text)
 			} else {
-				conv.AppendMessage(conv.Roles[0], v.Content)
+				conv.AppendMessage(conv.Roles[0], strings.TrimSpace(v.Content))
 			}
 		} else if v.Role == "assistant" {
-			conv.AppendMessage(conv.Roles[1], v.Content)
+			conv.AppendMessage(conv.Roles[1], strings.TrimSpace(v.Content))
 		}
 	}
 	conv.AppendMessage(conv.Roles[1], "")

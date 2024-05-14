@@ -1,7 +1,39 @@
 package chat
 
 import (
+	"context"
 	"strings"
+)
+
+type SeparatorStyle int
+
+const (
+	_ SeparatorStyle = iota
+	ADD_COLON_SINGLE
+	ADD_COLON_TWO
+	ADD_COLON_SPACE_SINGLE
+	NO_COLON_SINGLE
+	NO_COLON_TWO
+	ADD_NEW_LINE_SINGLE
+	LLAMA2
+	LLAMA3
+	CHATGLM
+	CHATML
+	CHATINTERN
+	DOLLY
+	RWKV
+	PHOENIX
+	ROBIN
+	FALCON_CHAT
+	CHATGLM3
+	DEEPSEEK_CHAT
+	METAMATH
+	YUAN2
+	GEMMA
+	CLLM
+	DEFAULT
+	OPENBUDDY_LLAMA3
+	PHI3
 )
 
 // Conversation 对话
@@ -100,10 +132,8 @@ func (c *Conversation) GetPrompt() (ret string) {
 		}
 		return ret
 	case CHATML:
-		if c.SystemMessage != "" {
+		if systemPrompt != "" {
 			ret = systemPrompt + c.Sep + "\n"
-		} else {
-			ret = ""
 		}
 		for _, message := range c.Messages {
 			if len(message) == 2 && message[1] != "" {
@@ -137,7 +167,80 @@ func (c *Conversation) GetPrompt() (ret string) {
 			}
 		}
 		return ret
+	default:
+		ret = ""
 	}
 
 	return ret
+}
+
+func Register(tp Templates) Templates {
+	tp.Register(context.Background(), "llama-3", Conversation{
+		StopStr:        []string{"<|eot_id|>"},
+		Sep:            "",
+		Sep2:           "",
+		StopTokenIds:   []int{128001, 128009},
+		Name:           "llama-3",
+		SepStyle:       int(LLAMA3),
+		Roles:          []string{"user", "assistant"},
+		SystemTemplate: "<|start_header_id|>system<|end_header_id|>\n\n{system_message}<|eot_id|>",
+		SystemMessage:  "You are a helpful assistant.",
+	})
+	tp.Register(context.Background(), "qwen", Conversation{
+		SystemMessage:  "You are a helpful assistant.",
+		SystemTemplate: "<|im_start|>system\n{system_message}",
+		StopTokenIds:   []int{151643, 151644, 151645},
+		Name:           "qwen",
+		SepStyle:       int(CHATML),
+		Sep:            "<|im_end|>",
+		Roles:          []string{"<|im_start|>user", "<|im_start|>assistant"},
+		StopStr:        []string{"<|endoftext|>"},
+	})
+	tp.Register(context.Background(), "chatglm2", Conversation{
+		StopTokenIds: []int{},
+		Name:         "chatglm2",
+		SepStyle:     int(CHATGLM),
+		Sep:          "\n\n",
+		Roles:        []string{"问", "答"},
+		StopStr:      []string{},
+	})
+	tp.Register(context.Background(), "chatglm3", Conversation{
+		SystemMessage:  "You are a helpful assistant.",
+		SystemTemplate: "<|system|>\n{system_message}",
+		StopTokenIds:   []int{64795, 64797, 2},
+		Name:           "chatglm3",
+		SepStyle:       int(CHATGLM3),
+		Sep:            "",
+		Roles:          []string{"<|user|>", "<|assistant|>"},
+		StopStr:        []string{"<|observation|>", "<|user|>", "</s>"},
+	})
+	tp.Register(context.Background(), "openbuddy-llama3", Conversation{
+		SystemMessage:  "<|role|>system<|says|>You(assistant) are a helpful, respectful and honest INTP-T AI Assistant named Buddy. You are talking to a human(user).\nAlways answer as helpfully and logically as possible, while being safe. Your answers should not include any harmful, political, religious, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\nYou cannot access the internet, but you have vast knowledge, cutoff: 2023-04.\nYou are trained by OpenBuddy team, (https://openbuddy.ai, https://github.com/OpenBuddy/OpenBuddy), not related to GPT or OpenAI.<|end|>\n<|role|>user<|says|>History input 1<|end|>\n<|role|>assistant<|says|>History output 1<|end|>\n<|role|>user<|says|>History input 2<|end|>\n<|role|>assistant<|says|>History output 2<|end|>\n<|role|>user<|says|>Current input<|end|>\n<|role|>assistant<|says|>",
+		SystemTemplate: "",
+		StopTokenIds:   []int{},
+		Name:           "openbuddy-llama3",
+		SepStyle:       int(OPENBUDDY_LLAMA3),
+		Sep:            "\n",
+		Roles:          []string{"user", "assistant"},
+		StopStr:        nil,
+	})
+	tp.Register(context.Background(), "baichuan2", Conversation{
+		StopTokenIds: []int{},
+		Name:         "baichuan2",
+		SepStyle:     int(NO_COLON_SINGLE),
+		Sep:          "",
+		Roles:        []string{"<reserved_106>", "<reserved_107>"},
+		StopStr:      nil,
+	})
+	tp.Register(context.Background(), "phi-3", Conversation{
+		SystemMessage:  "You are a helpful assistant.",
+		SystemTemplate: "<|system|>\n{system_message}",
+		StopTokenIds:   []int{32000, 32007},
+		Name:           "phi-3",
+		SepStyle:       int(CHATML),
+		Sep:            "<|end|>",
+		Roles:          []string{"<|user|>", "<|assistant|>"},
+		StopStr:        []string{"<|endoftext|>"},
+	})
+	return tp
 }
