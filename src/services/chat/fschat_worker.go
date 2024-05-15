@@ -143,7 +143,7 @@ func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string,
 		resp := WorkerGenerateStreamResponse{}
 		for {
 			buf := make([]byte, 327680)
-			_, _ = rc.Read(buf)
+			_, readErr := rc.Read(buf)
 			delimiter := []byte("\x00")
 			for {
 				chunkEnd := bytes.Index(buf, delimiter)
@@ -163,6 +163,9 @@ func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string,
 						FinishReason: "stop",
 					}
 					return
+				}
+				if readErr == io.EOF {
+					resp.FinishReason = "stop"
 				}
 				dot <- resp
 			}

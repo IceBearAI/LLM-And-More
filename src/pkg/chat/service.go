@@ -179,7 +179,6 @@ func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai
 		if content.Usage.TotalTokens > 0 {
 			usage = content.Usage
 		}
-		//fmt.Println(content.Choices[0].FinishReason, content.Choices[0].Delta.Content)
 		if content.Choices[0].FinishReason == openai.FinishReasonStop && content.Choices[0].Delta.Content != "" {
 			isError = false
 			finished = true
@@ -202,10 +201,12 @@ func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai
 				Model:   content.Model,
 				Choices: []openai.ChatCompletionChoice{
 					{
+						Index: content.Choices[0].Index,
 						Message: openai.ChatCompletionMessage{
 							Role:    "assistant",
 							Content: resContent,
 						},
+						FinishReason: openai.FinishReasonStop,
 					},
 				},
 				Usage: usage,

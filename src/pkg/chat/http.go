@@ -79,12 +79,18 @@ func encodeChatCompletionStreamResponse(ctx context.Context, writer http.Respons
 		writer.WriteHeader(http.StatusInternalServerError)
 		return encode.InvalidParams.Wrap(errors.New("invalid response type"))
 	}
-	if headerer, ok := response.(kithttp.Headerer); ok {
-		for k, values := range headerer.Headers() {
-			for _, v := range values {
-				writer.Header().Add(k, v)
-			}
-		}
+	//if headerer, ok := response.(kithttp.Headerer); ok {
+	//	for k, values := range headerer.Headers() {
+	//		for _, v := range values {
+	//			writer.Header().Add(k, v)
+	//		}
+	//	}
+	//}
+	if resp.Stream {
+		writer.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
+		writer.Header().Set("Transfer-Encoding", "chunked")
+	} else {
+		writer.Header().Set("Content-Type", "application/json")
 	}
 	code := http.StatusOK
 	if sc, ok := response.(kithttp.StatusCoder); ok {
@@ -96,7 +102,6 @@ func encodeChatCompletionStreamResponse(ctx context.Context, writer http.Respons
 	}
 	if reflect.TypeOf(resp.Data) == reflect.TypeOf(openai.ChatCompletionResponse{}) ||
 		reflect.TypeOf(resp.Data) == reflect.TypeOf(openai.CompletionResponse{}) {
-		writer.Header().Set("Content-Type", "application/json")
 		b, _ := json.Marshal(resp.Data)
 		_, _ = writer.Write(b)
 		return nil
@@ -105,8 +110,6 @@ func encodeChatCompletionStreamResponse(ctx context.Context, writer http.Respons
 	if !ok {
 		return encode.InvalidParams.Wrap(errors.New("invalid response type"))
 	}
-	writer.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
-	writer.Header().Set("Transfer-Encoding", "chunked")
 	flushWriter := writer.(http.Flusher)
 	for {
 		select {

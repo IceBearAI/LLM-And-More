@@ -35,7 +35,7 @@ func (s *fsChatApiClient) Completion(ctx context.Context, req openai.CompletionR
 		Usage: content.Usage,
 		Choices: []openai.CompletionChoice{
 			{
-				FinishReason: string(content.Choices[0].FinishReason),
+				FinishReason: "stop",
 				Text:         content.Choices[0].Delta.Content,
 			},
 		},
@@ -55,7 +55,7 @@ func (s *fsChatApiClient) ChatCompletion(ctx context.Context, req openai.ChatCom
 		if !ok {
 			break
 		}
-		if len(rs.Choices) > 0 && rs.Choices[0].Delta.Content != "" {
+		if len(rs.Choices) > 0 {
 			content = rs
 		}
 	}
@@ -72,7 +72,7 @@ func (s *fsChatApiClient) ChatCompletion(ctx context.Context, req openai.ChatCom
 			Model:   req.Model,
 			Choices: []openai.ChatCompletionChoice{
 				{
-					FinishReason: content.Choices[0].FinishReason,
+					FinishReason: "stop",
 					Message: openai.ChatCompletionMessage{
 						Role:    "assistant",
 						Content: content.Choices[0].Delta.Content,
@@ -186,6 +186,9 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 						},
 					},
 				},
+			}
+			if content.FinishReason == "stop" {
+				return
 			}
 		}
 	}()
