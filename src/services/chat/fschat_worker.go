@@ -24,8 +24,6 @@ func WithControllerAddress(addr string) WorkerCreationOption {
 	}
 }
 
-// WithHTTPClientOpts is the option to set the http client options.
-
 type worker struct {
 	options *WorkerCreationOptions
 }
@@ -145,31 +143,7 @@ func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string,
 		resp := WorkerGenerateStreamResponse{}
 		for {
 			buf := make([]byte, 327680)
-			_, err = rc.Read(buf)
-			if err != nil {
-				if err == io.EOF {
-					resp.FinishReason = "stop"
-					dot <- resp
-					return
-				}
-				err = errors.Wrap(err, "failed to read response")
-				dot <- WorkerGenerateStreamResponse{
-					ErrorCode:    1,
-					Text:         err.Error(),
-					FinishReason: "stop",
-				}
-				return
-			}
-			//decoder := json.NewDecoder(bytes.NewReader(buf[:n]))
-			//if err = decoder.Decode(&resp); err != nil {
-			//	dot <- WorkerGenerateStreamResponse{
-			//		ErrorCode:    1,
-			//		Text:         err.Error(),
-			//		FinishReason: "stop",
-			//	}
-			//	return
-			//}
-			//dot <- resp
+			_, _ = rc.Read(buf)
 			delimiter := []byte("\x00")
 			for {
 				chunkEnd := bytes.Index(buf, delimiter)
@@ -226,37 +200,33 @@ func (s *worker) WorkerGenerate(ctx context.Context, workerAddress string, param
 	go func() {
 		rc := resStream.(io.ReadCloser)
 		defer rc.Close()
+		defer close(dot)
+		resp := WorkerGenerateStreamResponse{}
 		for {
-			buf := make([]byte, 102400)
-			n, err := rc.Read(buf)
-			if err != nil {
-				if err == io.EOF {
-					close(dot)
+			buf := make([]byte, 327680)
+			_, _ = rc.Read(buf)
+			delimiter := []byte("\x00")
+			for {
+				chunkEnd := bytes.Index(buf, delimiter)
+				if chunkEnd < 0 {
+					break
+				}
+				chunk := buf[:chunkEnd]
+				buf = buf[chunkEnd+1:]
+				if len(chunk) == 0 {
+					continue
+				}
+				decoder := json.NewDecoder(bytes.NewReader(chunk))
+				if err = decoder.Decode(&resp); err != nil {
+					dot <- WorkerGenerateStreamResponse{
+						ErrorCode:    1,
+						Text:         err.Error(),
+						FinishReason: "stop",
+					}
 					return
 				}
-				err = errors.Wrap(err, "failed to read response")
-				dot <- WorkerGenerateStreamResponse{
-					ErrorCode: 1,
-					Text:      err.Error(),
-				}
-				close(dot)
-				return
+				dot <- resp
 			}
-			var newBuf = buf[:n]
-			if bytes.HasSuffix(buf[:n], []byte("\x00")) {
-				newBuf = buf[:n-1]
-			}
-			var resp WorkerGenerateStreamResponse
-			if err = json.Unmarshal(newBuf, &resp); err != nil {
-				err = errors.Wrap(err, "failed to unmarshal response")
-				dot <- WorkerGenerateStreamResponse{
-					ErrorCode: 1,
-					Text:      err.Error(),
-				}
-				close(dot)
-				return
-			}
-			dot <- resp
 		}
 	}()
 	return dot, nil
