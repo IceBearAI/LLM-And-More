@@ -52,8 +52,15 @@ func (s *logging) ChatCompletionStream(ctx context.Context, channelId uint, req 
 }
 
 func (s *logging) Models(ctx context.Context, channelId uint) (res []openai.Model, err error) {
-	//TODO implement me
-	panic("implement me")
+	defer func(begin time.Time) {
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "Models", "channelId", channelId,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next.Models(ctx, channelId)
 }
 
 func (s *logging) Embeddings(ctx context.Context, channelId uint, req openai.EmbeddingRequest) (res openai.EmbeddingResponse, err error) {

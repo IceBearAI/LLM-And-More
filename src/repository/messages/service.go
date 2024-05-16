@@ -6,6 +6,8 @@ import (
 	"gorm.io/gorm"
 )
 
+type Middleware func(Service) Service
+
 type Service interface {
 	Create(ctx context.Context, message *types.ChatMessages) (err error)
 	Update(ctx context.Context, message *types.ChatMessages) (err error)

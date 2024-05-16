@@ -528,6 +528,10 @@ func prepare(ctx context.Context) error {
 		fschatWorker = chat.NewFsChatWorkerLogging(logger, traceId)(fschatWorker)
 	}
 
+	if tracer != nil {
+		fschatWorker = chat.NewFsChatWorkerTracing(tracer)(fschatWorker)
+	}
+
 	apiSvc = services.NewApi(ctx, logger, traceId, serverDebug, tracer, &services.Config{
 		Namespace: namespace, ServiceName: serverName,
 		Ldap: ldapcli.Config{

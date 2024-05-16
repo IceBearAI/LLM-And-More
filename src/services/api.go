@@ -121,6 +121,8 @@ func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tr
 		//s3Cli = s3.NewTracing(tracer)(s3Cli)
 		ldapSvc = ldapcli.NewTracing(tracer)(ldapSvc)
 		runtimeSvc = runtime.NewTracing(tracer)(runtimeSvc)
+		chatSvc[ProviderFsChat] = chat.NewTracing(tracer)(chatSvc[ProviderFsChat])
+		chatSvc[ProviderOpenAI] = chat.NewTracing(tracer)(chatSvc[ProviderOpenAI])
 	}
 
 	return &api{
