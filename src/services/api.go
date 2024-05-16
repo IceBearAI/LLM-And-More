@@ -23,13 +23,15 @@ type Config struct {
 	Runtime                []runtime.CreationOption
 	RuntimePlatform        string
 	ChatOptions            []chat.CreationOption
+	OnlyOpenAI             bool
 }
 
 type ProviderName string
 
 const (
-	ProviderOpenAI ProviderName = "openai"
-	ProviderFsChat ProviderName = "fschat"
+	ProviderOpenAI  ProviderName = "OpenAI"
+	ProviderFsChat  ProviderName = "FastChat"
+	ProviderLocalAI ProviderName = "LocalAI"
 )
 
 type ContextKey string
@@ -51,9 +53,13 @@ type api struct {
 	ldapSvc    ldapcli.Service
 	runtimeSvc runtime.Service
 	chatSvc    map[ProviderName]chat.Service
+	onlyOpenAI bool
 }
 
 func (s *api) Chat(providerName ProviderName) chat.Service {
+	if s.onlyOpenAI {
+		providerName = ProviderOpenAI
+	}
 	if svc, ok := s.chatSvc[providerName]; ok {
 		return svc
 	}
@@ -112,8 +118,8 @@ func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tr
 			//b, _ = json.Marshal(cfg.S3)
 			//_ = level.Debug(logger).Log("s3.config", string(b))
 		}
-		chatSvc[ProviderFsChat] = chat.NewLogging(logger, traceId)(chatSvc[ProviderFsChat])
-		chatSvc[ProviderOpenAI] = chat.NewLogging(logger, traceId)(chatSvc[ProviderOpenAI])
+		chatSvc[ProviderFsChat] = chat.NewLogging(logger, traceId, string(ProviderFsChat))(chatSvc[ProviderFsChat])
+		chatSvc[ProviderOpenAI] = chat.NewLogging(logger, traceId, string(ProviderOpenAI))(chatSvc[ProviderOpenAI])
 	}
 
 	// 如果tracer有的话
@@ -130,5 +136,6 @@ func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tr
 		//s3Client:    s3Cli,
 		runtimeSvc: runtimeSvc,
 		chatSvc:    chatSvc,
+		onlyOpenAI: cfg.OnlyOpenAI,
 	}
 }

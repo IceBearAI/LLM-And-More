@@ -55,6 +55,7 @@
 | `AIGC_SERVICE_OPENAI_ORG_ID`  | OpenAI 组织ID   |                             |
 | `AIGC_SERVICE_OPENAI_HOST`    | OpenAI 服务地址   | `https://api.openai.com/v1` |
 | `AIGC_SERVICE_OPENAI_TOKEN`   | OpenAI 服务访问令牌 |                             |
+| `AIGC_SERVICE_OPENAI_ONLY`    | 是否只使用OpenAI服务 | `false`                     |
 
 ##### LDAP 配置
 

@@ -91,7 +91,11 @@ func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompleti
 	if modelInfo.BaseModelName != "" {
 		request.Model = modelInfo.BaseModelName
 	}
-	completionStream, err := s.apiSvc.Chat(services.ProviderName(modelInfo.ProviderName)).ChatCompletionStream(ctx, openai.ChatCompletionRequest{
+	providerName := services.ProviderOpenAI
+	if modelInfo.ProviderName == types.ModelProviderLocalAI {
+		providerName = services.ProviderFsChat
+	}
+	completionStream, err := s.apiSvc.Chat(providerName).ChatCompletionStream(ctx, openai.ChatCompletionRequest{
 		Model:       request.Model,
 		Messages:    request.Messages,
 		MaxTokens:   request.MaxTokens,

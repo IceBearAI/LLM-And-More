@@ -297,7 +297,11 @@ document: 雇主责任险的医疗费用是否可以重复报销？\n雇主责�
 	if modelInfo.BaseModelName != "" {
 		modelName = modelInfo.BaseModelName
 	}
-	chatStream, err := s.apiSvc.Chat(services.ProviderName(modelInfo.ProviderName)).ChatCompletion(ctx, openai.ChatCompletionRequest{
+	providerName := services.ProviderOpenAI
+	if modelInfo.ProviderName == types.ModelProviderLocalAI {
+		providerName = services.ProviderFsChat
+	}
+	chatStream, err := s.apiSvc.Chat(providerName).ChatCompletion(ctx, openai.ChatCompletionRequest{
 		Model: modelName,
 		Messages: []openai.ChatCompletionMessage{
 			{

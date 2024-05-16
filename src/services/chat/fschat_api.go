@@ -13,8 +13,9 @@ import (
 )
 
 type fsChatApiClient struct {
-	options  *CreationOptions
-	template Templates
+	options   *CreationOptions
+	template  Templates
+	openaiSvc Service
 }
 
 func (s *fsChatApiClient) Completion(ctx context.Context, req openai.CompletionRequest) (res openai.CompletionResponse, err error) {
