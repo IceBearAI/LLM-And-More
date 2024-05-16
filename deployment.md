@@ -16,54 +16,62 @@ Usage:
   aigc-server [command]
 
 Available Commands:
+  account     用户相关操作命令
   completion  Generate the autocompletion script for the specified shell
   cronjob     定时任务
   generate    生成命令
   help        Help about any command
   job         任务命令
   start       启动http服务
+  start-api   启动http api服务
+  tenant      租户相关操作命令
 
 Flags:
-  -c, --config.path string                配置文件路径，如果没有传入配置文件路径则默认使用环境变量
-      --db.drive string                   数据库驱动 (default "sqlite")
-      --db.mysql.database string          mysql数据库 (default "aigc")
-      --db.mysql.host string              mysql数据库地址: mysql (default "mysql")
-      --db.mysql.metrics                  是否启GORM的Metrics
-      --db.mysql.password string          mysql数据库密码
-      --db.mysql.port int                 mysql数据库端口 (default 3306)
-      --db.mysql.user string              mysql数据库用户 (default "aigc")
-  -h, --help                              help for aigc-server
-  -n, --namespace string                  命名空间 (default "aigc")
-      --runtime.docker.workspace string   Docker工作目录 (default "github.com/IceBearAI/LLM-And-More/storage")
-      --runtime.k8s.config.path string    K8s配置文件路径
-      --runtime.k8s.host string           K8s地址
-      --runtime.k8s.insecure              K8s是否不安全
-      --runtime.k8s.namespace string      K8s命名空间 (default "default")
-      --runtime.k8s.token string          K8s Token
-      --runtime.k8s.volume.name string    K8s挂载的存储名
-      --runtime.platform string           运行时平台 (default "docker")
-      --runtime.shm.size string           运行时共享内存大小 (default "16G")
-      --server.admin.pass string          系统管理员密码 (default "admin")
-      --server.admin.user string          系统管理员账号 (default "admin")
-      --server.debug                      是否开启Debug模式
-      --server.key string                 本系统服务密钥 (default "Aigcfj@202401")
-      --server.log.drive string           本系统日志驱动, 支持syslog,term (default "term")
-      --server.log.level string           本系统日志级别 (default "all")
-      --server.log.name string            本系统日志名称 (default "aigc-server.log")
-      --server.log.path string            本系统日志路径
-  -a, --server.name string                本系统服务名称 (default "aigc-server")
-      --server.storage.path string        文件存储绝对路径 (default "github.com/IceBearAI/LLM-And-More/storage")
-      --service.local.ai.host string      Chat-Api 地址 (default "http://fschat-api:8000/v1")
-      --service.local.ai.token string     Chat-Api Token (default "sk-001")
-      --service.openai.enable             是否启用OpenAI服务
-      --service.openai.host string        OpenAI服务地址 (default "https://api.openai.com/v1")
-      --service.openai.model string       OpenAI模型名称 (default "gpt-3.5-turbo")
-      --service.openai.org.id string      OpenAI OrgId
+  -c, --config.path string                      配置文件路径，如果没有传入配置文件路径则默认使用环境变量
+      --db.drive string                         数据库驱动 (default "sqlite")
+      --db.mysql.database string                mysql数据库 (default "aigc")
+      --db.mysql.host string                    mysql数据库地址: mysql (default "mysql")
+      --db.mysql.metrics                        是否启GORM的Metrics
+      --db.mysql.password string                mysql数据库密码
+      --db.mysql.port int                       mysql数据库端口 (default 3306)
+      --db.mysql.user string                    mysql数据库用户 (default "aigc")
+  -h, --help                                    help for aigc-server
+      --runtime.docker.workspace string         Docker工作目录 (default "/go/src/github.com/IceBearAI/LLM-And-More/storage")
+      --runtime.gpu.num int                     GPU数量 (default 8)
+      --runtime.k8s.config.path string          K8s配置文件路径
+      --runtime.k8s.host string                 K8s地址
+      --runtime.k8s.insecure                    K8s是否不安全
+      --runtime.k8s.namespace string            K8s命名空间 (default "default")
+      --runtime.k8s.token string                K8s Token
+      --runtime.k8s.volume.name string          K8s挂载的存储名
+      --runtime.platform string                 运行时平台 (default "docker")
+      --runtime.shm.size string                 运行时共享内存大小 (default "16Gi")
+      --server.admin.pass string                系统管理员密码 (default "admin")
+      --server.admin.user string                系统管理员账号 (default "admin")
+      --server.debug                            是否开启Debug模式
+      --server.key string                       本系统服务密钥 (default "Aigcfj@202401")
+      --server.log.drive string                 本系统日志驱动, 支持syslog,term (default "term")
+      --server.log.level string                 本系统日志级别 (default "all")
+      --server.log.name string                  本系统日志名称 (default "aigc-server.log")
+      --server.log.path string                  本系统日志路径
+  -a, --server.name string                      本系统服务名称 (default "aigc-server")
+      --server.storage.path string              文件存储绝对路径 (default "/Users/cong/go/src/github.com/IceBearAI/LLM-And-More/storage")
+      --service.fschat.controller.host string   fastchat controller address (default "http://fschat-controller:21001")
+      --service.local.ai.host string            Chat-Api 地址 (default "http://localhost:8000/v1")
+      --service.local.ai.token string           Chat-Api Token (default "sk-001")
+      --service.openai.host string              OpenAI服务地址 (default "https://api.openai.com/v1")
+      --service.openai.token string             OpenAI Token
+      --tracer.drive string                     Tracer驱动 (default "jaeger")
+      --tracer.enable                           是否启用Tracer
+      --tracer.jaeger.host string               Tracer Jaeger Host (default "jaeger:6832")
+      --tracer.jaeger.log.spans                 Tracer Jaeger Log Spans
+      --tracer.jaeger.param float               Tracer Jaeger Param (default 1)
+      --tracer.jaeger.type string               采样器的类型 const: 固定采样, probabilistic: 随机取样, ratelimiting: 速度限制取样, remote: 基于Jaeger代理的取样 (default "const")
 
 Use "aigc-server [command] --help" for more information about a command.
 ```
 
-## 启动http服务
+## 启动后端管理http服务
 
 执行: `./aigc-server start` 启动服务
 
@@ -122,18 +130,33 @@ Flags:
   -h, --help           help for start
 ```
 
-### 启动FastChat服务
+## 启动API服务
 
-**FastChat我们主要用其三个服务**
+执行: `./aigc-server start-api` 启动API服务
+
+```
+Usage:
+  aigc-server start-api [flags]
+
+Examples:
+## 启动命令
+aigc-server start-api -p :8000
+
+
+Flags:
+  -h, --help                  help for start-api
+  -p, --openapi.port string   服务启动的http api 端口 (default ":8000")
+      --web.embed             是否使用embed.FS (default true)
+```
+
+## 启动FastChat-Controller
 
 - `controller` 用于模型的注册中心及健康检查
-- `api` 从controller获取模型的地址代理到worker并提供标准API
 
 通过docker启动:
 
 ```
 $ docker run -d --network host -p 21001:21001 -it dudulu/fschat:v0.2.36 python3 -m fastchat.serve.controller --host 0.0.0.0 --port 21001
-$ docker run -d --network host -p 8000:8000 -it dudulu/fschat:v0.2.36 python3 -m fastchat.serve.openai_api_server --host 0.0.0.0 --port 8000 --controller-address http://$(hostname -I | awk '{print $1}'):21001
 ```
 
 ### 启动 aigc-server
@@ -149,7 +172,7 @@ $ docker run -d --network host -p 8000:8000 -it dudulu/fschat:v0.2.36 python3 -m
 #### 使用环境变量
 
 ```
-$ AIGC_RUNTIME_GPU_NUM=4 AIGC_FSCHAT_CONTROLLER_ADDRESS=http://127.0.0.1:21001 AIGC_SERVICE_CHAT_API_HOST=http://127.0.0.1:8000 HF_ENDPOINT=https://hf-mirror.com NO_PROXY=".idc,.corp,127.0.0.1,127.0.0.1" HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890 AIGC_ADMIN_SERVER_STORAGE_PATH=/data/aigc/.cache/storage AIGC_DATASETS_IMAGE=reg.creditease.corp/aigc/qwen1.5-train:v0.2.36-0327 AIGC_RUNTIME_PLAORM=docker DOCKER_HOST=tcp://127.0.0.1:2376 AIGC_RUNTIME_DOCKER_WORKSPACE=/data/aigc/.cache/storage AIGC_RUNTIME_K8S_VOLUME_NAME=aigc-data-cfs AIGC_ADMIN_SERVER_DOMAIN=http://127.0.0.1:8080 ./aigc-server-linux-amd64-beta41 start
+$ AIGC_RUNTIME_GPU_NUM=4 AIGC_FSCHAT_CONTROLLER_ADDRESS=http://127.0.0.1:21001 HF_ENDPOINT=https://hf-mirror.com NO_PROXY=".idc,.corp,127.0.0.1,127.0.0.1" HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890 AIGC_ADMIN_SERVER_STORAGE_PATH=/data/aigc/.cache/storage AIGC_DATASETS_IMAGE=reg.creditease.corp/aigc/qwen1.5-train:v0.2.36-0327 AIGC_RUNTIME_PLAORM=docker DOCKER_HOST=tcp://127.0.0.1:2376 AIGC_RUNTIME_DOCKER_WORKSPACE=/data/aigc/.cache/storage AIGC_RUNTIME_K8S_VOLUME_NAME=aigc-data-cfs AIGC_ADMIN_SERVER_DOMAIN=http://127.0.0.1:8080 ./aigc-server-linux-amd64-beta41 start
 ```
 
 #### 使用命令行传参
@@ -159,7 +182,6 @@ $ export HF_ENDPOINT=https://hf-mirror.com DOCKER_HOST=tcp://127.0.0.1:2376
 $ ./aigc-server-linux-amd64-beta4 start \
     --runtime.gpu.num 4 \
     --service.fschat.controller.host http://127.0.0.1:21001 \
-    --service.fschat.api.host http://127.0.0.1:8000 \
     --service.local.ai.host http://127.0.0.1:8000 \
     --server.storage.path /data/aigc/.cache/storage/aigc \
     --datasets.image dudulu/llmops:latest \
@@ -222,24 +244,11 @@ chat的一些配置，假设使用的FastChat作为服务的推理框架，则�
 
 | 变量名                           | 描述            | 值                           |
 |-------------------------------|---------------|-----------------------------|
-| `AIGC_SERVICE_CHAT_API_HOST`  | 聊天API服务地址     | `http://fschat-api:8000/v1` |
+| `AIGC_SERVICE_CHAT_API_HOST`  | 聊天API服务地址     | `http://localhost:8000/v1`  |
 | `AIGC_SERVICE_CHAT_API_TOKEN` | 聊天API服务访问令牌   |                             |
 | `AIGC_SERVICE_OPENAI_ORG_ID`  | OpenAI 组织ID   |                             |
 | `AIGC_SERVICE_OPENAI_HOST`    | OpenAI 服务地址   | `https://api.openai.com/v1` |
 | `AIGC_SERVICE_OPENAI_TOKEN`   | OpenAI 服务访问令牌 |                             |
-
-### S3 存储配置
-
-企业使用可以配置文件存储在S3上，通过设置环境变量`AIGC_STORAGE_TYPE`来配置存储类型，默认为`local`表示存在本地。
-
-| 变量名                             | 描述         | 值 |
-|---------------------------------|------------|---|
-| `AIGC_SERVICE_S3_HOST`          | S3 服务地址    |   |
-| `AIGC_SERVICE_S3_ACCESS_KEY`    | S3 访问密钥    |   |
-| `AIGC_SERVICE_S3_SECRET_KEY`    | S3 访问密钥密码  |   |
-| `AIGC_SERVICE_S3_BUCKET`        | S3 存储桶名称   |   |
-| `AIGC_SERVICE_S3_BUCKET_PUBLIC` | S3 公共存储桶名称 |   |
-| `AIGC_SERVICE_S3_PROJECT_NAME`  | S3 项目名称    |   |
 
 ### LDAP 配置
 

@@ -21,6 +21,17 @@ type Response struct {
 	Stream  bool        `json:"-"`
 }
 
+func (r Response) StatusCode() int {
+	if r.Code == 0 {
+		return http.StatusOK
+	}
+	return r.Code
+}
+
+func (r Response) Headers() http.Header {
+	return http.Header{"Content-Type": []string{"application/json"}}
+}
+
 type Failure interface {
 	Failed() error
 }
@@ -103,4 +114,50 @@ func JsonResponse(ctx context.Context, w http.ResponseWriter, response interface
 	resp.TraceId = traceId
 	w.Header().Set("TraceId", traceId)
 	return kithttp.EncodeJSONResponse(ctx, w, resp)
+}
+
+func OpenAIResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
+	resp, ok := response.(Response)
+	if !ok {
+		log.Println("response is not Response type", reflect.TypeOf(response))
+	}
+	if resp.Error == nil {
+		resp.Code = 200
+		resp.Success = true
+	} else {
+		var code int
+		code = ResponseMessage[ResStatus(strings.Split(resp.Error.Error(), ":")[0])]
+		if code == 0 {
+			code = 500
+		}
+		resp.Code = code
+		resp.Message = resp.Error.Error()
+	}
+
+	headers, ok := ctx.Value("response-headers").(map[string]string)
+	if ok {
+		for k, v := range headers {
+			w.Header().Set(k, v)
+		}
+	}
+	traceId, _ := ctx.Value("traceId").(string)
+	resp.TraceId = traceId
+	w.Header().Set("TraceId", traceId)
+	return kithttp.EncodeJSONResponse(ctx, w, resp)
+}
+
+type OpenAIErrorResponse struct {
+	Message string `json:"message"`
+	Code    int    `json:"code"`
+	Object  string `json:"object"`
+}
+
+func OpenAIErrorEncoder(ctx context.Context, err error, w http.ResponseWriter) {
+	traceId, _ := ctx.Value("traceId").(string)
+	w.Header().Set("TraceId", traceId)
+	_ = kithttp.EncodeJSONResponse(ctx, w, OpenAIErrorResponse{
+		Message: err.Error(),
+		Code:    500,
+		Object:  "error",
+	})
 }

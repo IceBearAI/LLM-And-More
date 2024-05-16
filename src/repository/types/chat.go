@@ -123,30 +123,6 @@ type ChatChannelModels struct {
 	ChatChannels ChatChannels `gorm:"foreignKey:id;references:channel_id" json:"-"`
 }
 
-// ChatMessages 消息表
-type ChatMessages struct {
-	gorm.Model
-	ModelName      ChatModel `gorm:"column:model;size:64;notnull;index;default:'default';" json:"model"` // comment:聊天模型
-	ChannelId      uint      `gorm:"column:channel_id;null;index;" json:"channel_id"`                    // comment:渠道ID
-	Response       string    `gorm:"column:response;type:longtext;size:65536;null;" json:"response"`     // comment:回复
-	Prompt         string    `gorm:"column:prompt;type:text;size:32768;not null;" json:"prompt"`         // comment:问题
-	PromptTokens   int       `gorm:"column:prompt_tokens;default:0;null;" json:"prompt_tokens"`          // comment:问题Tokens
-	ResponseTokens int       `gorm:"column:response_tokens;default:0;null;" json:"response_tokens"`      // comment:回复Tokens
-	Finished       bool      `gorm:"column:finished;default:false;null;" json:"finished"`                // comment:是否完成
-	TimeCost       string    `gorm:"column:time_cost;size:32;null;" json:"time_cost"`                    // comment:耗时
-	Temperature    float64   `orm:"column:temperature;default:0.9;null;" json:"temperature"`             // comment:温度
-	TopP           float64   `orm:"column:top_p;default:0.9;null;" json:"top_p"`                         // comment:核心采样
-	N              int       `orm:"column:n;default:1;null;" json:"n"`                                   // comment:聊天完成选项
-	User           string    `orm:"column:user;size:64;null;" json:"user"`                               // comment:用户
-	MessageId      string    `orm:"column:message_id;size:128;null;" json:"message_id"`                  // comment:消息ID
-	Object         string    `orm:"column:object;size:128;null;" json:"object"`                          // comment:对象
-	Created        int64     `gorm:"column:created;null;" json:"created"`                                // comment:创建时间
-	Messages       string    `gorm:"column:messages;type:text;size:65536;null;" json:"messages"`         // comment:消息
-}
-
-// 正向标签 masterpiece, best quality, top quality, ultra highres, 8k hdr, 8k wallpaper, RAW, huge file size, intricate details, sharp focus, natural lighting, realistic, professional, delicate, amazing, CG, finely detailed, beautiful detailed, colourful
-// 反向标签 paintings, sketches, lowres, normal quality, worst quality, low quality, cropped, dot, mole, ugly, grayscale, monochrome, duplicate, morbid, mutilated, missing fingers, extra fingers, too many fingers, fused fingers, mutated hands, bad hands, poorly drawn hands, poorly drawn face, poorly drawn eyebrows, bad anatomy, cloned face, long neck, extra legs, extra arms, missing arms missing legs, malformed limbs, deformed, simple background, bad proportions, disfigured, skin spots, skin blemishes, age spot, bad feet, error, text, extra digit, fewer digits, jpeg artifacts, signature, username, blurry, watermark, mask, logo
-
 type ChatRole struct {
 	gorm.Model
 	Name  string `gorm:"column:name;size:32;not null;index;" json:"name"`            // comment:角色名称

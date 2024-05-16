@@ -336,19 +336,6 @@ func (s *tracing) UpdateChat(ctx context.Context, data *types.Chat) (err error) 
 	return s.next.UpdateChat(ctx, data)
 }
 
-func (s *tracing) DeleteRole(ctx context.Context, email, roleName string) (err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "DeleteRole", opentracing.Tag{
-		Key:   string(ext.Component),
-		Value: "repository.chat",
-	})
-	defer func() {
-		span.LogKV("email", email, "roleName", roleName, "err", err)
-		span.SetTag(string(ext.Error), err != nil)
-		span.Finish()
-	}()
-	return s.next.DeleteRole(ctx, email, roleName)
-}
-
 func (s *tracing) Create(ctx context.Context, data *types.Chat) (err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "Create", opentracing.Tag{
 		Key:   string(ext.Component),
@@ -386,71 +373,6 @@ func (s *tracing) History(ctx context.Context, model types.ChatModel, role uint,
 		span.Finish()
 	}()
 	return s.next.History(ctx, model, role, email, promptType, page, pageSize)
-}
-
-func (s *tracing) FindRoleByName(ctx context.Context, name, email string) (res types.ChatRole, err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "FindRoleByName", opentracing.Tag{
-		Key:   string(ext.Component),
-		Value: "repository.chat",
-	})
-	defer func() {
-		span.LogKV("name", name, "email", email, "err", err)
-		span.SetTag(string(ext.Error), err != nil)
-		span.Finish()
-	}()
-	return s.next.FindRoleByName(ctx, name, email)
-}
-
-func (s *tracing) FindOrCreateRole(ctx context.Context, name, email string) (res types.ChatRole, err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "FindOrCreateRole", opentracing.Tag{
-		Key:   string(ext.Component),
-		Value: "repository.chat",
-	})
-	defer func() {
-		span.LogKV("name", name, "email", email, "err", err)
-		span.SetTag(string(ext.Error), err != nil)
-		span.Finish()
-	}()
-	return s.next.FindOrCreateRole(ctx, name, email)
-}
-
-func (s *tracing) CreateRole(ctx context.Context, name, alias, email string) (err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "CreateRole", opentracing.Tag{
-		Key:   string(ext.Component),
-		Value: "repository.chat",
-	})
-	defer func() {
-		span.LogKV("name", name, "alias", alias, "email", email, "err", err)
-		span.SetTag(string(ext.Error), err != nil)
-		span.Finish()
-	}()
-	return s.next.CreateRole(ctx, name, alias, email)
-}
-
-func (s *tracing) RolesByUser(ctx context.Context, email string, limit int) (res []types.ChatRole, err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "RolesByUser", opentracing.Tag{
-		Key:   string(ext.Component),
-		Value: "repository.chat",
-	})
-	defer func() {
-		span.LogKV("email", email, "limit", limit, "err", err)
-		span.SetTag(string(ext.Error), err != nil)
-		span.Finish()
-	}()
-	return s.next.RolesByUser(ctx, email, limit)
-}
-
-func (s *tracing) UpdateRole(ctx context.Context, email, roleName, roleAlias string) (err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "UpdateRole", opentracing.Tag{
-		Key:   string(ext.Component),
-		Value: "repository.chat",
-	})
-	defer func() {
-		span.LogKV("email", email, "roleName", roleName, "roleAlias", roleAlias, "err", err)
-		span.SetTag(string(ext.Error), err != nil)
-		span.Finish()
-	}()
-	return s.next.UpdateRole(ctx, email, roleName, roleAlias)
 }
 
 func NewTracing(otTracer opentracing.Tracer) Middleware {

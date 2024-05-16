@@ -98,6 +98,7 @@ func generateTable() (err error) {
 	_ = logger.Log("migrate", "table", "DatasetAnnotationTask", gormDB.AutoMigrate(types.DatasetAnnotationTask{}))
 	_ = logger.Log("migrate", "table", "DatasetAnnotationTaskSegment", gormDB.AutoMigrate(types.DatasetAnnotationTaskSegment{}))
 	_ = logger.Log("migrate", "table", "ModelEvaluate", gormDB.AutoMigrate(types.ModelEvaluate{}))
+	_ = logger.Log("migrate", "table", "ChatMessages", gormDB.AutoMigrate(types.ChatMessages{}))
 	//err = initData()
 	//if err != nil {
 	//	return err

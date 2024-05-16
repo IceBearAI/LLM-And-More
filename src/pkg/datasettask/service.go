@@ -288,16 +288,33 @@ document: 雇主责任险的医疗费用是否可以重复报销？\n雇主责�
 	}
 	userPrompt += fmt.Sprintf("document: %s", taskSegment.SegmentContent)
 
-	chatStream, _, err := s.apiSvc.FastChat().ChatCompletion(ctx, modelName, []openai.ChatCompletionMessage{
-		{
-			Role:    "system",
-			Content: systemPrompt,
+	modelInfo, err := s.repository.Model().FindByModelId(ctx, modelName)
+	if err != nil {
+		err = errors.WithMessage(err, "failed to find model")
+		_ = level.Warn(logger).Log("msg", "failed to find model", "err", err)
+		return
+	}
+	if modelInfo.BaseModelName != "" {
+		modelName = modelInfo.BaseModelName
+	}
+	chatStream, err := s.apiSvc.Chat(services.ProviderName(modelInfo.ProviderName)).ChatCompletion(ctx, openai.ChatCompletionRequest{
+		Model: modelName,
+		Messages: []openai.ChatCompletionMessage{
+			{
+				Role:    "system",
+				Content: systemPrompt,
+			},
+			{
+				Role:    "user",
+				Content: userPrompt,
+			},
 		},
-		{
-			Role:    "user",
-			Content: userPrompt,
-		},
-	}, 0.7, 0.9, 0.5, 0.5, 1024, 1, nil, "", nil, nil)
+		MaxTokens:   1024,
+		Temperature: 0.7,
+		TopP:        0.9,
+		N:           1,
+		Stream:      false,
+	})
 	if err != nil {
 		_ = level.Warn(logger).Log("msg", "chat completion failed", "err", err)
 		return

@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aigc-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      aigc.io/name: aigc-api
+  template:
+    metadata:
+      labels:
+        aigc.io/name: aigc-api
+    spec:
+      volumes:
+        - name: aigc-data
+          persistentVolumeClaim:
+            claimName: aigc-data
+      containers:
+        - args:
+            - start-api
+          command:
+            - aigc-server
+          env:
+            - name: AIGC_ADMIN_SERVER_STORAGE_PATH
+              value: /data/aigc/storage
+            - name: AIGC_FSCHAT_CONTROLLER_ADDRESS
+              value: http://fschat-controller:21001
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: MY_INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          image: dudulu/aigc-server:latest
+          name: aigc-api
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 200m
+              memory: 2048M
+          volumeMounts:
+            - mountPath: /data/
+              name: aigc-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aigc-api
+spec:
+  ports:
+    - name: http
+      port: 8000
+      protocol: TCP
+      targetPort: 8000
+  selector:
+    aigc.io/name: aigc-api

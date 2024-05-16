@@ -84,6 +84,22 @@ function set_cuda_devices {
 set_cuda_devices $GPUS_PER_NODE
 
 
+function copy_file {
+    if [ "$#" -ne 3 ]; then
+        echo "Usage: copy_file <base_model_path> <output_dir> <modename>"
+        return 1
+    fi
+    base_model_path="$1"
+    output_dir="$2"
+    modename="$3"
+    set +e
+    cp "$base_model_path/tokenizer_config.json" "./$output_dir" || cp "./faq/$modename/tokenizer_config.json" "./$output_dir"
+    cp "$base_model_path/tokenization_chatglm.py" "./$output_dir" || cp "./faq/$modename/tokenization_chatglm.py" "./$output_dir"
+    cp "$base_model_path/modeling_chatglm.py" "./$output_dir" || cp "./faq/$modename/modeling_chatglm.py" "./$output_dir"
+    cp "$base_model_path/quantization.py" "./$output_dir" || cp "./faq/$modename/quantization.py" "./$output_dir"
+    set -e
+}
+
 IS_MERGE_LORA=true
 merge_lora_models() {
     # 参数检查
@@ -91,7 +107,6 @@ merge_lora_models() {
         echo "Usage: merge_lora_models <merge_lora_script> <base_model_path> <output_dir> <modename>"
         return 1
     fi
-
     merge_lora_script="$1"
     base_model_path="$2"
     output_dir="$3"
@@ -102,15 +117,12 @@ merge_lora_models() {
     cp  "$base_model_path/config"* "./$output_dir/"
     cp  "$base_model_path/config.json" "./$output_dir/"
     cp  "$base_model_path/token"* "./$output_dir/"
-    set +e
     if [[ $modename == *"glm3"* ]]; then
-        cp  "$base_model_path/modeling_chatglm.py" "./$output_dir/"
-        cp  "$base_model_path/quantization.py" "./$output_dir/"
+        copy_file "$base_model_path" "$output_dir" "$modename"
     fi
-    set -e
 }
 
-LORA_MODULE_NAME=''
+LORA_MODULE_NAME='decoder.layers.'
 MODENAME=$(echo "$BASE_MODEL_NAME" | tr '[:upper:]' '[:lower:]' | tr -d '-')
 case $MODENAME in
     *'llama2'*)
@@ -121,7 +133,7 @@ case $MODENAME in
         LORA_MODULE_NAME='W_pack'
         MODENAME='baichuan2_13b'
         ;;
-    *'glm3_32k'*)
+    *'glm3'*'32k'*)
         LORA_MODULE_NAME='query_key_value,dense_h_to_4h,dense_4h_to_h,dense'
         MODENAME='glm3_32k'
         ;;
@@ -235,8 +247,12 @@ if [ "$SCENARIO" == "general" ]; then
       --deepspeed \
       --output_dir $OUTPUT_DIR \
       --start_from_step -1 \
-      --save_total_limit 1 \
+      --save_total_limit 0 \
       --save_per_steps 200  > >(tee "$temp_file") 2>&1
+  if [[ $MODENAME == *"glm3"* ]]; then
+    copy_file "$BASE_MODEL_PATH" "$OUTPUT_DIR" "$MODENAME"
+  fi
+
 elif [ "$SCENARIO" == "faq" ]; then
   formatted_datasets_path=/data/train-data/faq_formatted_datasets
   mkdir -p "$formatted_datasets_path"
@@ -309,11 +325,9 @@ elif [ "$SCENARIO" == "rag" ]; then
         --gradient_checkpointing \
         --show_loss_step 10 \
         --output_dir $OUTPUT_DIR  > >(tee "$temp_file") 2>&1
-    set +e
     if [[ $MODENAME == *"glm3"* ]]; then
-        cp "$BASE_MODEL_PATH/modeling_chatglm.py" "./$OUTPUT_DIR" || cp "$BASE_MODEL_PATH/quantization.py" "./$OUTPUT_DIR"
+        copy_file "$BASE_MODEL_PATH" "$OUTPUT_DIR" "$MODENAME"
     fi
-    set -e
 else
   echo "Invalid scenario selection!"
 fi

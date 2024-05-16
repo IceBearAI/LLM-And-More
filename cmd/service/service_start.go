@@ -228,7 +228,7 @@ func accessControl(h http.Handler, logger log.Logger) http.Handler {
 		if r.Method == "OPTIONS" {
 			return
 		}
-		_ = level.Info(logger).Log("remote-addr", r.RemoteAddr, "uri", r.RequestURI, "method", r.Method, "length", r.ContentLength)
+		_ = level.Info(logger).Log("remote-addr", r.RemoteAddr, "X-Forwarded-For", r.Header.Get("X-Forwarded-For"), "uri", r.RequestURI, "method", r.Method, "length", r.ContentLength)
 
 		h.ServeHTTP(w, r)
 	})
@@ -384,7 +384,7 @@ func initCancelInterrupt(ctx context.Context, g *group.Group) {
 		select {
 		case sig := <-c:
 			if err != nil {
-				_ = level.Error(logger).Log("rocketmq", "close", "err", err)
+				_ = level.Error(logger).Log("signal", sig, "err", err.Error())
 				return err
 			}
 			return fmt.Errorf("received signal %s", sig)

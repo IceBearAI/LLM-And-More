@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"io"
 	"math/rand"
 	"os"
 	"strconv"
@@ -203,7 +202,15 @@ func (s *service) ModelInfo(ctx context.Context, modelName string) (res modelInf
 
 func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompletionRequest) (stream <-chan CompletionsStreamResult, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "ChatCompletionStream")
-	completionStream, err := s.apiSvc.FastChat().CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
+	modelInfo, err := s.store.Model().FindByModelId(ctx, request.Model)
+	if err != nil {
+		_ = level.Warn(logger).Log("store.Model", "FindByModelId", "err", err.Error())
+		return stream, err
+	}
+	if modelInfo.BaseModelName != "" {
+		request.Model = modelInfo.BaseModelName
+	}
+	completionStream, err := s.apiSvc.Chat(services.ProviderName(modelInfo.ProviderName)).ChatCompletionStream(ctx, openai.ChatCompletionRequest{
 		Model:       request.Model,
 		Messages:    request.Messages,
 		MaxTokens:   request.MaxTokens,
@@ -211,31 +218,26 @@ func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompleti
 		TopP:        request.TopP,
 	})
 	if err != nil {
-		_ = level.Error(logger).Log("apiSvc.PaasChat", "ChatCompletionStream", "err", err.Error())
+		_ = level.Error(logger).Log("apiSvc.Chat", "ChatCompletionStream", "err", err.Error())
 		return stream, err
 	}
 
 	dot := make(chan CompletionsStreamResult)
-	go func(completionStream *openai.ChatCompletionStream, dot chan CompletionsStreamResult) {
+	go func() {
 		var fullContent string
 		defer func() {
-			completionStream.Close()
 			close(dot)
 		}()
+		begin := time.Now()
 		for {
-			completion, err := completionStream.Recv()
-			if errors.Is(err, io.EOF) {
+			result, ok := <-completionStream
+			if !ok {
 				return
 			}
-			if err != nil {
-				_ = level.Error(logger).Log("completionStream", "Recv", "err", err.Error())
-				return
-			}
-			begin := time.Now()
-			fullContent += completion.Choices[0].Delta.Content
+			fullContent += result.Choices[0].Delta.Content
 			dot <- CompletionsStreamResult{
 				FullContent: fullContent,
-				Content:     completion.Choices[0].Delta.Content,
+				Content:     result.Choices[0].Delta.Content,
 				CreatedAt:   begin,
 				ContentType: "text",
 				MessageId:   "",
@@ -245,7 +247,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompleti
 				MaxTokens:   0,
 			}
 		}
-	}(completionStream, dot)
+	}()
 	return dot, nil
 }
 
@@ -258,7 +260,7 @@ func (s *service) GetModelLogs(ctx context.Context, modelName, containerName str
 	}
 	status, err := s.apiSvc.Runtime().GetDeploymentStatus(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(modelName), modelInfo.ID))
 	if err != nil {
-		_ = level.Error(logger).Log("api.PaasChat", "GetDeploymentStatus", "err", err.Error())
+		_ = level.Error(logger).Log("api.Runtime", "GetDeploymentStatus", "err", err.Error())
 		return res, nil
 	}
 	if strings.ToLower(status) != "running" {
@@ -408,7 +410,7 @@ func (s *service) Undeploy(ctx context.Context, id uint) (err error) {
 	// 调用API取消部署模型
 	err = s.apiSvc.Runtime().RemoveDeployment(ctx, deploymentName)
 	if err != nil {
-		_ = level.Error(logger).Log("api.PaasChat", "UndeployModel", "err", err.Error(), "modelName", m.ModelName)
+		_ = level.Error(logger).Log("api.Runtime", "UndeployModel", "err", err.Error(), "modelName", m.ModelName)
 	}
 	_ = level.Info(logger).Log("msg", "undeploy model success")
 
@@ -535,7 +537,7 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 
 	deploymentName, err := s.apiSvc.Runtime().CreateDeployment(ctx, runtimeConfig)
 	if err != nil {
-		_ = level.Error(logger).Log("api.PaasChat", "DeployModel", "err", err.Error(), "modelName", m.Model)
+		_ = level.Error(logger).Log("api.Runtime", "DeployModel", "err", err.Error(), "modelName", m.Model)
 		return err
 	}
 	_ = level.Info(logger).Log("msg", "create deployment success", "deploymentName", deploymentName)
@@ -584,7 +586,7 @@ func (s *service) ListModels(ctx context.Context, request ListModelRequest) (res
 		if v.ModelDeploy.ID > 0 {
 			containers, err = s.apiSvc.Runtime().GetContainers(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(v.ModelName), v.ID))
 			if err != nil {
-				_ = level.Warn(logger).Log("api.PaasChat", "GetDeploymentContainerNames", "err", err.Error())
+				_ = level.Warn(logger).Log("api.Runtime", "GetDeploymentContainerNames", "err", err.Error())
 				continue
 			}
 		}
@@ -665,11 +667,12 @@ func (s *service) CreateModel(ctx context.Context, request CreateModelRequest) (
 			BaseModelPath: modelPath,
 			ScriptFile:    "/app/start.sh",
 			OutputDir:     "/data/ft-model",
+			MaxTokens:     request.MaxTokens,
 			Enabled:       true,
 		}); err != nil {
 			_ = level.Warn(logger).Log("store.FineTuning", "CreateFineTuningTemplate", "err", err.Error())
 		}
-		trainShell, _ := s.options.dataFs.ReadFile("data/inference.sh")
+		trainShell, _ := s.options.dataFs.ReadFile("data/train.sh")
 		// 自动添加模版
 		if err = s.store.Sys().SaveFineTuningTemplate(ctx, &types.FineTuningTemplate{
 			TemplateType:  types.TemplateTypeTrain,
@@ -680,6 +683,7 @@ func (s *service) CreateModel(ctx context.Context, request CreateModelRequest) (
 			BaseModelPath: modelPath,
 			ScriptFile:    "/app/train.sh",
 			OutputDir:     "/data/ft-model",
+			MaxTokens:     request.MaxTokens,
 			Enabled:       true,
 		}); err != nil {
 			_ = level.Warn(logger).Log("store.FineTuning", "CreateFineTuningTemplate", "err", err.Error())
@@ -709,7 +713,7 @@ func (s *service) GetModel(ctx context.Context, id uint) (res Model, err error) 
 	if m.ModelDeploy.ModelID > 0 {
 		containers, err = s.apiSvc.Runtime().GetContainers(ctx, fmt.Sprintf("%s-%d", util.ReplacerServiceName(m.ModelName), m.ID))
 		if err != nil {
-			_ = level.Warn(logger).Log("api.PaasChat", "GetDeploymentContainerNames", "err", err.Error())
+			_ = level.Warn(logger).Log("api.Runtime", "GetDeploymentContainerNames", "err", err.Error())
 		}
 		res.Deployment = modelDeploymentResult{
 			VLLM:         m.ModelDeploy.Vllm,

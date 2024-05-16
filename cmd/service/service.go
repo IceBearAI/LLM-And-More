@@ -7,15 +7,15 @@ import (
 	"flag"
 	"fmt"
 	"github.com/IceBearAI/aigc/src/services"
-	"github.com/IceBearAI/aigc/src/services/fastchat"
+	"github.com/IceBearAI/aigc/src/services/chat"
 	"github.com/IceBearAI/aigc/src/services/ldapcli"
 	runtime2 "github.com/IceBearAI/aigc/src/services/runtime"
 	"github.com/IceBearAI/aigc/src/util"
 	"github.com/olekukonko/tablewriter"
-	"github.com/sashabaranov/go-openai"
 	gormlogger "gorm.io/gorm/logger"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"path"
 	"runtime"
@@ -40,9 +40,8 @@ import (
 )
 
 const (
-	DefaultHttpPort   = ":8080"
-	DefaultConfigPath = "/usr/local/aigc-server/etc/app.cfg"
-	DefaultWebPath    = "web"
+	DefaultHttpPort = ":8080"
+	DefaultWebPath  = "web"
 
 	// [DB相关]
 	EnvNameDbDrive       = "AIGC_DB_DRIVE"
@@ -51,10 +50,6 @@ const (
 	EnvNameMysqlUser     = "AIGC_MYSQL_USER"
 	EnvNameMysqlPassword = "AIGC_MYSQL_PASSWORD"
 	EnvNameMysqlDatabase = "AIGC_MYSQL_DATABASE"
-	//EnvNameRedisHosts    = "AIGC_REDIS_HOSTS"
-	//EnvNameRedisDb       = "AIGC_REDIS_DB"
-	//EnvNameRedisPassword = "AIGC_REDIS_PASSWORD"
-	//EnvNameRedisPrefix   = "AIGC_REDIS_PREFIX"
 
 	// [跨域]
 	EnvNameEnableCORS           = "AIGC_ENABLE_CORS"
@@ -72,24 +67,10 @@ const (
 	EnvNameTracerJaegerLogSpans = "AIGC_TRACER_JAEGER_LOG_SPANS"
 
 	// [外部Service相关]
-	EnvNameServiceAlarmHost    = "AIGC_SERVICE_ALARM_HOST"     // 告警相关
 	EnvNameServiceLocalAIHost  = "AIGC_SERVICE_CHAT_API_HOST"  // chat-api 地址
 	EnvNameServiceLocalAIToken = "AIGC_SERVICE_CHAT_API_TOKEN" // chat-api token
-	EnvNameServiceOpenAiEnable = "AIGC_SERVICE_OPENAI_ENABLE"  // openai相关
 	EnvNameServiceOpenAiHost   = "AIGC_SERVICE_OPENAI_HOST"
 	EnvNameServiceOpenAiToken  = "AIGC_SERVICE_OPENAI_TOKEN"
-	EnvNameServiceOpenAiModel  = "AIGC_SERVICE_OPENAI_MODEL"
-	EnvNameServiceOpenAiOrgId  = "AIGC_SERVICE_OPENAI_ORG_ID"
-	//EnvNameServiceS3Host         = "AIGC_SERVICE_S3_HOST" // S3对象存储相当
-	//EnvNameServiceS3AccessKey    = "AIGC_SERVICE_S3_ACCESS_KEY"
-	//EnvNameServiceS3SecretKey    = "AIGC_SERVICE_S3_SECRET_KEY"
-	//EnvNameServiceS3S3Url        = "AIGC_SERVICE_S3_S3URL"
-	//EnvNameServiceS3Region       = "AIGC_SERVICE_S3_REGION"
-	//EnvNameServiceS3Bucket       = "AIGC_SERVICE_S3_BUCKET"
-	//EnvNameServiceS3BucketPublic = "AIGC_SERVICE_S3_BUCKET_PUBLIC"
-	//EnvNameServiceS3DownloadUrl  = "AIGC_SERVICE_S3_DOWNLOAD_URL"
-	//EnvNameServiceS3ProjectName  = "AIGC_SERVICE_S3_PROJECT_NAME"
-	//EnvNameServiceS3Cluster      = "AIGC_SERVICE_S3_CLUSTER"
 
 	// [LDAP 相关]
 	EnvNameLdapHost        = "AIGC_LDAP_HOST"
@@ -137,11 +118,9 @@ const (
 
 	// [local]
 	EnvNameStorageType = "AIGC_STORAGE_TYPE"
-	//EnvNameLocalDataPath = "AIGC_LOCAL_DATA_PATH"
 
 	// [fschat]
 	EnvNameFsChatControllerAddress = "AIGC_FSCHAT_CONTROLLER_ADDRESS"
-	EnvNameFsChatApiAddress        = "AIGC_FSCHAT_API_ADDRESS"
 
 	DefaultRuntimePlatform      = "docker"
 	DefaultRuntimeShmSize       = "16Gi"
@@ -161,10 +140,6 @@ const (
 	DefaultMysqlUser     = "aigc"
 	DefaultMysqlPassword = ""
 	DefaultMysqlDatabase = "aigc"
-	DefaultRedisHosts    = "redis:6379"
-	DefaultRedisDb       = 0
-	DefaultRedisPassword = ""
-	DefaultRedisPrefix   = "aigc"
 
 	DefaultServerName      = "aigc-server"
 	DefaultServerKey       = "Aigcfj@202401"
@@ -191,12 +166,10 @@ const (
 	DefaultJaegerLogSpans         = false
 
 	// [chat]相关
-	DefaultServiceChatApiHost  = "http://fschat-api:8000/v1"
+	DefaultServiceChatApiHost  = "http://localhost:8000/v1"
 	DefaultServiceChatApiToken = "sk-001"
 	DefaultServiceOpenAiHost   = "https://api.openai.com/v1"
 	DefaultServiceOpenAiToken  = "sk-001"
-	DefaultServiceOpenAiModel  = openai.GPT3Dot5Turbo
-	DefaultServiceOpenAiOrgId  = ""
 
 	// [ldap相关]
 	DefaultLdapHost        = "ldap://ldap"
@@ -208,15 +181,6 @@ const (
 	DefaultLdapGroupFilter = ""
 	DefaultLdapAttributes  = "name,mail,userPrincipalName,displayName,sAMAccountName"
 
-	// [s3]
-	//DefaultServiceS3Host         = "http://s3"
-	//DefaultServiceS3AccessKey    = ""
-	//DefaultServiceS3SecretKey    = ""
-	//DefaultServiceS3Bucket       = "aigc"
-	//DefaultServiceS3BucketPublic = "aigc"
-	//DefaultServiceS3Region       = "default"
-	//DefaultServiceS3Cluster      = "ceph-c2"
-
 	// [datasets]
 	DefaultDatasetsImage     = "dudulu/llmops:latest"
 	DefaultDatasetsModelName = "uer/sbert-base-chinese-nli"
@@ -224,15 +188,15 @@ const (
 )
 
 var (
-	httpAddr, configPath string
-	webPath              string
-	logger               log.Logger
-	gormDB               *gorm.DB
-	db                   *sql.DB
-	err                  error
-	store                repository.Repository
-	namespace            string
-	webEmbed             bool
+	httpAddr, openApiAddr, configPath string
+	webPath                           string
+	logger                            log.Logger
+	gormDB                            *gorm.DB
+	db                                *sql.DB
+	err                               error
+	store                             repository.Repository
+	namespace                         string
+	webEmbed                          bool
 
 	rootCmd = &cobra.Command{
 		Use:               "aigc-server",
@@ -262,9 +226,8 @@ var (
 	serverChannelKey                                                                                       string
 
 	// [gpt]
-	serviceOpenAiEnable                                                           bool
-	serviceLocalAiHost, serviceLocalAiToken                                       string
-	serviceOpenAiHost, serviceOpenAiToken, serviceOpenAiModel, serviceOpenAiOrgId string
+	serviceLocalAiHost, serviceLocalAiToken string
+	serviceOpenAiHost, serviceOpenAiToken/*serviceOpenAiModel, serviceOpenAiOrgId*/ string
 
 	// [s3]
 	//serviceS3Host, serviceS3AccessKey, serviceS3SecretKey, serviceS3Bucket, serviceS3BucketPublic, serviceS3Region, serviceS3ProjectName string
@@ -291,7 +254,7 @@ var (
 	runtimeGpuNum                                                                                                                     int
 
 	// [fschat]
-	fsChatControllerAddress, fsChatApiAddress string
+	fsChatControllerAddress string
 
 	channelId     int
 	corsHeaders   = make(map[string]string, 3)
@@ -333,12 +296,12 @@ Platform: ` + goOS + "/" + goArch + `
 	startCmd.PersistentFlags().StringVar(&corsExposeHeaders, "cors.expose.headers", DefaultCORSExposeHeaders, "允许跨域访问的头部")
 	startCmd.PersistentFlags().BoolVar(&corsAllowCredentials, "cors.allow.credentials", DefaultCORSAllowCredentials, "是否允许跨域访问的凭证")
 	// [tracer]
-	startCmd.PersistentFlags().BoolVar(&tracerEnable, "tracer.enable", DefaultJaegerEnable, "是否启用Tracer")
-	startCmd.PersistentFlags().StringVar(&tracerDrive, "tracer.drive", DefaultJaegerDrive, "Tracer驱动")
-	startCmd.PersistentFlags().StringVar(&tracerJaegerHost, "tracer.jaeger.host", DefaultJaegerHost, "Tracer Jaeger Host")
-	startCmd.PersistentFlags().Float64Var(&tracerJaegerParam, "tracer.jaeger.param", DefaultJaegerParam, "Tracer Jaeger Param")
-	startCmd.PersistentFlags().StringVar(&tracerJaegerType, "tracer.jaeger.type", DefaultJaegerType, "采样器的类型 const: 固定采样, probabilistic: 随机取样, ratelimiting: 速度限制取样, remote: 基于Jaeger代理的取样")
-	startCmd.PersistentFlags().BoolVar(&tracerJaegerLogSpans, "tracer.jaeger.log.spans", DefaultJaegerLogSpans, "Tracer Jaeger Log Spans")
+	rootCmd.PersistentFlags().BoolVar(&tracerEnable, "tracer.enable", DefaultJaegerEnable, "是否启用Tracer")
+	rootCmd.PersistentFlags().StringVar(&tracerDrive, "tracer.drive", DefaultJaegerDrive, "Tracer驱动")
+	rootCmd.PersistentFlags().StringVar(&tracerJaegerHost, "tracer.jaeger.host", DefaultJaegerHost, "Tracer Jaeger Host")
+	rootCmd.PersistentFlags().Float64Var(&tracerJaegerParam, "tracer.jaeger.param", DefaultJaegerParam, "Tracer Jaeger Param")
+	rootCmd.PersistentFlags().StringVar(&tracerJaegerType, "tracer.jaeger.type", DefaultJaegerType, "采样器的类型 const: 固定采样, probabilistic: 随机取样, ratelimiting: 速度限制取样, remote: 基于Jaeger代理的取样")
+	rootCmd.PersistentFlags().BoolVar(&tracerJaegerLogSpans, "tracer.jaeger.log.spans", DefaultJaegerLogSpans, "Tracer Jaeger Log Spans")
 
 	// [database]
 	rootCmd.PersistentFlags().StringVar(&dbDrive, "db.drive", DefaultDbDrive, "数据库驱动")
@@ -348,13 +311,8 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVar(&mysqlPassword, "db.mysql.password", DefaultMysqlPassword, "mysql数据库密码")
 	rootCmd.PersistentFlags().StringVar(&mysqlDatabase, "db.mysql.database", DefaultMysqlDatabase, "mysql数据库")
 	rootCmd.PersistentFlags().BoolVar(&mysqlOrmMetrics, "db.mysql.metrics", false, "是否启GORM的Metrics")
-	// [redis]
-	//rootCmd.PersistentFlags().StringVar(&redisHosts, "redis.hosts", DefaultRedisHosts, "连接Redis地址")
-	//rootCmd.PersistentFlags().IntVar(&redisDb, "redis.db", DefaultRedisDb, "连接Redis DB")
-	//rootCmd.PersistentFlags().StringVar(&redisAuth, "redis.auth", DefaultRedisPassword, "连接Redis密码")
-	//rootCmd.PersistentFlags().StringVar(&redisPrefix, "redis.prefix", DefaultRedisPrefix, "Redis写入Cache的前缀")
+
 	// [server]
-	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", DefaultRedisPrefix, "命名空间")
 	rootCmd.PersistentFlags().StringVarP(&serverName, "server.name", "a", DefaultServerName, "本系统服务名称")
 	rootCmd.PersistentFlags().StringVar(&serverKey, "server.key", DefaultServerKey, "本系统服务密钥")
 	rootCmd.PersistentFlags().StringVar(&serverLogLevel, "server.log.level", DefaultServerLogLevel, "本系统日志级别")
@@ -367,27 +325,12 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVar(&serverStoragePath, "server.storage.path", defaultStoragePath, "文件存储绝对路径")
 	// [service]
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config.path", "c", "", "配置文件路径，如果没有传入配置文件路径则默认使用环境变量")
-	//rootCmd.PersistentFlags().StringVar(&serviceAlarmHost, "service.alarm.token", DefaultServiceAlarmHost, "告警中心服务地址")
 	// [gpt]
 	rootCmd.PersistentFlags().StringVar(&serviceLocalAiHost, "service.local.ai.host", DefaultServiceChatApiHost, "Chat-Api 地址")
 	rootCmd.PersistentFlags().StringVar(&serviceLocalAiToken, "service.local.ai.token", DefaultServiceChatApiToken, "Chat-Api Token")
-	rootCmd.PersistentFlags().BoolVar(&serviceOpenAiEnable, "service.openai.enable", false, "是否启用OpenAI服务")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiHost, "service.openai.host", DefaultServiceOpenAiHost, "OpenAI服务地址")
-	rootCmd.PersistentFlags().StringVar(&serviceOpenAiModel, "service.openai.model", DefaultServiceOpenAiModel, "OpenAI模型名称")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiToken, "service.openai.token", "", "OpenAI Token")
-	rootCmd.PersistentFlags().StringVar(&serviceOpenAiOrgId, "service.openai.org.id", DefaultServiceOpenAiOrgId, "OpenAI OrgId")
 	rootCmd.PersistentFlags().StringVar(&fsChatControllerAddress, "service.fschat.controller.host", "http://fschat-controller:21001", "fastchat controller address")
-	rootCmd.PersistentFlags().StringVar(&fsChatApiAddress, "service.fschat.api.host", "http://fschat-api:8000", "fastchat api address")
-
-	// [s3]
-	//rootCmd.PersistentFlags().StringVar(&serviceS3Host, "service.s3.host", DefaultServiceS3Host, "S3服务地址")
-	//rootCmd.PersistentFlags().StringVar(&serviceS3AccessKey, "service.s3.access.key", DefaultServiceS3AccessKey, "S3 AccessKey")
-	//rootCmd.PersistentFlags().StringVar(&serviceS3SecretKey, "service.s3.secret.key", DefaultServiceS3SecretKey, "S3 SecretKey")
-	//rootCmd.PersistentFlags().StringVar(&serviceS3Bucket, "service.s3.bucket", DefaultServiceS3Bucket, "S3 Bucket")
-	//rootCmd.PersistentFlags().StringVar(&serviceS3BucketPublic, "service.s3.bucket.public", DefaultServiceS3BucketPublic, "S3 Bucket Public")
-	//rootCmd.PersistentFlags().StringVar(&serviceS3Region, "service.s3.region", DefaultServiceS3Region, "S3 Bucket")
-	//rootCmd.PersistentFlags().StringVar(&serviceS3Cluster, "service.s3.cluster", DefaultServiceS3Cluster, "S3 集群")
-	//rootCmd.PersistentFlags().StringVar(&serviceS3ProjectName, "service.s3.project.name", namespace, "S3 项目名称")
 
 	// [ldap]
 	startCmd.PersistentFlags().StringVar(&ldapHost, "ldap.host", DefaultLdapHost, "LDAP地址")
@@ -424,7 +367,6 @@ Platform: ` + goOS + "/" + goArch + `
 	startCmd.PersistentFlags().BoolVar(&cronJobAuto, "cronjob.auto", true, "是否自动执行定时任务")
 	cronJobStartCmd.PersistentFlags().BoolVar(&cronJobAuto, "cronjob.auto", true, "是否自动执行定时任务")
 
-	//jobClearCmd.AddCommand(jobClearAudioTaggedCmd)
 	generateCmd.AddCommand(genTableCmd)
 
 	jobFineTuningCmd.AddCommand(jobFineTuningJobRunWaitingTrainCmd, jobFineTuningJobRunningJobLogCmd)
@@ -433,7 +375,7 @@ Platform: ` + goOS + "/" + goArch + `
 	cronJobCmd.AddCommand(cronJobStartCmd)
 
 	addFlags(rootCmd)
-	rootCmd.AddCommand(startCmd, generateCmd, jobCmd, cronJobCmd, accountCmd, tenantCmd)
+	rootCmd.AddCommand(startCmd, generateCmd, jobCmd, cronJobCmd, accountCmd, tenantCmd, apiV1StartCmd)
 
 }
 
@@ -448,12 +390,12 @@ func prepare(ctx context.Context) error {
 	if strings.EqualFold(dbDrive, "mysql") {
 		dbUrl := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local&timeout=20m&collation=utf8mb4_unicode_ci",
 			mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)
-		sqlDB, err := sql.Open("mysql", dbUrl)
-		if err != nil {
-			_ = level.Error(logger).Log("sql", "Open", "err", err.Error())
-			return err
+		sqlDB, dbErr := sql.Open("mysql", dbUrl)
+		if dbErr != nil {
+			_ = level.Error(logger).Log("sql", "Open", "err", dbErr.Error())
+			return dbErr
 		}
-		gormDB, err = gorm.Open(mysql.New(mysql.Config{
+		gormDB, dbErr = gorm.Open(mysql.New(mysql.Config{
 			Conn:              sqlDB,
 			DefaultStringSize: 255,
 		}), &gorm.Config{
@@ -533,23 +475,6 @@ func prepare(ctx context.Context) error {
 		}
 	}
 
-	// 实例化redis
-	//rdb, err = redisclient.NewRedisClient(redisHosts, redisAuth, redisPrefix, redisDb, tracer)
-	//if err != nil {
-	//	_ = level.Error(logger).Log("redis", "connect", "err", err.Error())
-	//	return err
-	//}
-	//_ = level.Debug(logger).Log("redis", "connect", "success", true)
-
-	//go func() {
-	//	for {
-	//		if pingErr := rdb.Ping(ctx).Err(); pingErr != nil {
-	//			_ = level.Error(logger).Log("redis", "ping", "err", pingErr)
-	//		}
-	//		time.Sleep(time.Second)
-	//	}
-	//}()
-
 	var clientOpts []kithttp.ClientOption
 
 	dialer := &net.Dialer{
@@ -571,6 +496,14 @@ func prepare(ctx context.Context) error {
 		kithttp.ClientBefore(kittracing.ContextToHTTP(tracer, logger)),
 	}
 
+	if serverDebug {
+		clientOpts = append(clientOpts, kithttp.ClientBefore(func(ctx context.Context, request *http.Request) context.Context {
+			dump, _ := httputil.DumpRequest(request, true)
+			fmt.Println(string(dump))
+			return ctx
+		}))
+	}
+
 	// 实例化仓库
 	store = repository.New(gormDB, logger, traceId, tracer)
 
@@ -585,17 +518,22 @@ func prepare(ctx context.Context) error {
 		runtime2.WithWorkspace(runtimeDockerWorkspace),
 		runtime2.WithGpuNum(runtimeGpuNum),
 	)
+	fschatWorker := chat.NewFastChatWorker(
+		chat.WithWorkerCreationOptionControllerAddress(fsChatControllerAddress),
+		chat.WithWorkerCreationOptionLogger(logger),
+		chat.WithWorkerCreationOptionHTTPClientOpts(clientOpts...),
+	)
+
+	if logger != nil {
+		fschatWorker = chat.NewFsChatWorkerLogging(logger, traceId)(fschatWorker)
+	}
+
+	if tracer != nil {
+		fschatWorker = chat.NewFsChatWorkerTracing(tracer)(fschatWorker)
+	}
+
 	apiSvc = services.NewApi(ctx, logger, traceId, serverDebug, tracer, &services.Config{
 		Namespace: namespace, ServiceName: serverName,
-		FastChat: fastchat.Config{
-			OpenAiEndpoint:  serviceOpenAiHost,
-			OpenAiToken:     serviceOpenAiToken,
-			OpenAiModel:     serviceOpenAiModel,
-			OpenAiOrgId:     serviceOpenAiOrgId,
-			LocalAiEndpoint: serviceLocalAiHost,
-			LocalAiToken:    serviceLocalAiToken,
-			Debug:           serverDebug,
-		},
 		Ldap: ldapcli.Config{
 			Host:         ldapHost,
 			Port:         ldapPort,
@@ -608,6 +546,21 @@ func prepare(ctx context.Context) error {
 		},
 		Runtime:         runtimeOpts,
 		RuntimePlatform: runtimePlatform,
+		ChatOptions: []chat.CreationOption{
+			chat.WithHTTPClientOpts(clientOpts...),
+			chat.WithWorkerService(fschatWorker),
+			chat.WithEndpoints(chat.Endpoint{
+				Platform: "openai",
+				Host:     serviceOpenAiHost,
+				Token:    serviceOpenAiToken,
+			},
+				chat.Endpoint{
+					Platform: "localai",
+					Host:     serviceLocalAiHost,
+					Token:    serviceLocalAiToken,
+				},
+			),
+		},
 	}, clientOpts)
 
 	// 如果是docker来台，查询fschat-controller 和 fschat-api是否启动，如果没有则创建
@@ -638,7 +591,7 @@ func runFastChat(ctx context.Context) (err error) {
 	// 创建fschat-controller
 	deploymentName, err := apiSvc.Runtime().CreateDeployment(ctx, runtime2.Config{
 		ServiceName: "fschat-controller",
-		Image:       "dudulu/fschat:latest",
+		Image:       "dudulu/fschat:v0.2.36",
 		Command: []string{
 			"python3",
 			"-m",
@@ -659,44 +612,6 @@ func runFastChat(ctx context.Context) (err error) {
 	}
 
 	_ = level.Info(logger).Log("fschat-controller", "create", "success", deploymentName)
-	status, err = apiSvc.Runtime().GetDeploymentStatus(ctx, "fschat-api")
-	if err != nil {
-		_ = level.Error(logger).Log("fschat-api", "status", "err", err)
-		return err
-	}
-	_ = level.Info(logger).Log("fschat-api", "status", status)
-	if !util.StringInArray([]string{
-		"Failed",
-		"Unknown",
-	}, status) {
-		_ = level.Info(logger).Log("fschat-api", "status", "running", true)
-	}
-	// 创建fschat-api
-	deploymentName, err = apiSvc.Runtime().CreateDeployment(ctx, runtime2.Config{
-		ServiceName: "fschat-api",
-		Image:       "dudulu/fschat:latest",
-		Command: []string{
-			"python3",
-			"-m",
-			"fastchat.serve.openai_api_server",
-			"--host",
-			"0.0.0.0",
-			"--port",
-			"8000",
-			"--controller-address",
-			"http://$(hostname -I | awk '{print $1}'):21001",
-		},
-		Ports: map[string]string{
-			"8000": "8000",
-		},
-		Replicas: 1,
-	})
-	if err != nil {
-		_ = level.Error(logger).Log("fschat-api", "create", "err", err)
-		return err
-	}
-
-	_ = level.Info(logger).Log("fschat-api", "create", "success", deploymentName)
 	return
 }
 
@@ -713,12 +628,6 @@ func Run() {
 	mysqlUser = envString(EnvNameMysqlUser, DefaultMysqlUser)
 	mysqlPassword = envString(EnvNameMysqlPassword, DefaultMysqlPassword)
 	mysqlDatabase = envString(EnvNameMysqlDatabase, DefaultMysqlDatabase)
-
-	// [redis]
-	//redisHosts = envString(EnvNameRedisHosts, DefaultRedisHosts)
-	//redisDb, _ = strconv.Atoi(envString(EnvNameRedisDb, strconv.Itoa(DefaultRedisDb)))
-	//redisAuth = envString(EnvNameRedisPassword, DefaultRedisPassword)
-	//redisPrefix = envString(EnvNameRedisPrefix, DefaultRedisPrefix)
 
 	// [cors]
 	enableCORS, _ = strconv.ParseBool(envString(EnvNameEnableCORS, strconv.FormatBool(DefaultEnableCORS)))
@@ -751,11 +660,8 @@ func Run() {
 	cronJobAuto, _ = strconv.ParseBool(envString(EnvNameCronJobAuto, "true"))
 
 	// [service.gpt]
-	serviceOpenAiEnable, _ = strconv.ParseBool(envString(EnvNameServiceOpenAiEnable, "false"))
 	serviceOpenAiHost = envString(EnvNameServiceOpenAiHost, DefaultServiceOpenAiHost)
 	serviceOpenAiToken = envString(EnvNameServiceOpenAiToken, DefaultServiceOpenAiToken)
-	serviceOpenAiModel = envString(EnvNameServiceOpenAiModel, DefaultServiceOpenAiModel)
-	serviceOpenAiOrgId = envString(EnvNameServiceOpenAiOrgId, DefaultServiceOpenAiOrgId)
 	serviceLocalAiHost = envString(EnvNameServiceLocalAIHost, DefaultServiceChatApiHost)
 	serviceLocalAiToken = envString(EnvNameServiceLocalAIToken, DefaultServiceChatApiToken)
 
@@ -769,15 +675,6 @@ func Run() {
 	ldapUserFilter = envString(EnvNameLdapUserFilter, DefaultLdapUserFilter)
 	ldapUserAttr = strings.Split(envString(EnvNameLdapUserAttr, DefaultLdapAttributes), ",")
 
-	// [service.s3]
-	//serviceS3Host = envString(EnvNameServiceS3Host, DefaultServiceS3Host)
-	//serviceS3AccessKey = envString(EnvNameServiceS3AccessKey, DefaultServiceS3AccessKey)
-	//serviceS3SecretKey = envString(EnvNameServiceS3SecretKey, DefaultServiceS3SecretKey)
-	//serviceS3Bucket = envString(EnvNameServiceS3Bucket, DefaultServiceS3Bucket)
-	//serviceS3BucketPublic = envString(EnvNameServiceS3BucketPublic, DefaultServiceS3BucketPublic)
-	//serviceS3Region = envString(EnvNameServiceS3Region, DefaultServiceS3Region)
-	//serviceS3ProjectName = envString(EnvNameServiceS3ProjectName, namespace)
-
 	// [dataset]
 	datasetsImage = envString(EnvNameDatasetsImage, DefaultDatasetsImage)
 	datasetsModelName = envString(EnvNameDatasetsModelName, DefaultDatasetsModelName)
@@ -786,7 +683,6 @@ func Run() {
 
 	// [local]
 	storageType = envString(EnvNameStorageType, "local")
-	//localDataPath = envString(EnvNameLocalDataPath, DefaultLocalDataPath)
 
 	// [runtime]
 	runtimePlatform = envString(EnvNameRuntimePlatform, DefaultRuntimePlatform)
@@ -802,7 +698,6 @@ func Run() {
 
 	// [fschat]
 	fsChatControllerAddress = envString(EnvNameFsChatControllerAddress, "http://fschat-controller:21001")
-	fsChatApiAddress = envString(EnvNameFsChatControllerAddress, "http://fschat-api:8000")
 
 	if err = rootCmd.Execute(); err != nil {
 		fmt.Println("rootCmd.Execute", err.Error())
