@@ -141,6 +141,7 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 		now := time.Now().UnixMilli()
 		defer close(dot)
 		streamId := fmt.Sprintf("cmpl-%s", shortuuid.New())
+		var fullContent string
 		for {
 			content, ok := <-streamResp
 			if !ok {
@@ -164,6 +165,11 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 			// 更新previous_text变量为当前文本，但只在当前文本的长度大于previous_text的长度时
 			if len(decodedUnicode) > len(previousText) {
 				previousText = decodedUnicode
+			}
+
+			if len(text) >= len(fullContent) {
+				deltaText = deltaText[len(fullContent):]
+				fullContent += deltaText
 			}
 
 			dot <- CompletionStreamResponse{

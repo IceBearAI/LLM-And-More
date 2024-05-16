@@ -282,7 +282,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 		defer close(dot)
 		var resContent string
 		for content := range completionStream {
-			if util.StringInArray([]string{string(services.ProviderFsChat)}, string(providerName)) {
+			if util.StringInArray([]string{string(services.ProviderFsChat), string(services.ProviderFsChat)}, string(providerName)) {
 				if len(content.Choices[0].Delta.Content) >= len(resContent) {
 					content.Choices[0].Delta.Content = content.Choices[0].Delta.Content[len(resContent):]
 					resContent += content.Choices[0].Delta.Content
