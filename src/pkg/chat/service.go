@@ -271,6 +271,9 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 	if modelInfo.ProviderName == types.ModelProviderLocalAI {
 		providerName = services.ProviderFsChat
 	}
+	if modelInfo.BaseModelName != "" {
+		req.Model = modelInfo.BaseModelName
+	}
 	completionStream, err := s.services.Chat(providerName).ChatCompletionStream(ctx, req)
 	if err != nil {
 		msgData.ErrorMessage = err.Error()
