@@ -79,8 +79,8 @@ func (s *logging) Embeddings(ctx context.Context, req openai.EmbeddingRequest) (
 	return s.next.Embeddings(ctx, req)
 }
 
-func NewLogging(logger log.Logger, traceId string) Middleware {
-	logger = log.With(logger, "api.chat", "logging")
+func NewLogging(logger log.Logger, traceId, providerName string) Middleware {
+	logger = log.With(logger, "api.chat", "logging", "provider", providerName)
 	return func(next Service) Service {
 		return &logging{
 			logger:  level.Info(logger),
@@ -114,6 +114,7 @@ func (s *fschatWorker) GetWorkerAddress(ctx context.Context, model string) (res 
 			s.traceId, ctx.Value(s.traceId),
 			"method", "GetWorkerAddress",
 			"model", model,
+			"address", res,
 			"took", time.Since(begin),
 			"err", err,
 		)

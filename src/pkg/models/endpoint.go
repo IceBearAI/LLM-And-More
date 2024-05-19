@@ -178,6 +178,7 @@ type (
 		MaxGpuMemory int    `json:"maxGpuMemory"`
 		K8sCluster   string `json:"k8sCluster"`  //k8s集群
 		ModelWorker  string `json:"modelWorker"` // 加速模式
+		Checkpoint   string `json:"checkpoint"`
 	}
 
 	// modelLogRequest 模型日志请求
@@ -234,6 +235,31 @@ type (
 		// FineTuned 微调信息
 		FineTuned *modelFineTuneResult `json:"fineTuned"`
 	}
+
+	// modelCardResult 模型卡片返回
+	modelCardResult struct {
+		ReadmeContent string `json:"readmeContent"`
+	}
+
+	// modelTreeRequest
+	modelTreeRequest struct {
+		Catalog string
+	}
+
+	// fileInfo 文件信息
+	fileInfo struct {
+		Name      string    `json:"name"`
+		IsDir     bool      `json:"isDir"`
+		Size      int64     `json:"size"`
+		UpdatedAt time.Time `json:"updatedAt"`
+	}
+	// modelTreeResult
+	modelTreeResult struct {
+		Object      string     `json:"object"`
+		Tree        []fileInfo `json:"tree"`
+		FileInfo    fileInfo   `json:"fileInfo"`
+		FileContent string     `json:"fileContent"`
+	}
 )
 
 type Endpoints struct {
@@ -244,13 +270,12 @@ type Endpoints struct {
 	GetModelEndpoint             endpoint.Endpoint
 	DeployModelEndpoint          endpoint.Endpoint
 	UndeployModelEndpoint        endpoint.Endpoint
-	CreateEvalEndpoint           endpoint.Endpoint
-	ListEvalEndpoint             endpoint.Endpoint
-	CancelEvalEndpoint           endpoint.Endpoint
-	DeleteEvalEndpoint           endpoint.Endpoint
 	GetModelLogsEndpoint         endpoint.Endpoint
 	ChatCompletionStreamEndpoint endpoint.Endpoint
 	ModelInfoEndpoint            endpoint.Endpoint
+	ModelCardEndpoint            endpoint.Endpoint
+	ModelTreeEndpoint            endpoint.Endpoint
+	ModelCheckpointEndpoint      endpoint.Endpoint
 }
 
 func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
@@ -262,13 +287,11 @@ func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 		GetModelEndpoint:             makeGetModelEndpoint(s),
 		DeployModelEndpoint:          makeDeployModelEndpoint(s),
 		UndeployModelEndpoint:        makeUndeployModelEndpoint(s),
-		CreateEvalEndpoint:           makeCreateEvalEndpoint(s),
-		ListEvalEndpoint:             makeListEvalEndpoint(s),
-		CancelEvalEndpoint:           makeCancelEvalEndpoint(s),
-		DeleteEvalEndpoint:           makeDeleteEvalEndpoint(s),
 		GetModelLogsEndpoint:         makeGetModelLogsEndpoint(s),
 		ChatCompletionStreamEndpoint: makeChatCompletionStreamEndpoint(s),
 		ModelInfoEndpoint:            makeModelInfoEndpoint(s),
+		ModelTreeEndpoint:            makeModelTreeEndpoint(s),
+		ModelCheckpointEndpoint:      makeModelCheckpointEndpoint(s),
 	}
 	for _, m := range dmw["Model"] {
 		eps.ListModelsEndpoint = m(eps.ListModelsEndpoint)
@@ -278,15 +301,37 @@ func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 		eps.GetModelEndpoint = m(eps.GetModelEndpoint)
 		eps.DeployModelEndpoint = m(eps.DeployModelEndpoint)
 		eps.UndeployModelEndpoint = m(eps.UndeployModelEndpoint)
-		eps.CreateEvalEndpoint = m(eps.CreateEvalEndpoint)
-		eps.ListEvalEndpoint = m(eps.ListEvalEndpoint)
-		eps.CancelEvalEndpoint = m(eps.CancelEvalEndpoint)
-		eps.DeleteEvalEndpoint = m(eps.DeleteEvalEndpoint)
 		eps.GetModelLogsEndpoint = m(eps.GetModelLogsEndpoint)
 		eps.ChatCompletionStreamEndpoint = m(eps.ChatCompletionStreamEndpoint)
 		eps.ModelInfoEndpoint = m(eps.ModelInfoEndpoint)
+		eps.ModelTreeEndpoint = m(eps.ModelTreeEndpoint)
+		eps.ModelCheckpointEndpoint = m(eps.ModelCheckpointEndpoint)
 	}
 	return eps
+}
+
+func makeModelCheckpointEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		modelName, _ := ctx.Value(contextKeyModelName).(string)
+		resp, err := s.ModelCheckpoint(ctx, modelName)
+		return encode.Response{
+			Data:  resp,
+			Error: err,
+		}, err
+	}
+
+}
+
+func makeModelTreeEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		modelName, _ := ctx.Value(contextKeyModelName).(string)
+		req := request.(modelTreeRequest)
+		resp, err := s.ModelTree(ctx, modelName, req.Catalog)
+		return encode.Response{
+			Data:  resp,
+			Error: err,
+		}, err
+	}
 }
 
 func makeModelInfoEndpoint(s Service) endpoint.Endpoint {
@@ -387,52 +432,6 @@ func makeUndeployModelEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(IdRequest)
 		err = s.Undeploy(ctx, req.Id)
-		resp := struct{}{}
-		return encode.Response{
-			Data:  resp,
-			Error: err,
-		}, err
-	}
-}
-
-func makeCreateEvalEndpoint(s Service) endpoint.Endpoint {
-	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-		req := request.(CreateEvalRequest)
-		resp, err := s.CreateEval(ctx, req)
-		return encode.Response{
-			Data:  resp,
-			Error: err,
-		}, err
-	}
-}
-
-func makeListEvalEndpoint(s Service) endpoint.Endpoint {
-	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-		req := request.(ListEvalRequest)
-		resp, err := s.ListEval(ctx, req)
-		return encode.Response{
-			Data:  resp,
-			Error: err,
-		}, err
-	}
-}
-
-func makeCancelEvalEndpoint(s Service) endpoint.Endpoint {
-	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-		req := request.(IdRequest)
-		err = s.CancelEval(ctx, req.Id)
-		resp := struct{}{}
-		return encode.Response{
-			Data:  resp,
-			Error: err,
-		}, err
-	}
-}
-
-func makeDeleteEvalEndpoint(s Service) endpoint.Endpoint {
-	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-		req := request.(IdRequest)
-		err = s.DeleteEval(ctx, req.Id)
 		resp := struct{}{}
 		return encode.Response{
 			Data:  resp,

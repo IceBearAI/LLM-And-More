@@ -179,7 +179,6 @@ func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai
 		if content.Usage.TotalTokens > 0 {
 			usage = content.Usage
 		}
-		//fmt.Println(content.Choices[0].FinishReason, content.Choices[0].Delta.Content)
 		if content.Choices[0].FinishReason == openai.FinishReasonStop && content.Choices[0].Delta.Content != "" {
 			isError = false
 			finished = true
@@ -202,10 +201,12 @@ func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai
 				Model:   content.Model,
 				Choices: []openai.ChatCompletionChoice{
 					{
+						Index: content.Choices[0].Index,
 						Message: openai.ChatCompletionMessage{
 							Role:    "assistant",
 							Content: resContent,
 						},
+						FinishReason: openai.FinishReasonStop,
 					},
 				},
 				Usage: usage,
@@ -270,6 +271,9 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 	if modelInfo.ProviderName == types.ModelProviderLocalAI {
 		providerName = services.ProviderFsChat
 	}
+	if modelInfo.BaseModelName != "" {
+		req.Model = modelInfo.BaseModelName
+	}
 	completionStream, err := s.services.Chat(providerName).ChatCompletionStream(ctx, req)
 	if err != nil {
 		msgData.ErrorMessage = err.Error()
@@ -281,7 +285,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 		defer close(dot)
 		var resContent string
 		for content := range completionStream {
-			if util.StringInArray([]string{string(services.ProviderFsChat)}, string(providerName)) {
+			if util.StringInArray([]string{string(services.ProviderFsChat), string(services.ProviderFsChat)}, string(providerName)) {
 				if len(content.Choices[0].Delta.Content) >= len(resContent) {
 					content.Choices[0].Delta.Content = content.Choices[0].Delta.Content[len(resContent):]
 					resContent += content.Choices[0].Delta.Content

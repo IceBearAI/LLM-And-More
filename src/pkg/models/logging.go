@@ -13,6 +13,46 @@ type logging struct {
 	traceId string
 }
 
+func (l *logging) ModelCheckpoint(ctx context.Context, modelName string) (res []string, err error) {
+	defer func(begin time.Time) {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"modelName", modelName,
+			"method", "ModelCheckpoint",
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return l.next.ModelCheckpoint(ctx, modelName)
+}
+
+func (l *logging) ModelCard(ctx context.Context, modelName string) (res modelCardResult, err error) {
+	defer func(begin time.Time) {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"modelName", modelName,
+			"method", "ModelCard",
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return l.next.ModelCard(ctx, modelName)
+}
+
+func (l *logging) ModelTree(ctx context.Context, modelName, catalog string) (res modelTreeResult, err error) {
+	defer func(begin time.Time) {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"modelName", modelName,
+			"catalog", catalog,
+			"method", "ModelTree",
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return l.next.ModelTree(ctx, modelName, catalog)
+}
+
 func (l *logging) ModelInfo(ctx context.Context, modelName string) (res modelInfoResult, err error) {
 	defer func(begin time.Time) {
 		_ = l.logger.Log(
@@ -50,58 +90,6 @@ func (l *logging) GetModelLogs(ctx context.Context, modelName, containerName str
 		)
 	}(time.Now())
 	return l.next.GetModelLogs(ctx, modelName, containerName)
-}
-
-func (l *logging) DeleteEval(ctx context.Context, id uint) (err error) {
-	defer func(begin time.Time) {
-		_ = l.logger.Log(
-			l.traceId, ctx.Value(l.traceId),
-			"method", "DeleteEval",
-			"id", id,
-			"took", time.Since(begin),
-			"err", err,
-		)
-	}(time.Now())
-	return l.next.DeleteEval(ctx, id)
-}
-
-func (l *logging) CreateEval(ctx context.Context, request CreateEvalRequest) (res Eval, err error) {
-	defer func(begin time.Time) {
-		_ = l.logger.Log(
-			l.traceId, ctx.Value(l.traceId),
-			"method", "CreateEval",
-			"request", fmt.Sprintf("%+v", request),
-			"took", time.Since(begin),
-			"err", err,
-		)
-	}(time.Now())
-	return l.next.CreateEval(ctx, request)
-}
-
-func (l *logging) ListEval(ctx context.Context, request ListEvalRequest) (res ListEvalResponse, err error) {
-	defer func(begin time.Time) {
-		_ = l.logger.Log(
-			l.traceId, ctx.Value(l.traceId),
-			"method", "ListEval",
-			"request", fmt.Sprintf("%+v", request),
-			"took", time.Since(begin),
-			"err", err,
-		)
-	}(time.Now())
-	return l.next.ListEval(ctx, request)
-}
-
-func (l *logging) CancelEval(ctx context.Context, id uint) (err error) {
-	defer func(begin time.Time) {
-		_ = l.logger.Log(
-			l.traceId, ctx.Value(l.traceId),
-			"method", "CancelEval",
-			"id", id,
-			"took", time.Since(begin),
-			"err", err,
-		)
-	}(time.Now())
-	return l.next.CancelEval(ctx, id)
 }
 
 func (l *logging) Undeploy(ctx context.Context, id uint) (err error) {

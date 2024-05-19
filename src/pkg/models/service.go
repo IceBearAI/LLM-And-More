@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -48,24 +49,18 @@ type Service interface {
 	Deploy(ctx context.Context, request ModelDeployRequest) (err error)
 	// Undeploy 模型取消部署
 	Undeploy(ctx context.Context, id uint) (err error)
-	// CreateEval 创建评估任务
-	// Deprecated: use modelevaluate.Create instead
-	CreateEval(ctx context.Context, request CreateEvalRequest) (res Eval, err error)
-	// ListEval 评估任务分页列表
-	// Deprecated: use modelevaluate.List instead
-	ListEval(ctx context.Context, request ListEvalRequest) (res ListEvalResponse, err error)
-	// CancelEval 取消评估任务
-	// Deprecated: use modelevaluate.Cancel instead
-	CancelEval(ctx context.Context, id uint) (err error)
-	// DeleteEval 删除评估任务
-	// Deprecated: use modelevaluate.Delete instead
-	DeleteEval(ctx context.Context, id uint) (err error)
 	// GetModelLogs 获取模型输出日志
 	GetModelLogs(ctx context.Context, modelName, containerName string) (res string, err error)
 	// ChatCompletionStream 聊天补全流
 	ChatCompletionStream(ctx context.Context, request ChatCompletionRequest) (stream <-chan CompletionsStreamResult, err error)
 	// ModelInfo 获取模型信息
 	ModelInfo(ctx context.Context, modelName string) (res modelInfoResult, err error)
+	// ModelCard 获取模型卡片
+	ModelCard(ctx context.Context, modelName string) (res modelCardResult, err error)
+	// ModelTree 获取模型树
+	ModelTree(ctx context.Context, modelName, catalog string) (res modelTreeResult, err error)
+	// ModelCheckpoint 获取模型检查点
+	ModelCheckpoint(ctx context.Context, modelName string) (res []string, err error)
 }
 
 // CreationOptions is the options for the faceswap service.
@@ -147,6 +142,196 @@ type service struct {
 	options *CreationOptions
 }
 
+func (s *service) ModelCheckpoint(ctx context.Context, modelName string) (res []string, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	_, modelPath, err := s.getModelPath(ctx, modelName)
+	if err != nil {
+		_ = level.Error(logger).Log("service", "getModelPath", "err", err.Error())
+		return
+	}
+
+	// 读取模型目录下的文件
+	files, err := util.GetFileList(modelPath)
+	if err != nil {
+		_ = level.Error(logger).Log("util.GetFileList", "err", err.Error())
+		return res, encode.ErrSystem.Wrap(errors.Wrap(err, "获取模型目录失败"))
+	}
+
+	for _, v := range files {
+		if !v.IsDir() {
+			continue
+		}
+		if strings.HasPrefix(v.Name(), "checkpoint") {
+			res = append(res, v.Name())
+		}
+	}
+
+	return
+}
+
+func (s *service) ModelCard(ctx context.Context, modelName string) (res modelCardResult, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	_, modelPath, err := s.getModelPath(ctx, modelName)
+	if err != nil {
+		_ = level.Error(logger).Log("getModelPath", "err", err.Error())
+		return
+	}
+	readmeFile := path.Join(modelPath, "README.md")
+	if _, err := os.Stat(readmeFile); err == nil {
+		content, err := os.ReadFile(readmeFile)
+		if err != nil {
+			_ = level.Error(logger).Log("os.ReadFile", "err", err.Error())
+			return res, encode.ErrSystem.Wrap(errors.Wrap(err, "读取README.md失败"))
+		}
+		res.ReadmeContent = string(content)
+	}
+
+	return res, nil
+}
+
+func (s *service) getModelPath(ctx context.Context, modelName string) (res types.Models, modelPath string, err error) {
+	m, err := s.store.Model().FindByModelId(ctx, modelName, "FineTuningTrainJob")
+	if err != nil {
+		return res, modelPath, encode.ErrSystem.Wrap(errors.New("查询模型失败"))
+	}
+
+	if m.BaseModelName != "" {
+		m, err = s.store.Model().FindByModelId(ctx, m.BaseModelName, "FineTuningTrainJob")
+		if err != nil {
+			return res, modelPath, encode.ErrSystem.Wrap(errors.New("查询模型失败"))
+		}
+		return
+	}
+
+	if m.IsFineTuning {
+		finetunedModel, err := s.store.FineTuning().GetFineTuningJobByModelName(ctx, m.ModelName)
+		if err != nil {
+			err = errors.Wrap(err, "GetFineTuningJobByModelName failed")
+			return res, modelPath, err
+		}
+		modelPath = finetunedModel.OutputDir
+	} else {
+		baseModelTemplate, err := s.store.FineTuning().FindFineTuningTemplateByModelType(ctx, m.ModelName, types.TemplateTypeInference)
+		if err != nil {
+			return res, modelPath, err
+		}
+		modelPath = baseModelTemplate.BaseModelPath
+	}
+
+	// 判断modelPath是否是绝对路径
+	if !path.IsAbs(modelPath) {
+		hfHome := os.Getenv("HF_HOME")
+		if hfHome == "" {
+			hfHome, _ = os.UserHomeDir()
+			hfHome = path.Join(hfHome, ".cache", "huggingface")
+		}
+		modelPath = path.Join(hfHome, "hub", fmt.Sprintf("models--%s", strings.ReplaceAll(modelPath, "/", "--")))
+		dirId, _ := os.ReadFile(modelPath + "/refs/main")
+		modelPath = path.Join(modelPath, "snapshots", string(dirId))
+	}
+	return
+
+}
+
+func (s *service) ModelTree(ctx context.Context, modelName, catalog string) (res modelTreeResult, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	m, err := s.store.Model().FindByModelId(ctx, modelName, "FineTuningTrainJob")
+	if err != nil {
+		_ = level.Error(logger).Log("store.Model", "GetModelByModelName", "err", err.Error(), "modelName", modelName)
+		return res, encode.ErrSystem.Wrap(errors.New("查询模型失败"))
+	}
+
+	if m.BaseModelName != "" {
+		m, err = s.store.Model().FindByModelId(ctx, m.BaseModelName, "FineTuningTrainJob")
+		if err != nil {
+			_ = level.Error(logger).Log("store.Model", "GetModelByModelName", "err", err.Error(), "modelName", modelName)
+			return res, encode.ErrSystem.Wrap(errors.New("查询模型失败"))
+		}
+		return
+	}
+
+	var modelPath string
+	if m.IsFineTuning {
+		finetunedModel, err := s.store.FineTuning().GetFineTuningJobByModelName(ctx, m.ModelName)
+		if err != nil {
+			err = errors.Wrap(err, "GetFineTuningJobByModelName failed")
+			_ = level.Warn(logger).Log("msg", "GetFineTuningJobByModelName failed", "err", err)
+			return res, err
+		}
+		modelPath = finetunedModel.OutputDir
+	} else {
+		baseModelTemplate, err := s.store.FineTuning().FindFineTuningTemplateByModelType(ctx, m.ModelName, types.TemplateTypeInference)
+		if err != nil {
+			_ = level.Warn(logger).Log("repository.FineTuning", "FindFineTuningTemplateByModel", "err", err.Error())
+			return res, err
+		}
+		modelPath = baseModelTemplate.BaseModelPath
+	}
+
+	// 判断modelPath是否是绝对路径
+	if !path.IsAbs(modelPath) {
+		hfHome := os.Getenv("HF_HOME")
+		if hfHome == "" {
+			hfHome, _ = os.UserHomeDir()
+			hfHome = path.Join(hfHome, ".cache", "huggingface")
+		}
+		modelPath = path.Join(hfHome, "hub", fmt.Sprintf("models--%s", strings.ReplaceAll(modelPath, "/", "--")))
+		dirId, _ := os.ReadFile(modelPath + "/refs/main")
+		_ = level.Info(logger).Log("modelPath", modelPath, "dirId", string(dirId))
+		modelPath = path.Join(modelPath, "snapshots", string(dirId))
+	}
+	modelPath = path.Join(modelPath, catalog)
+	_ = level.Info(logger).Log("modelPath", modelPath)
+
+	pathInfo, err := os.Stat(modelPath)
+	if err != nil {
+		_ = level.Error(logger).Log("os.Stat", "err", err.Error())
+		return res, encode.ErrSystem.Wrap(errors.Wrap(err, "模型目录不存在"))
+	}
+
+	if !pathInfo.IsDir() {
+		maxOpenSize := 1024 << 12 // 4M
+		if pathInfo.Size() > int64(maxOpenSize) {
+			_ = level.Warn(logger).Log("msg", "文件过大", "size", pathInfo.Size())
+			return res, encode.ErrSystem.Wrap(errors.New("文件过大"))
+		}
+		content, err := os.ReadFile(modelPath)
+		if err != nil {
+			_ = level.Error(logger).Log("os.ReadFile", "err", err.Error())
+			return res, encode.ErrSystem.Wrap(errors.Wrap(err, "读取文件失败"))
+		}
+		res.FileContent = string(content)
+		res.Object = "file"
+		res.FileInfo = fileInfo{
+			Name:      path.Base(modelPath),
+			Size:      pathInfo.Size(),
+			IsDir:     false,
+			UpdatedAt: pathInfo.ModTime(),
+		}
+		return res, nil
+	}
+
+	// 读取模型目录下的文件
+	files, err := util.GetFileList(modelPath)
+	if err != nil {
+		_ = level.Error(logger).Log("util.GetFileList", "err", err.Error())
+		return res, encode.ErrSystem.Wrap(errors.Wrap(err, "获取模型目录失败"))
+	}
+
+	for _, v := range files {
+		res.Tree = append(res.Tree, fileInfo{
+			Name:      v.Name(),
+			Size:      v.Size(),
+			IsDir:     v.IsDir(),
+			UpdatedAt: v.ModTime(),
+		})
+	}
+
+	res.Object = "tree"
+
+	return
+}
+
 func (s *service) ModelInfo(ctx context.Context, modelName string) (res modelInfoResult, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 	m, err := s.store.Model().FindByModelId(ctx, modelName, "ModelDeploy", "FineTuningTrainJob")
@@ -210,7 +395,11 @@ func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompleti
 	if modelInfo.BaseModelName != "" {
 		request.Model = modelInfo.BaseModelName
 	}
-	completionStream, err := s.apiSvc.Chat(services.ProviderName(modelInfo.ProviderName)).ChatCompletionStream(ctx, openai.ChatCompletionRequest{
+	pn := services.ProviderOpenAI
+	if modelInfo.ProviderName == types.ModelProviderLocalAI {
+		pn = services.ProviderFsChat
+	}
+	completionStream, err := s.apiSvc.Chat(pn).ChatCompletionStream(ctx, openai.ChatCompletionRequest{
 		Model:       request.Model,
 		Messages:    request.Messages,
 		MaxTokens:   request.MaxTokens,
@@ -461,9 +650,13 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 	}
 	if !m.IsFineTuning {
 		modelPath = baseModelTemplate.BaseModelPath
+		if request.Checkpoint != "" {
+			modelPath = path.Join(modelPath, request.Checkpoint)
+		}
 	}
-	minPort := 1024
-	maxPort := 65535
+
+	minPort := 20000
+	maxPort := 30000
 	randomPort := rand.Intn(maxPort-minPort+1) + minPort
 
 	var envs []runtime.Env

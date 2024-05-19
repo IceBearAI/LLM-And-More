@@ -71,6 +71,7 @@ const (
 	EnvNameServiceLocalAIToken = "AIGC_SERVICE_CHAT_API_TOKEN" // chat-api token
 	EnvNameServiceOpenAiHost   = "AIGC_SERVICE_OPENAI_HOST"
 	EnvNameServiceOpenAiToken  = "AIGC_SERVICE_OPENAI_TOKEN"
+	EnvNameServiceOpenAiOnly   = "AIGC_SERVICE_OPENAI_ONLY"
 
 	// [LDAP 相关]
 	EnvNameLdapHost        = "AIGC_LDAP_HOST"
@@ -214,8 +215,7 @@ var (
 	apiSvc services.Service
 	//hashId   hashids.HashIds
 	dbDrive, mysqlHost, mysqlUser, mysqlPassword, mysqlDatabase                                            string
-	mysqlPort, redisDb, ormPort                                                                            int
-	redisAuth, redisHosts, redisPrefix                                                                     string
+	mysqlPort                                                                                              int
 	serverName, serverKey, serverLogLevel, serverLogDrive, serverLogPath, serverLogName, serverStoragePath string
 	defaultStoragePath, serverDomain                                                                       string
 	serverAdminUser, serverAdminPass                                                                       string
@@ -227,19 +227,14 @@ var (
 
 	// [gpt]
 	serviceLocalAiHost, serviceLocalAiToken string
-	serviceOpenAiHost, serviceOpenAiToken/*serviceOpenAiModel, serviceOpenAiOrgId*/ string
-
-	// [s3]
-	//serviceS3Host, serviceS3AccessKey, serviceS3SecretKey, serviceS3Bucket, serviceS3BucketPublic, serviceS3Region, serviceS3ProjectName string
+	serviceOpenAiHost, serviceOpenAiToken   string
+	serviceOpenAiOnly                       bool
 
 	// [ldap]相关
 	ldapHost, ldapBaseDn, ldapBindUser, ldapBindPass, ldapUserFilter, ldapGroupFilter string
 	ldapPort                                                                          int
 	ldapUserAttr                                                                      []string
 	ldapUseSsl                                                                        bool
-
-	// [chat]
-	defaultServiceChatHost = "http://chat-api:8080"
 
 	// datasets
 	datasetsImage, datasetsModelName, datasetsDevice, datasetsGpuToleration string
@@ -330,6 +325,7 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVar(&serviceLocalAiToken, "service.local.ai.token", DefaultServiceChatApiToken, "Chat-Api Token")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiHost, "service.openai.host", DefaultServiceOpenAiHost, "OpenAI服务地址")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiToken, "service.openai.token", "", "OpenAI Token")
+	rootCmd.PersistentFlags().BoolVar(&serviceOpenAiOnly, "service.openai.only", false, "是否只使用OpenAI服务")
 	rootCmd.PersistentFlags().StringVar(&fsChatControllerAddress, "service.fschat.controller.host", "http://fschat-controller:21001", "fastchat controller address")
 
 	// [ldap]
@@ -528,6 +524,10 @@ func prepare(ctx context.Context) error {
 		fschatWorker = chat.NewFsChatWorkerLogging(logger, traceId)(fschatWorker)
 	}
 
+	if tracer != nil {
+		fschatWorker = chat.NewFsChatWorkerTracing(tracer)(fschatWorker)
+	}
+
 	apiSvc = services.NewApi(ctx, logger, traceId, serverDebug, tracer, &services.Config{
 		Namespace: namespace, ServiceName: serverName,
 		Ldap: ldapcli.Config{
@@ -557,6 +557,7 @@ func prepare(ctx context.Context) error {
 				},
 			),
 		},
+		OnlyOpenAI: serviceOpenAiOnly,
 	}, clientOpts)
 
 	// 如果是docker来台，查询fschat-controller 和 fschat-api是否启动，如果没有则创建
@@ -658,6 +659,7 @@ func Run() {
 	// [service.gpt]
 	serviceOpenAiHost = envString(EnvNameServiceOpenAiHost, DefaultServiceOpenAiHost)
 	serviceOpenAiToken = envString(EnvNameServiceOpenAiToken, DefaultServiceOpenAiToken)
+	serviceOpenAiOnly, _ = strconv.ParseBool(envString(EnvNameServiceOpenAiOnly, "false"))
 	serviceLocalAiHost = envString(EnvNameServiceLocalAIHost, DefaultServiceChatApiHost)
 	serviceLocalAiToken = envString(EnvNameServiceLocalAIToken, DefaultServiceChatApiToken)
 

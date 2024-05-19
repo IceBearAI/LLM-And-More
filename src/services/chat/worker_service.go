@@ -152,26 +152,9 @@ type ModelDetail struct {
 	ContextLength int `json:"context_length"`
 }
 
-// Conv 对话
-type Conv struct {
-	Name           string     `json:"name"`
-	SystemTemplate string     `json:"system_template"`
-	SystemMessage  string     `json:"system_message"`
-	Roles          []string   `json:"roles"`
-	Messages       [][]string `json:"messages"`
-	Offset         int        `json:"offset"`
-	SepStyle       int        `json:"sep_style"`
-	Sep            string     `json:"sep"`
-	Sep2           string     `json:"sep2"`
-	StopStr        string     `json:"stop_str"`
-	StopTokenIds   []int      `json:"stop_token_ids"`
-	Template       string     `json:"template,omitempty"`
-	Stop           []string   `json:"stop,omitempty"`
-}
-
 // ModelConvTemplate 对话模板
 type ModelConvTemplate struct {
-	Conv Conv `json:"conv"`
+	Conv Conversation `json:"conv"`
 }
 
 // WorkerStatus 工作状态

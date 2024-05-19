@@ -67,12 +67,6 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 		encode.JsonResponse,
 		kitopts...,
 	)).Methods(http.MethodDelete)
-	r.Handle("/models/eval", kithttp.NewServer(
-		eps.ListEvalEndpoint,
-		decodeListEvalRequest,
-		encode.JsonResponse,
-		kitopts...,
-	)).Methods(http.MethodGet)
 	r.Handle("/models/{id}", kithttp.NewServer(
 		eps.GetModelEndpoint,
 		decodeIdRequest,
@@ -91,24 +85,6 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 		encode.JsonResponse,
 		kitopts...,
 	)).Methods(http.MethodPost)
-	r.Handle("/models/eval", kithttp.NewServer(
-		eps.CreateEvalEndpoint,
-		decodeCreateEvalRequest,
-		encode.JsonResponse,
-		kitopts...,
-	)).Methods(http.MethodPost)
-	r.Handle("/models/eval/{id}/cancel", kithttp.NewServer(
-		eps.CancelEvalEndpoint,
-		decodeIdRequest,
-		encode.JsonResponse,
-		kitopts...,
-	)).Methods(http.MethodPost)
-	r.Handle("/models/eval/{id}", kithttp.NewServer(
-		eps.DeleteEvalEndpoint,
-		decodeIdRequest,
-		encode.JsonResponse,
-		kitopts...,
-	)).Methods(http.MethodDelete)
 	r.Handle("/models/{modelName}/container/{containerName}/logs", kithttp.NewServer(
 		eps.GetModelLogsEndpoint,
 		kithttp.NopRequestDecoder,
@@ -126,7 +102,23 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 		decodeChatCompletionStreamRequest,
 		encodeChatCompletionsStreamResponse,
 		kitopts...))
+	r.Handle("/models/{modelName}/tree", kithttp.NewServer(
+		eps.ModelTreeEndpoint,
+		decodeModelTreeRequest,
+		encode.JsonResponse,
+		kitopts...))
+	r.Handle("/models/{modelName}/checkpoints", kithttp.NewServer(
+		eps.ModelCheckpointEndpoint,
+		kithttp.NopRequestDecoder,
+		encode.JsonResponse,
+		kitopts...))
 	return r
+}
+
+func decodeModelTreeRequest(ctx context.Context, r *http.Request) (interface{}, error) {
+	var req modelTreeRequest
+	req.Catalog = r.URL.Query().Get("path")
+	return req, nil
 }
 
 func decodeCreateModelRequest(ctx context.Context, r *http.Request) (interface{}, error) {

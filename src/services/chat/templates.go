@@ -20,20 +20,21 @@ type TemplateMessage struct {
 
 type Templates interface {
 	// Register 注册模板
-	Register(ctx context.Context, name string, conv Conv)
+	Register(ctx context.Context, name string, conv Conversation)
 	// Get 获取模板
-	Get(ctx context.Context, name string) (Conv, bool)
+	Get(ctx context.Context, name string) (Conversation, bool)
 	// GetByModelName 根据模型名称获取模版
-	GetByModelName(ctx context.Context, modelName string) (Conv, bool)
+	GetByModelName(ctx context.Context, modelName string) (Conversation, bool)
 	// GetPrompt 获取提示
 	GetPrompt(ctx context.Context, name string, messages []openai.ChatCompletionMessage) (string, bool)
 }
 
 type templates struct {
-	conv map[string]Conv
+	conv map[string]Conversation
 }
 
 func (t *templates) GetPrompt(ctx context.Context, name string, messages []openai.ChatCompletionMessage) (string, bool) {
+	name = strings.ToLower(name)
 	conv, ok := t.conv[name]
 	if !ok {
 		return "", false
@@ -65,8 +66,9 @@ func encodeTemplate(name string, tpl string, data interface{}) (re string, err e
 	return
 }
 
-func (t *templates) GetByModelName(ctx context.Context, modelName string) (Conv, bool) {
-	var models []Conv
+func (t *templates) GetByModelName(ctx context.Context, modelName string) (Conversation, bool) {
+	modelName = strings.ToLower(modelName)
+	var models []Conversation
 	for _, v := range t.conv {
 		if strings.Contains(modelName, v.Name) {
 			models = append(models, v)
@@ -83,23 +85,27 @@ func (t *templates) GetByModelName(ctx context.Context, modelName string) (Conv,
 		}
 		return models[0], true
 	}
-	return Conv{}, false
+	return Conversation{}, false
 }
 
-func (t *templates) Register(ctx context.Context, name string, conv Conv) {
+func (t *templates) Register(ctx context.Context, name string, conv Conversation) {
+	name = strings.ToLower(name)
+	if conv.Name == "" {
+		conv.Name = name
+	}
 	if _, ok := t.conv[name]; ok {
 		return
 	}
 	t.conv[name] = conv
 }
 
-func (t *templates) Get(ctx context.Context, name string) (Conv, bool) {
+func (t *templates) Get(ctx context.Context, name string) (Conversation, bool) {
 	conv, ok := t.conv[name]
 	return conv, ok
 }
 
 func NewTemplates() Templates {
-	return &templates{conv: map[string]Conv{}}
+	return &templates{conv: map[string]Conversation{}}
 }
 
 func ConvertMessages(messages []openai.ChatCompletionMessage) []TemplateMessage {

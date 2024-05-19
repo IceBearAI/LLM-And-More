@@ -72,29 +72,34 @@ func decodeChatCompletionStreamRequest(ctx context.Context, r *http.Request) (re
 }
 
 func encodeChatCompletionStreamResponse(ctx context.Context, writer http.ResponseWriter, response interface{}) error {
+	traceId, _ := ctx.Value("traceId").(string)
+	writer.Header().Set("TraceId", traceId)
 	resp, ok := response.(encode.Response)
 	if !ok {
 		writer.WriteHeader(http.StatusInternalServerError)
 		return encode.InvalidParams.Wrap(errors.New("invalid response type"))
 	}
-	if headerer, ok := response.(kithttp.Headerer); ok {
-		for k, values := range headerer.Headers() {
-			for _, v := range values {
-				writer.Header().Add(k, v)
-			}
-		}
+	//if headerer, ok := response.(kithttp.Headerer); ok {
+	//	for k, values := range headerer.Headers() {
+	//		for _, v := range values {
+	//			writer.Header().Add(k, v)
+	//		}
+	//	}
+	//}
+	if resp.Stream {
+		writer.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
+		writer.Header().Set("Transfer-Encoding", "chunked")
+	} else {
+		writer.Header().Set("Content-Type", "application/json")
 	}
 	code := http.StatusOK
 	if sc, ok := response.(kithttp.StatusCoder); ok {
 		code = sc.StatusCode()
 	}
 	writer.WriteHeader(code)
-	traceId, _ := ctx.Value("traceId").(string)
-	writer.Header().Set("TraceId", traceId)
 	if code == http.StatusNoContent {
 		return nil
 	}
-	writer.Header().Set("Content-Type", "application/json")
 	if reflect.TypeOf(resp.Data) == reflect.TypeOf(openai.ChatCompletionResponse{}) ||
 		reflect.TypeOf(resp.Data) == reflect.TypeOf(openai.CompletionResponse{}) {
 		b, _ := json.Marshal(resp.Data)
@@ -105,8 +110,6 @@ func encodeChatCompletionStreamResponse(ctx context.Context, writer http.Respons
 	if !ok {
 		return encode.InvalidParams.Wrap(errors.New("invalid response type"))
 	}
-	writer.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
-	writer.Header().Set("Transfer-Encoding", "chunked")
 	flushWriter := writer.(http.Flusher)
 	for {
 		select {
@@ -114,11 +117,9 @@ func encodeChatCompletionStreamResponse(ctx context.Context, writer http.Respons
 			if !ok {
 				return nil
 			}
-			//if item.ChatCompletionStreamResponse.Choices[0].Delta.Content != "" {
 			streamData, _ := json.Marshal(item.ChatCompletionStreamResponse)
 			_, _ = writer.Write([]byte(fmt.Sprintf("data: %s\n\n", streamData)))
 			flushWriter.Flush()
-			//}
 		case <-time.After(time.Minute * 20):
 			return nil
 		}

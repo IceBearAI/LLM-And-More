@@ -749,6 +749,7 @@ func (s *service) CreateJob(ctx context.Context, tenantId uint, request CreateJo
 		Remark:            request.Remark,
 		TrainPublisher:    request.TrainPublisher,
 		Lora:              request.Lora,
+		ModelMaxLength:    request.ModelMaxLength,
 		Scenario:          types.ScenarioType(request.Scenario),
 	}
 	err = s.store.FineTuning().CreateFineTuningJob(ctx, ftJob)

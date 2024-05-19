@@ -13,6 +13,7 @@ func initSvc() Service {
 	_ = os.Setenv("AIGC_RUNTIME_PLATFORM", "docker")
 	_ = os.Setenv("AIGC_STORAGE_TYPE", "local")
 	_ = os.Setenv("AIGC_RUNTIME_K8S_VOLUME_NAME", "aigc-data-cfs")
+	_ = os.Setenv("AIGC_ADMIN_SERVER_STORAGE_PATH", "/Users/dudu/go/src/github.com/icowan/LLM-And-More/storage")
 
 	apiSvc, err := tests.Init()
 	if err != nil {
@@ -40,4 +41,23 @@ func TestService_Deploy(t *testing.T) {
 		return
 	}
 	t.Log("success.")
+}
+
+func TestService_ModelTree(t *testing.T) {
+	ctx := context.Background()
+	res, err := initSvc().ModelTree(ctx, "chatglm3-6b", "config.json")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if res.Object == "tree" {
+		for _, v := range res.Tree {
+			t.Log(v.Name, v.IsDir, v.Size, v.UpdatedAt)
+		}
+	}
+
+	if res.Object == "file" {
+		t.Log(res.FileInfo)
+		t.Log(res.FileContent)
+	}
 }

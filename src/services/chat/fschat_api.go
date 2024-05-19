@@ -13,8 +13,9 @@ import (
 )
 
 type fsChatApiClient struct {
-	options  *CreationOptions
-	template Templates
+	options   *CreationOptions
+	template  Templates
+	openaiSvc Service
 }
 
 func (s *fsChatApiClient) Completion(ctx context.Context, req openai.CompletionRequest) (res openai.CompletionResponse, err error) {
@@ -35,7 +36,7 @@ func (s *fsChatApiClient) Completion(ctx context.Context, req openai.CompletionR
 		Usage: content.Usage,
 		Choices: []openai.CompletionChoice{
 			{
-				FinishReason: string(content.Choices[0].FinishReason),
+				FinishReason: "stop",
 				Text:         content.Choices[0].Delta.Content,
 			},
 		},
@@ -55,7 +56,7 @@ func (s *fsChatApiClient) ChatCompletion(ctx context.Context, req openai.ChatCom
 		if !ok {
 			break
 		}
-		if len(rs.Choices) > 0 && rs.Choices[0].Delta.Content != "" {
+		if len(rs.Choices) > 0 {
 			content = rs
 		}
 	}
@@ -72,7 +73,7 @@ func (s *fsChatApiClient) ChatCompletion(ctx context.Context, req openai.ChatCom
 			Model:   req.Model,
 			Choices: []openai.ChatCompletionChoice{
 				{
-					FinishReason: content.Choices[0].FinishReason,
+					FinishReason: "stop",
 					Message: openai.ChatCompletionMessage{
 						Role:    "assistant",
 						Content: content.Choices[0].Delta.Content,
@@ -106,7 +107,7 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 		err = errors.WithMessage(err, "failed to get worker address")
 		return
 	}
-	var maxTokens int
+	//var maxTokens int
 	//prompts := s.processInput(req.Model, req.Messages)
 	//for _, prompt := range prompts {
 	//	maxTokens, err = s.options.workerSvc.WorkerCheckLength(ctx, workerAddress, req.Model, req.MaxTokens, prompt)
@@ -117,9 +118,9 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 	//	}
 	//}
 	//_ = level.Info(logger).Log("msg", "max tokens", "maxTokens", maxTokens)
-	if maxTokens != 0 && maxTokens < req.MaxTokens {
-		req.MaxTokens = maxTokens
-	}
+	//if maxTokens != 0 && maxTokens < req.MaxTokens {
+	//	req.MaxTokens = maxTokens
+	//}
 	if req.MaxTokens == 0 {
 		req.MaxTokens = 2048
 	}
@@ -140,6 +141,7 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 		now := time.Now().UnixMilli()
 		defer close(dot)
 		streamId := fmt.Sprintf("cmpl-%s", shortuuid.New())
+		var fullContent string
 		for {
 			content, ok := <-streamResp
 			if !ok {
@@ -165,6 +167,11 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 				previousText = decodedUnicode
 			}
 
+			if len(text) >= len(fullContent) {
+				deltaText = deltaText[len(fullContent):]
+				fullContent += deltaText
+			}
+
 			dot <- CompletionStreamResponse{
 				Usage: struct {
 					PromptTokens     int `json:"prompt_tokens"`
@@ -186,6 +193,9 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 						},
 					},
 				},
+			}
+			if content.FinishReason == "stop" {
+				return
 			}
 		}
 	}()
@@ -229,53 +239,8 @@ func NewFsChatApi(opts ...CreationOption) Service {
 	tp := NewTemplates()
 	return &fsChatApiClient{
 		options:  options,
-		template: register(tp),
+		template: Register(tp),
 	}
-}
-
-func register(tp Templates) Templates {
-	tp.Register(context.Background(), "llama-3", Conv{
-		StopStr:        "<|eot_id|>",
-		Sep:            "",
-		Sep2:           "",
-		StopTokenIds:   []int{128001, 128009},
-		Name:           "llama-3",
-		SepStyle:       int(LLAMA3),
-		Roles:          []string{"user", "assistant"},
-		SystemTemplate: "<|start_header_id|>system<|end_header_id|>\n\n{system_message}<|eot_id|>",
-		SystemMessage:  "You are a helpful assistant.",
-	})
-	tp.Register(context.Background(), "qwen", Conv{
-		SystemMessage:  "You are a helpful assistant.",
-		SystemTemplate: "<|im_start|>system\n{system_message}",
-		StopTokenIds:   []int{151643, 151644, 151645},
-		Name:           "qwen",
-		SepStyle:       int(CHATML),
-		Sep:            "<|im_end|>",
-		Roles:          []string{"<|im_start|>user", "<|im_start|>assistant"},
-		StopStr:        "<|endoftext|>",
-	})
-	tp.Register(context.Background(), "chatglm3", Conv{
-		SystemMessage:  "You are a helpful assistant.",
-		SystemTemplate: "<|system|>\n{system_message}",
-		StopTokenIds:   []int{64795, 64797, 2},
-		Name:           "chatglm3",
-		SepStyle:       int(CHATGLM3),
-		Sep:            "",
-		Roles:          []string{"<|user|>", "<|assistant|>"},
-		StopStr:        "",
-	})
-	tp.Register(context.Background(), "openbuddy-llama3", Conv{
-		SystemMessage:  "<|role|>system<|says|>You(assistant) are a helpful, respectful and honest INTP-T AI Assistant named Buddy. You are talking to a human(user).\nAlways answer as helpfully and logically as possible, while being safe. Your answers should not include any harmful, political, religious, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\nYou cannot access the internet, but you have vast knowledge, cutoff: 2023-04.\nYou are trained by OpenBuddy team, (https://openbuddy.ai, https://github.com/OpenBuddy/OpenBuddy), not related to GPT or OpenAI.<|end|>\n<|role|>user<|says|>History input 1<|end|>\n<|role|>assistant<|says|>History output 1<|end|>\n<|role|>user<|says|>History input 2<|end|>\n<|role|>assistant<|says|>History output 2<|end|>\n<|role|>user<|says|>Current input<|end|>\n<|role|>assistant<|says|>",
-		SystemTemplate: "",
-		StopTokenIds:   []int{},
-		Name:           "openbuddy-llama3",
-		SepStyle:       int(OPENBUDDY_LLAMA3),
-		Sep:            "\n",
-		Roles:          []string{"user", "assistant"},
-		StopStr:        "",
-	})
-	return tp
 }
 
 func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompletionRequest, workerAddress string) (params GenerateStreamParams, err error) {
@@ -285,17 +250,42 @@ func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompleti
 		err = errors.New("failed to get conv template")
 		return
 	}
-	convTemplate := ModelConvTemplate{Conv: conv}
+
+	for _, v := range req.Messages {
+		if v.Role == "system" {
+			conv.SetSystemMessage(strings.TrimSpace(v.Content))
+		} else if v.Role == "user" {
+			if v.MultiContent != nil {
+				var textList []string
+				for _, item := range v.MultiContent {
+					if item.Type == openai.ChatMessagePartTypeImageURL {
+						if item.ImageURL != nil {
+							conv.AppendMessage(conv.Roles[0], ImagePlaceholderStr+item.ImageURL.URL)
+						}
+					} else {
+						textList = append(textList, item.Text)
+					}
+				}
+				text := strings.Join(textList, "\n")
+				conv.AppendMessage(conv.Roles[0], text)
+			} else {
+				conv.AppendMessage(conv.Roles[0], strings.TrimSpace(v.Content))
+			}
+		} else if v.Role == "assistant" {
+			conv.AppendMessage(conv.Roles[1], strings.TrimSpace(v.Content))
+		}
+	}
+	conv.AppendMessage(conv.Roles[1], "")
+
 	//convTemplate, err := s.options.workerSvc.WorkerGetConvTemplate(ctx, workerAddress, req.Model)
 	//if err != nil {
 	//	err = errors.WithMessage(err, "failed to get conv template")
 	//	return
 	//}
-	prompt := s.getPrompt(ctx, req, convTemplate)
-	//prompt += convTemplate.Conv.Roles[1] + "\n"
+	prompt := conv.GetPrompt()
 
-	if req.Stop == nil && convTemplate.Conv.StopStr != "" {
-		req.Stop = append(req.Stop, convTemplate.Conv.StopStr)
+	if req.Stop == nil && conv.StopStr != nil {
+		req.Stop = append(req.Stop, conv.StopStr...)
 	}
 
 	genParams := GenerateStreamParams{
@@ -307,7 +297,7 @@ func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompleti
 		PresencePenalty:  req.PresencePenalty,
 		FrequencyPenalty: req.FrequencyPenalty,
 		MaxNewTokens:     req.MaxTokens,
-		StopTokenIds:     convTemplate.Conv.StopTokenIds,
+		StopTokenIds:     conv.StopTokenIds,
 		Stop:             req.Stop,
 		Echo:             false,
 	}
@@ -320,140 +310,6 @@ func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompleti
 	}
 
 	return genParams, nil
-}
-
-func (s *fsChatApiClient) getPrompt(ctx context.Context, req openai.ChatCompletionRequest, convTemplate ModelConvTemplate) (prompt string) {
-	// todo 应该从数据库模型模版获取
-	req.Messages = append(req.Messages, openai.ChatCompletionMessage{
-		Role: "assistant",
-	})
-	var reqSystemMessage string
-	for _, v := range req.Messages {
-		if v.Role == "system" {
-			reqSystemMessage = strings.TrimSpace(v.Content)
-			break
-		}
-	}
-	// 去除系统消息
-	if convTemplate.Conv.SystemTemplate == "" {
-		convTemplate.Conv.SystemTemplate = "{system_message}"
-	}
-	var systemMessage = strings.ReplaceAll(convTemplate.Conv.SystemTemplate, "{system_message}", reqSystemMessage)
-	var ret string
-	switch SeparatorStyle(convTemplate.Conv.SepStyle) {
-	case LLAMA2:
-		seps := []string{convTemplate.Conv.Sep, convTemplate.Conv.Sep2}
-		if systemMessage != "" {
-			ret = systemMessage
-		} else {
-			ret = "[INST] "
-		}
-		for i, v := range req.Messages {
-			tag := convTemplate.Conv.Roles[i%2]
-			if v.Content != "" {
-				if i == 0 {
-					ret += strings.TrimSpace(v.Content) + " "
-				} else {
-					ret += tag + " " + strings.TrimSpace(v.Content) + seps[i%2]
-				}
-			} else {
-				ret += tag
-			}
-		}
-	case LLAMA3:
-		ret = systemMessage
-		for _, v := range req.Messages {
-			if v.Role == "system" && v.Content == "" {
-				continue
-			}
-			if v.Content != "" {
-				ret += fmt.Sprintf("<|start_header_id|>%s<|end_header_id|>\n\n%s<|eot_id|>", v.Role, strings.TrimSpace(v.Content))
-			} else {
-				ret += fmt.Sprintf("<|start_header_id|>%s<|end_header_id|>\n\n", v.Role)
-			}
-		}
-	case CHATML:
-		if systemMessage != "" {
-			ret = systemMessage + convTemplate.Conv.Sep + "\n"
-		}
-		for _, v := range req.Messages {
-			if v.Role == "system" {
-				continue
-			}
-			if v.MultiContent != nil {
-				for _, content := range v.MultiContent {
-					if content.Type == openai.ChatMessagePartTypeImageURL {
-						if content.ImageURL != nil {
-							ret += ImagePlaceholderStr + content.ImageURL.URL
-						}
-					} else {
-						ret += content.Text
-					}
-				}
-			} else if v.Content != "" {
-				if v.Role == "user" {
-					ret += fmt.Sprintf("%s\n%s%s\n", convTemplate.Conv.Roles[0], v.Content, convTemplate.Conv.Sep)
-				} else if v.Role == "assistant" {
-					ret += fmt.Sprintf("%s\n%s%s\n", convTemplate.Conv.Roles[1], strings.TrimSpace(v.Content), convTemplate.Conv.Sep)
-				} else {
-					ret += fmt.Sprintf("%s\n%s%s\n", v.Role, strings.TrimSpace(v.Content), convTemplate.Conv.Sep)
-				}
-			} else {
-				ret += fmt.Sprintf("%s\n", convTemplate.Conv.Roles[1])
-			}
-		}
-	case OPENBUDDY_LLAMA3:
-		//ret = systemMessage
-		for _, v := range req.Messages {
-			if v.Content != "" {
-				ret += fmt.Sprintf("<|role|>%s<|says|>%s<|end|>\n", v.Role, strings.TrimSpace(v.Content))
-			} else {
-				ret += fmt.Sprintf("<|role|>%s<|says|>\n", v.Role)
-			}
-		}
-	case NO_COLON_SINGLE:
-		ret = systemMessage
-		for _, v := range req.Messages {
-			if v.Content != "" {
-				ret += v.Role + strings.TrimSpace(v.Content) + convTemplate.Conv.Sep
-			} else {
-				ret += v.Role
-			}
-		}
-	case CHATGLM3:
-		if systemMessage != "" {
-			ret += systemMessage + convTemplate.Conv.Sep
-		}
-		for _, v := range req.Messages {
-			if v.Content != "" {
-				ret += fmt.Sprintf("%s\n%s%s\n", v.Role, strings.TrimSpace(v.Content), convTemplate.Conv.Sep)
-			} else {
-				ret += fmt.Sprintf("%s\n", v.Role)
-			}
-		}
-	case CHATGLM:
-		// source: https://huggingface.co/THUDM/chatglm-6b/blob/1d240ba371910e9282298d4592532d7f0f3e9f3e/modeling_chatglm.py#L1302-L1308
-		// source2: https://huggingface.co/THUDM/chatglm2-6b/blob/e186c891cf64310ac66ef10a87e6635fa6c2a579/modeling_chatglm.py#L926
-		roundAddN := 1
-		if strings.Contains(req.Model, "chatglm2") {
-			roundAddN = 0
-		}
-		if systemMessage != "" {
-			ret = systemMessage + convTemplate.Conv.Sep
-		}
-		for i, v := range req.Messages {
-			if i%2 == 0 {
-				ret += fmt.Sprintf("[Round %d]%s", i/2+roundAddN, convTemplate.Conv.Sep)
-			}
-			if v.Content != "" {
-				ret += fmt.Sprintf("%s：%s%s", v.Role, strings.TrimSpace(v.Content), convTemplate.Conv.Sep)
-			} else {
-				ret += fmt.Sprintf("%s：", v.Role)
-			}
-		}
-	}
-
-	return ret
 }
 
 func (s *fsChatApiClient) processInput(modelName string, inp any) (newInp []string) {
