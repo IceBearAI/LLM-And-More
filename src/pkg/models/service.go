@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io/fs"
 	"math/rand"
 	"os"
 	"path"
@@ -176,16 +177,12 @@ func (s *service) ModelCard(ctx context.Context, modelName string) (res modelCar
 		_ = level.Error(logger).Log("getModelPath", "err", err.Error())
 		return
 	}
-	readmeFile := path.Join(modelPath, "README.md")
-	if _, err := os.Stat(readmeFile); err == nil {
-		content, err := os.ReadFile(readmeFile)
-		if err != nil {
-			_ = level.Error(logger).Log("os.ReadFile", "err", err.Error())
-			return res, encode.ErrSystem.Wrap(errors.Wrap(err, "读取README.md失败"))
-		}
-		res.ReadmeContent = string(content)
+	dirFs := os.DirFS(modelPath)
+	readmeContent, err := fs.ReadFile(dirFs, "README.md")
+	if err != nil {
+		_ = level.Warn(logger).Log("fs.ReadFile", "err", err.Error())
 	}
-
+	res.ReadmeContent = string(readmeContent)
 	return res, nil
 }
 
