@@ -69,6 +69,7 @@ func ReadFileAndWrite(file io.Writer, filePath string) {
 type FileItem struct {
 	FiledName string
 	FiledPath string
+	IsDir     bool
 }
 
 type ParamItem struct {
@@ -259,4 +260,20 @@ func GetHttpFileBody(url string) (body []byte, err error) {
 		return
 	}
 	return
+}
+
+// GetFileList 取读目录下的文件列表
+func GetFileList(dirPth string) (files []os.FileInfo, err error) {
+	dir, err := os.ReadDir(dirPth)
+	if err != nil {
+		return nil, err
+	}
+	for _, fi := range dir {
+		info, err := fi.Info()
+		if err != nil {
+			continue
+		}
+		files = append(files, info)
+	}
+	return files, nil
 }

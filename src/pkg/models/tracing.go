@@ -12,6 +12,32 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (t *tracing) ModelCard(ctx context.Context, modelName string) (res modelCardResult, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "ModelCard", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "pkg.model",
+	})
+	defer func() {
+		span.LogKV("modelName", modelName, "err", err)
+		span.SetTag("err", err != nil)
+		span.Finish()
+	}()
+	return t.next.ModelCard(ctx, modelName)
+}
+
+func (t *tracing) ModelTree(ctx context.Context, modelName, catalog string) (res modelTreeResult, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "ModelTree", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "pkg.model",
+	})
+	defer func() {
+		span.LogKV("modelName", modelName, "catalog", catalog, "err", err)
+		span.SetTag("err", err != nil)
+		span.Finish()
+	}()
+	return t.next.ModelTree(ctx, modelName, catalog)
+}
+
 func (t *tracing) ModelInfo(ctx context.Context, modelName string) (res modelInfoResult, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "ModelInfo", opentracing.Tag{
 		Key:   string(ext.Component),
@@ -49,58 +75,6 @@ func (t *tracing) GetModelLogs(ctx context.Context, modelName, containerName str
 		span.Finish()
 	}()
 	return t.next.GetModelLogs(ctx, modelName, containerName)
-}
-
-func (t *tracing) DeleteEval(ctx context.Context, id uint) (err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "DeleteEval", opentracing.Tag{
-		Key:   string(ext.Component),
-		Value: "pkg.model",
-	})
-	defer func() {
-		span.LogKV("id", id, "err", err)
-		span.SetTag("err", err != nil)
-		span.Finish()
-	}()
-	return t.next.DeleteEval(ctx, id)
-}
-
-func (t *tracing) CreateEval(ctx context.Context, request CreateEvalRequest) (res Eval, err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "CreateEval", opentracing.Tag{
-		Key:   string(ext.Component),
-		Value: "pkg.model",
-	})
-	defer func() {
-		span.LogKV("request", fmt.Sprintf("%+v", request), "err", err)
-		span.SetTag("err", err != nil)
-		span.Finish()
-	}()
-	return t.next.CreateEval(ctx, request)
-}
-
-func (t *tracing) ListEval(ctx context.Context, request ListEvalRequest) (res ListEvalResponse, err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "ListEval", opentracing.Tag{
-		Key:   string(ext.Component),
-		Value: "pkg.model",
-	})
-	defer func() {
-		span.LogKV("request", fmt.Sprintf("%+v", request), "err", err)
-		span.SetTag("err", err != nil)
-		span.Finish()
-	}()
-	return t.next.ListEval(ctx, request)
-}
-
-func (t *tracing) CancelEval(ctx context.Context, id uint) (err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "CancelEval", opentracing.Tag{
-		Key:   string(ext.Component),
-		Value: "pkg.model",
-	})
-	defer func() {
-		span.LogKV("id", id, "err", err)
-		span.SetTag("err", err != nil)
-		span.Finish()
-	}()
-	return t.next.CancelEval(ctx, id)
 }
 
 func (t *tracing) Undeploy(ctx context.Context, id uint) (err error) {
