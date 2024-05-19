@@ -107,6 +107,11 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 		decodeModelTreeRequest,
 		encode.JsonResponse,
 		kitopts...))
+	r.Handle("/models/{modelName}/checkpoints", kithttp.NewServer(
+		eps.ModelCheckpointEndpoint,
+		kithttp.NopRequestDecoder,
+		encode.JsonResponse,
+		kitopts...))
 	return r
 }
 

@@ -13,6 +13,19 @@ type logging struct {
 	traceId string
 }
 
+func (l *logging) ModelCheckpoint(ctx context.Context, modelName string) (res []string, err error) {
+	defer func(begin time.Time) {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"modelName", modelName,
+			"method", "ModelCheckpoint",
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return l.next.ModelCheckpoint(ctx, modelName)
+}
+
 func (l *logging) ModelCard(ctx context.Context, modelName string) (res modelCardResult, err error) {
 	defer func(begin time.Time) {
 		_ = l.logger.Log(

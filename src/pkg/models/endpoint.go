@@ -178,6 +178,7 @@ type (
 		MaxGpuMemory int    `json:"maxGpuMemory"`
 		K8sCluster   string `json:"k8sCluster"`  //k8s集群
 		ModelWorker  string `json:"modelWorker"` // 加速模式
+		Checkpoint   string `json:"checkpoint"`
 	}
 
 	// modelLogRequest 模型日志请求
@@ -237,6 +238,7 @@ type (
 
 	// modelCardResult 模型卡片返回
 	modelCardResult struct {
+		ReadmeContent string `json:"readmeContent"`
 	}
 
 	// modelTreeRequest
@@ -273,6 +275,7 @@ type Endpoints struct {
 	ModelInfoEndpoint            endpoint.Endpoint
 	ModelCardEndpoint            endpoint.Endpoint
 	ModelTreeEndpoint            endpoint.Endpoint
+	ModelCheckpointEndpoint      endpoint.Endpoint
 }
 
 func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
@@ -288,6 +291,7 @@ func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 		ChatCompletionStreamEndpoint: makeChatCompletionStreamEndpoint(s),
 		ModelInfoEndpoint:            makeModelInfoEndpoint(s),
 		ModelTreeEndpoint:            makeModelTreeEndpoint(s),
+		ModelCheckpointEndpoint:      makeModelCheckpointEndpoint(s),
 	}
 	for _, m := range dmw["Model"] {
 		eps.ListModelsEndpoint = m(eps.ListModelsEndpoint)
@@ -301,8 +305,21 @@ func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 		eps.ChatCompletionStreamEndpoint = m(eps.ChatCompletionStreamEndpoint)
 		eps.ModelInfoEndpoint = m(eps.ModelInfoEndpoint)
 		eps.ModelTreeEndpoint = m(eps.ModelTreeEndpoint)
+		eps.ModelCheckpointEndpoint = m(eps.ModelCheckpointEndpoint)
 	}
 	return eps
+}
+
+func makeModelCheckpointEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		modelName, _ := ctx.Value(contextKeyModelName).(string)
+		resp, err := s.ModelCheckpoint(ctx, modelName)
+		return encode.Response{
+			Data:  resp,
+			Error: err,
+		}, err
+	}
+
 }
 
 func makeModelTreeEndpoint(s Service) endpoint.Endpoint {

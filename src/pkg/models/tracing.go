@@ -12,6 +12,19 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (t *tracing) ModelCheckpoint(ctx context.Context, modelName string) (res []string, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "ModelCheckpoint", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "pkg.model",
+	})
+	defer func() {
+		span.LogKV("modelName", modelName, "err", err)
+		span.SetTag("err", err != nil)
+		span.Finish()
+	}()
+	return t.next.ModelCheckpoint(ctx, modelName)
+}
+
 func (t *tracing) ModelCard(ctx context.Context, modelName string) (res modelCardResult, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "ModelCard", opentracing.Tag{
 		Key:   string(ext.Component),
