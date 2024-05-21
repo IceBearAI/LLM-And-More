@@ -115,6 +115,19 @@ func (s *service) DeleteDatasetDocumentById(ctx context.Context, id uint, unscop
 }
 
 func (s *service) AddDatasetDocumentSegments(ctx context.Context, data []types.DatasetDocumentSegment) (err error) {
+	if len(data) > 100 {
+		// 循环插入
+		for i := 0; i < len(data); i += 100 {
+			end := i + 100
+			if end > len(data) {
+				end = len(data)
+			}
+			if err = s.db.WithContext(ctx).Model(types.DatasetDocumentSegment{}).Create(data[i:end]).Error; err != nil {
+				return err
+			}
+		}
+		return err
+	}
 	return s.db.WithContext(ctx).Model(types.DatasetDocumentSegment{}).Create(data).Error
 }
 
@@ -189,6 +202,19 @@ func (s *service) GetTask(ctx context.Context, tenantId uint, uuid string, prelo
 }
 
 func (s *service) AddTaskSegments(ctx context.Context, data []types.DatasetAnnotationTaskSegment) (err error) {
+	// 循环插入
+	if len(data) > 100 {
+		for i := 0; i < len(data); i += 100 {
+			end := i + 100
+			if end > len(data) {
+				end = len(data)
+			}
+			if err = s.db.WithContext(ctx).Model(types.DatasetAnnotationTaskSegment{}).Create(data[i:end]).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	return s.db.WithContext(ctx).Create(data).Error
 }
 

@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"math/rand"
@@ -143,6 +144,18 @@ type service struct {
 	options *CreationOptions
 }
 
+type generationConfig struct {
+	BosTokenId          int     `json:"bos_token_id"`
+	PadTokenId          int     `json:"pad_token_id"`
+	DoSample            bool    `json:"do_sample"`
+	EosTokenId          []int   `json:"eos_token_id"`
+	RepetitionPenalty   float64 `json:"repetition_penalty"`
+	Temperature         float64 `json:"temperature"`
+	TopP                float64 `json:"top_p"`
+	TopK                int     `json:"top_k"`
+	TransformersVersion string  `json:"transformers_version"`
+}
+
 func (s *service) ModelCheckpoint(ctx context.Context, modelName string) (res []string, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 	_, modelPath, err := s.getModelPath(ctx, modelName)
@@ -232,37 +245,10 @@ func (s *service) getModelPath(ctx context.Context, modelName string) (res types
 
 func (s *service) ModelTree(ctx context.Context, modelName, catalog string) (res modelTreeResult, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
-	m, err := s.store.Model().FindByModelId(ctx, modelName, "FineTuningTrainJob")
+	_, modelPath, err := s.getModelPath(ctx, modelName)
 	if err != nil {
-		_ = level.Error(logger).Log("store.Model", "GetModelByModelName", "err", err.Error(), "modelName", modelName)
-		return res, encode.ErrSystem.Wrap(errors.New("查询模型失败"))
-	}
-
-	if m.BaseModelName != "" {
-		m, err = s.store.Model().FindByModelId(ctx, m.BaseModelName, "FineTuningTrainJob")
-		if err != nil {
-			_ = level.Error(logger).Log("store.Model", "GetModelByModelName", "err", err.Error(), "modelName", modelName)
-			return res, encode.ErrSystem.Wrap(errors.New("查询模型失败"))
-		}
+		_ = level.Error(logger).Log("getModelPath", "err", err.Error())
 		return
-	}
-
-	var modelPath string
-	if m.IsFineTuning {
-		finetunedModel, err := s.store.FineTuning().GetFineTuningJobByModelName(ctx, m.ModelName)
-		if err != nil {
-			err = errors.Wrap(err, "GetFineTuningJobByModelName failed")
-			_ = level.Warn(logger).Log("msg", "GetFineTuningJobByModelName failed", "err", err)
-			return res, err
-		}
-		modelPath = finetunedModel.OutputDir
-	} else {
-		baseModelTemplate, err := s.store.FineTuning().FindFineTuningTemplateByModelType(ctx, m.ModelName, types.TemplateTypeInference)
-		if err != nil {
-			_ = level.Warn(logger).Log("repository.FineTuning", "FindFineTuningTemplateByModel", "err", err.Error())
-			return res, err
-		}
-		modelPath = baseModelTemplate.BaseModelPath
 	}
 
 	// 判断modelPath是否是绝对路径
@@ -287,7 +273,7 @@ func (s *service) ModelTree(ctx context.Context, modelName, catalog string) (res
 	}
 
 	if !pathInfo.IsDir() {
-		maxOpenSize := 1024 << 12 // 4M
+		maxOpenSize := 1024 << 13 // 8M
 		if pathInfo.Size() > int64(maxOpenSize) {
 			_ = level.Warn(logger).Log("msg", "文件过大", "size", pathInfo.Size())
 			return res, encode.ErrSystem.Wrap(errors.New("文件过大"))
@@ -377,6 +363,10 @@ func (s *service) ModelInfo(ctx context.Context, modelName string) (res modelInf
 		} else {
 			_ = level.Warn(logger).Log("util.GetHttpFileBody", "err", err.Error())
 		}
+	}
+
+	if content, err := fs.ReadFile(os.DirFS(m.ModelDeploy.ModelPath), "generation_config.json"); err == nil {
+		_ = json.Unmarshal(content, &res.GenerationConfig)
 	}
 
 	return res, nil
@@ -639,18 +629,21 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		}
 		baseModel = finetunedModel.BaseModel
 		modelPath = finetunedModel.OutputDir
+		if request.Checkpoint != "" {
+			modelPath = path.Join(modelPath, request.Checkpoint)
+		}
 	}
 	baseModelTemplate, err := s.store.FineTuning().FindFineTuningTemplateByModelType(ctx, baseModel, types.TemplateTypeInference)
 	if err != nil {
 		_ = level.Warn(logger).Log("repository.FineTuning", "FindFineTuningTemplateByModel", "err", err.Error())
 		return err
 	}
+
 	if !m.IsFineTuning {
 		modelPath = baseModelTemplate.BaseModelPath
-		if request.Checkpoint != "" {
-			modelPath = path.Join(modelPath, request.Checkpoint)
-		}
 	}
+
+	_ = level.Info(logger).Log("baseModel", baseModel, "modelPath", modelPath)
 
 	minPort := 20000
 	maxPort := 30000

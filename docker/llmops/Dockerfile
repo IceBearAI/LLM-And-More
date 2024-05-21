@@ -38,7 +38,7 @@ RUN pip3 install packaging ninja torch install numpy bitsandbytes
 # RUN pip3 install fschat
 # 如果需要使用sglang vllm版本0.3.3
 # RUN pip3 sglang zmq rpyc
-# 要安装flash-attn必须在有gpu的机器上构建
+
 RUN pip3 install flash-attn --no-build-isolation
 
 COPY ./requirements.txt /app/requirements.txt

@@ -234,6 +234,8 @@ type (
 		Deployment *modelDeploymentResult `json:"deployment"`
 		// FineTuned 微调信息
 		FineTuned *modelFineTuneResult `json:"fineTuned"`
+		// GenerationConfig 生成配置
+		GenerationConfig *generationConfig `json:"generateConfig"`
 	}
 
 	// modelCardResult 模型卡片返回

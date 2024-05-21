@@ -242,5 +242,13 @@ func Register(tp Templates) Templates {
 		Roles:          []string{"<|user|>", "<|assistant|>"},
 		StopStr:        []string{"<|endoftext|>"},
 	})
+	tp.Register(context.Background(), "yi-", Conversation{
+		StopTokenIds: []int{2, 6, 7, 8}, // "<|endoftext|>", "<|im_start|>", "<|im_end|>", "<|im_sep|>"
+		Name:         "yi-",
+		SepStyle:     int(CHATML),
+		Sep:          "<|im_end|>",
+		Roles:        []string{"<|im_start|>user", "<|im_start|>assistant"},
+		StopStr:      []string{"<|endoftext|>", "<|im_start|>", "<|im_end|>"},
+	})
 	return tp
 }
