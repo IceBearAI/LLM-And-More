@@ -439,6 +439,9 @@ func (s *service) getFiveGraphData(ctx context.Context, modelId, evaluateId int)
 							_ = level.Info(logger).Log("json.Unmarshal", "unmarshal json failed", "err", err.Error())
 							continue
 						}
+						if entry.Epoch == 0 {
+							continue
+						}
 						logEntryList = append(logEntryList, entry)
 					}
 				}

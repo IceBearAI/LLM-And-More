@@ -126,7 +126,9 @@ func fineTuningRunningJobLog(ctx context.Context, jobs []types.FineTuningTrainJo
 						level.Info(logger).Log("json.Unmarshal", "unmarshal json failed", "err", err.Error())
 						continue
 					}
-
+					if entry.Epoch == 0 {
+						continue
+					}
 					logEntryList = append(logEntryList, entry)
 				}
 			}
@@ -170,26 +172,34 @@ func fineTuningDiagnosisLog(lines []logEntry) (res diagnosis) {
 		totalTrainLossChange float64 = 0 // 训练损失变化总和
 		totalEvalLossChange  float64 = 0 // 验证损失变化总和
 	)
-	for i := 0; i < len(lines)-1; i++ {
-		totalTrainLossChange += lines[i+1].Loss - lines[i].Loss
-		totalEvalLossChange += lines[i+1].EvalLoss - lines[i].EvalLoss
-	}
-	avgTrainLossChange := totalTrainLossChange / float64(len(lines)-1)
-	//avgEvalLossChange := totalEvalLossChange / float64(len(lines)-1)
-	// 检查过拟合
-	if lines[len(lines)-1].EvalLoss > lines[len(lines)-2].EvalLoss {
-		// 当验证损失增加时，表示过拟合
-		res.Overfitting = "High"
-	}
-	// 检查欠拟合
-	if lines[len(lines)-1].Loss > underfitting {
-		// 当训练损失高于阈值时，表示欠拟合
-		res.Underfitting = "High"
-	}
-	// 检查灾难性遗忘
-	if avgTrainLossChange > catastrophicForgetting {
-		// 当训练损失的平均变化率高于阈值时，表示灾难性遗忘
-		res.CatastrophicForgetting = "High"
+	if len(lines) == 1 {
+		if lines[0].Loss < 0.009 {
+			res.Overfitting = "High"
+		} else if lines[0].Loss > underfitting {
+			res.Underfitting = "High"
+		}
+	} else {
+		for i := 0; i < len(lines)-1; i++ {
+			totalTrainLossChange += lines[i+1].Loss - lines[i].Loss
+			totalEvalLossChange += lines[i+1].EvalLoss - lines[i].EvalLoss
+		}
+		avgTrainLossChange := totalTrainLossChange / float64(len(lines)-1)
+		//avgEvalLossChange := totalEvalLossChange / float64(len(lines)-1)
+		// 检查过拟合
+		if lines[len(lines)-1].EvalLoss > lines[len(lines)-2].EvalLoss {
+			// 当验证损失增加时，表示过拟合
+			res.Overfitting = "High"
+		}
+		// 检查欠拟合
+		if lines[len(lines)-1].Loss > underfitting {
+			// 当训练损失高于阈值时，表示欠拟合
+			res.Underfitting = "High"
+		}
+		// 检查灾难性遗忘
+		if avgTrainLossChange > catastrophicForgetting {
+			// 当训练损失的平均变化率高于阈值时，表示灾难性遗忘
+			res.CatastrophicForgetting = "High"
+		}
 	}
 	return
 }

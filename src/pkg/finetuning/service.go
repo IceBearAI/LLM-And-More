@@ -1093,6 +1093,9 @@ func GetTrainInfoFromLog(jobLog string) (logEntryList []LogEntry, err error) {
 					fmt.Println("json.Unmarshal", "unmarshal json failed", "err", err.Error())
 					continue
 				}
+				if entry.Epoch == 0 {
+					continue
+				}
 
 				logEntryList = append(logEntryList, entry)
 			}
