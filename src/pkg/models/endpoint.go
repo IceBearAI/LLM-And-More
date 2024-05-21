@@ -250,10 +250,11 @@ type (
 
 	// fileInfo 文件信息
 	fileInfo struct {
-		Name      string    `json:"name"`
-		IsDir     bool      `json:"isDir"`
-		Size      int64     `json:"size"`
-		UpdatedAt time.Time `json:"updatedAt"`
+		Name        string    `json:"name"`
+		IsDir       bool      `json:"isDir"`
+		Size        int64     `json:"size"`
+		UpdatedAt   time.Time `json:"updatedAt"`
+		ContentType string    `json:"contentType"`
 	}
 	// modelTreeResult
 	modelTreeResult struct {
