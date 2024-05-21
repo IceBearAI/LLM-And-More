@@ -20,14 +20,3 @@ $ curl -X POST "http://localhost:8000/v1/chat/completions" \
         "messages": [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Hello!"}]
     }'
 ```
-
-
-```
-curl -X POST "http://221.122.36.165:39118/v1/chat/completions" \
--H "Content-Type: application/json" \
-    -H "Authorization: Bearer sk-001" \
-    -d '{
-        "model": "Llama3-8B-Chinese-Chat",
-        "messages": [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Hello!"}]
-    }'
-```

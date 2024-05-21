@@ -11,6 +11,8 @@
     * [助手操场](assistant/assistants-playground.md)
 * [样本库](README.md)
     * [微调样本列表](dataset/README.md)
+    * [数据样本列表](dataset/README.md)
+    * [文本标注列表](dataset/README.md)
 * [文本模型](model/README.md)
     * [模型管理](model/list.md)
     * [模型聊天操场](model/playground.md)
