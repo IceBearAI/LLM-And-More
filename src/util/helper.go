@@ -279,3 +279,23 @@ func ExtractJSONFromMarkdown(markdownText string) ([]map[string]interface{}, err
 
 	return jsonObjects, nil
 }
+
+// UnescapeString 反转义字符串
+func UnescapeString(s string) string {
+	// 处理常见的转义序列
+	replacements := map[string]string{
+		"\\n":  "\n",
+		"\\r":  "\r",
+		"\\t":  "\t",
+		"\\\"": "\"",
+		"\\'":  "'",
+		"\\\\": "\\",
+		// 可以在这里添加更多的转义序列
+	}
+
+	for old, _new := range replacements {
+		s = strings.ReplaceAll(s, old, _new)
+	}
+
+	return s
+}

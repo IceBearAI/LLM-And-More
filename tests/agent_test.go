@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/tmc/langchaingo/agents"
 	"github.com/tmc/langchaingo/chains"
+	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/tmc/langchaingo/memory"
-	"github.com/tmc/langchaingo/schema"
 	"github.com/tmc/langchaingo/tools"
 	"strings"
 	"testing"
@@ -83,15 +83,18 @@ func TestAgent_Example(t *testing.T) {
 		}),
 	}
 
-	var previousMessages []schema.ChatMessage
-	previousMessages = append(previousMessages,
-		schema.SystemChatMessage{Content: "你是智语AI助手！我的基本信息是\nUsername:王聪\nUserID:10001"},
-		schema.HumanChatMessage{Content: "您好！"},
-		schema.AIChatMessage{Content: "您好！请问有什么可以帮助你的吗？"},
-		schema.HumanChatMessage{Content: "今天天气怎么样？"},
-		schema.AIChatMessage{Content: "很抱歉，我无法确定您所询问的具体位置。请提供一个具体的城市或地点，我才能帮您查询天气。"},
-		//schema.AIChatMessage{Content: "很抱歉，我无法提供具体的地点天气预报，因为我没有收到具体的地点信息。如果您提供一个具体的城市或地区，我可以帮您查询明天的天气。您想查询哪个地方的天气呢？"},
-	)
+	// 获取历史对话记录
+	chatMessageHistory := memory.NewChatMessageHistory()
+
+	ctx := context.Background()
+
+	previousMessages, _ := chatMessageHistory.Messages(ctx)
+
+	_ = chatMessageHistory.AddMessage(ctx, llms.SystemChatMessage{Content: "你是智语AI助手！我的基本信息是\nUsername:icowan\nUserID:10001"})
+	_ = chatMessageHistory.AddUserMessage(ctx, "您好！")
+	_ = chatMessageHistory.AddAIMessage(ctx, "您好！请问有什么可以帮助你的吗？")
+	_ = chatMessageHistory.AddUserMessage(ctx, "今天天气怎么样？")
+	_ = chatMessageHistory.AddAIMessage(ctx, "很抱歉，我无法确定您所询问的具体位置。请提供一个具体的城市或地点，我才能帮您查询天气。")
 
 	executor, testErr := agents.Initialize(
 		llm,
@@ -130,7 +133,6 @@ func TestAgent_Example(t *testing.T) {
 		//}),
 	)
 	var answer string
-	ctx := context.Background()
 	//question := "明天天气怎么样"
 	//answer, testErr = chains.Run(ctx, executor, question, chainsCalls...)
 	//if testErr != nil {

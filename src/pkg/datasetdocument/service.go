@@ -6,6 +6,7 @@ import (
 	"github.com/IceBearAI/aigc/src/middleware"
 	"github.com/IceBearAI/aigc/src/repository"
 	"github.com/IceBearAI/aigc/src/repository/types"
+	"github.com/IceBearAI/aigc/src/util"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/google/uuid"
@@ -95,12 +96,16 @@ func (s *service) CreateDocument(ctx context.Context, tenantId uint, data docume
 	fileContent := string(fileBytes)
 
 	// 按 "\n\n" 分隔符切割文件内容
-	splitType := strings.ReplaceAll(data.SplitType, "\\n", "\n")
+	splitType := util.UnescapeString(data.SplitType)
 	parts := strings.Split(fileContent, splitType)
 
 	var documentSegments []types.DatasetDocumentSegment
 	// 处理切割后的每部分
 	for i, part := range parts {
+		// 过滤空字符串
+		if len(strings.Fields(part)) == 0 {
+			continue
+		}
 		documentSegments = append(documentSegments, types.DatasetDocumentSegment{
 			DatasetDocumentId: document.ID,
 			UUID:              fmt.Sprintf("doc-%s", uuid.New().String()),

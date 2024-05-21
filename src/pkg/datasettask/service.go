@@ -182,8 +182,9 @@ func (s *service) GenerationAnnotationContent(ctx context.Context, tenantId uint
 		_ = level.Warn(logger).Log("repository.DatasetTask", "GetTaskSegmentByUUID", "err", err.Error())
 		return res, nil
 	}
+	var prevSegment types.DatasetAnnotationTaskSegment
 	if strings.TrimSpace(taskSegment.Instruction) == "" {
-		if prevSegment, err := s.repository.DatasetTask().GetTaskSegmentPrev(ctx, taskSegment.ID, types.DatasetAnnotationStatusCompleted); err == nil {
+		if prevSegment, err = s.repository.DatasetTask().GetTaskSegmentPrev(ctx, taskSegment.DataAnnotationID, types.DatasetAnnotationStatusCompleted); err == nil {
 			taskSegment.Instruction = prevSegment.Instruction
 		}
 	}
@@ -195,11 +196,35 @@ func (s *service) GenerationAnnotationContent(ctx context.Context, tenantId uint
 	}
 	switch types.DatasetAnnotationType(taskInfo.AnnotationType) {
 	case types.DatasetAnnotationTypeGeneral:
-		systemPrompt = fmt.Sprintf(`请仔细阅读下面的对话，并根据对话内容填充相应的字段。首先，识别客户提出的问题，并将其填充到"input"字段。然后，根据问题的内容，将回答填充到"output"字段。最后，将您的角色填充到"instruction"字段。请确保您的输出格式严格遵循以下JSON格式：
+		if prevSegment.Instruction != "" {
+			systemPrompt = fmt.Sprintf(`请仔细阅读下面的内容，并根据内容填充相应的字段。首先，识别客户提出的问题，并将其填充到"input"字段。然后，根据问题的内容，将回答填充到"output"字段。最后，将您的角色填充到"instruction"字段。请确保您的输出格式严格遵循以下JSON格式：
 
 {
-    "input": "<填写客户的问题>",
-    "output": "<填写客服的回答>",
+    "input": "<填写客户输入>",
+    "output": "<填写客服的输出>",
+    "instruction": "<您的角色>"
+}
+
+示例：
+
+输入：
+
+instruction: %s  
+document: %s
+
+输出：
+
+{
+    "input": "%s",
+    "output": "%s",
+    "instruction": "%s"
+}`, prevSegment.Instruction, prevSegment.Document, prevSegment.Input, prevSegment.Output, prevSegment.Instruction)
+		} else {
+			systemPrompt = fmt.Sprintf(`请仔细阅读下面的内容，并根据内容内容填充相应的字段。首先，识别客户提出的问题，并将其填充到"input"字段。然后，根据问题的内容，将回答填充到"output"字段。最后，将您的角色填充到"instruction"字段。请确保您的输出格式严格遵循以下JSON格式：
+
+{
+    "input": "<填写客户输入>",
+    "output": "<填写客服的输出>",
     "instruction": "<您的角色>"
 }
 
@@ -220,6 +245,7 @@ document: 雇主责任险的医疗费用是不可重复报销的。如果您已�
     "output": "雇主责任险的医疗费用是不可重复报销的，如果您已经通过社保或其他商业保险公司报销了部分医疗费用，您可以提供分割单及理赔单据的复印件，以申请雇主责任险对剩余未报销部分进行索赔。这有助于确保您获得合理的赔付。",
     "instruction": "%s"
 }`, taskSegment.Instruction, taskSegment.Instruction)
+		}
 	case types.DatasetAnnotationTypeFAQ:
 		for _, segment := range taskInfo.Segments {
 			if segment.Status != types.DatasetAnnotationStatusCompleted {
@@ -232,7 +258,7 @@ document: 雇主责任险的医疗费用是不可重复报销的。如果您已�
 				intents = append(intents, segment.Intent)
 			}
 		}
-		systemPrompt = fmt.Sprintf(`请仔细阅读下面的对话，并根据对话内容填充相应的字段。首先，识别客户提出的问题，并将其填充到"question"字段。然后，根据问题的内容，从以下候选意图类别中选择一个最合适的意图，并填充到"intent"字段。如果提出的问题不符合任何候选类别，请基于您的理解提供一个合适的类别。
+		systemPrompt = fmt.Sprintf(`请仔细阅读下面的内容，并根据内容内容填充相应的字段。首先，识别客户提出的问题，并将其填充到"question"字段。然后，根据问题的内容，从以下候选意图类别中选择一个最合适的意图，并填充到"intent"字段。如果提出的问题不符合任何候选类别，请基于您的理解提供一个合适的类别。
 候选类别有：%s
 
 接下来，将客服的回答填充到"output"字段。最后，将您的角色填充到"instruction"字段。请确保您的输出格式严格遵循以下JSON格式：
@@ -261,7 +287,7 @@ document: 客户: 怎么申请贷款？
     "instruction": "%s"
 }`, strings.Join(intents, "、"), taskSegment.Instruction, taskSegment.Instruction)
 	case types.DatasetAnnotationTypeRAG:
-		systemPrompt = fmt.Sprintf(`请仔细阅读下面的对话，并根据对话内容填充相应的字段。首先，识别客户提出的问题，并将其填充到"input"字段。然后，根据问题的内容，将回答填充到"output"字段。最后，将您的角色填充到"instruction"字段。请确保您的输出格式严格遵循以下JSON格式：
+		systemPrompt = fmt.Sprintf(`请仔细阅读下面的内容，并根据内容内容填充相应的字段。首先，识别客户提出的问题，并将其填充到"input"字段。然后，根据问题的内容，将回答填充到"output"字段。最后，将您的角色填充到"instruction"字段。请确保您的输出格式严格遵循以下JSON格式：
 
 {
     "question": "<填写客户的问题>",
@@ -329,6 +355,7 @@ document: 雇主责任险的医疗费用是否可以重复报销？\n雇主责�
 		return res, nil
 	}
 	content := chatStream.Choices[0].Message.Content
+	fmt.Println(content)
 	if err = json.Unmarshal([]byte(content), &res); err != nil {
 		_ = level.Warn(logger).Log("msg", "json.Unmarshal", "content", content, "err", err.Error())
 		return res, nil

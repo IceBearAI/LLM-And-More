@@ -51,6 +51,7 @@ func (s *fsChatApiClient) ChatCompletion(ctx context.Context, req openai.ChatCom
 		return
 	}
 	var content CompletionStreamResponse
+	var fullContent string
 	for {
 		rs, ok := <-streamResp
 		if !ok {
@@ -58,6 +59,7 @@ func (s *fsChatApiClient) ChatCompletion(ctx context.Context, req openai.ChatCom
 		}
 		if len(rs.Choices) > 0 {
 			content = rs
+			fullContent += rs.Choices[0].Delta.Content
 		}
 	}
 	res = CompletionResponse{
@@ -76,7 +78,7 @@ func (s *fsChatApiClient) ChatCompletion(ctx context.Context, req openai.ChatCom
 					FinishReason: "stop",
 					Message: openai.ChatCompletionMessage{
 						Role:    "assistant",
-						Content: content.Choices[0].Delta.Content,
+						Content: fullContent,
 					},
 				},
 			},
@@ -107,25 +109,21 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 		err = errors.WithMessage(err, "failed to get worker address")
 		return
 	}
+	dot := make(chan CompletionStreamResponse)
 	//var maxTokens int
+
 	//prompts := s.processInput(req.Model, req.Messages)
 	//for _, prompt := range prompts {
 	//	maxTokens, err = s.options.workerSvc.WorkerCheckLength(ctx, workerAddress, req.Model, req.MaxTokens, prompt)
 	//	if err != nil {
 	//		err = errors.WithMessage(err, "failed to check length")
-	//		_ = level.Warn(logger).Log("msg", "failed to check length", "err", err)
-	//		return res, err
+	//		return dot, err
 	//	}
 	//}
-	//_ = level.Info(logger).Log("msg", "max tokens", "maxTokens", maxTokens)
 	//if maxTokens != 0 && maxTokens < req.MaxTokens {
 	//	req.MaxTokens = maxTokens
 	//}
-	if req.MaxTokens == 0 {
-		req.MaxTokens = 2048
-	}
 
-	dot := make(chan CompletionStreamResponse)
 	genParams, err := s.genParams(ctx, req, workerAddress)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to get gen params")
@@ -313,11 +311,22 @@ func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompleti
 }
 
 func (s *fsChatApiClient) processInput(modelName string, inp any) (newInp []string) {
+	//var prompt string
+	//switch inp.(type) {
+	//case string:
+	//	prompt = inp.(string)
+	//case []string:
+	//	prompt = strings.Join(inp.([]string), " ")
+	//case []interface{}:
+	//	prompts, _ := ConvertToSliceOfStrings(inp.([]interface{}))
+	//	prompt = strings.Join(prompts, " ")
+	//}
+
 	fmt.Println(reflect.TypeOf(inp))
 	if reflect.TypeOf(inp).Name() == "string" {
 		newInp = []string{inp.(string)}
-	} else if reflect.TypeOf(inp).Name() == "[]any" {
-		fastInp := inp.([]any)
+	} else if reflect.TypeOf(inp).Name() == "[]openai.ChatCompletionMessage" {
+		fastInp := inp.([]openai.ChatCompletionMessage)
 		if reflect.TypeOf(fastInp[0]).Name() == "int" {
 			decoding, err := tiktoken.EncodingForModel(modelName)
 			if err != nil {
@@ -337,4 +346,20 @@ func (s *fsChatApiClient) processInput(modelName string, inp any) (newInp []stri
 		}
 	}
 	return
+}
+
+func ConvertToSliceOfStrings(data interface{}) ([]string, bool) {
+	var result []string
+	slice, ok := data.([]interface{})
+	if !ok {
+		return nil, false
+	}
+	for _, item := range slice {
+		if num, ok := item.(string); ok {
+			result = append(result, num)
+		} else {
+			return nil, false
+		}
+	}
+	return result, true
 }

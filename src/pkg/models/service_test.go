@@ -61,3 +61,13 @@ func TestService_ModelTree(t *testing.T) {
 		t.Log(res.FileContent)
 	}
 }
+
+func TestService_ModelCard(t *testing.T) {
+	ctx := context.Background()
+	res, err := initSvc().ModelCard(ctx, "chatglm3-6b")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	t.Log(res.ReadmeContent)
+}
