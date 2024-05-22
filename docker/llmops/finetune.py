@@ -1,13 +1,12 @@
 # This code is based on the revised code from fastchat based on tatsu-lab/stanford_alpaca.
-import time
+
+
 from dataclasses import dataclass, field
 import json
 import logging
 import os
 import pathlib
 from typing import Dict, Optional, List
-
-import requests
 import torch
 from torch.utils.data import Dataset
 from deepspeed import zero
@@ -17,10 +16,12 @@ import transformers
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers import Trainer, BitsAndBytesConfig, deepspeed
 from transformers.trainer_pt_utils import LabelSmoother
-from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, PeftModel
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from accelerate.utils import DistributedType
 
 IGNORE_TOKEN_ID = LabelSmoother.ignore_index
+
+TEMPLATE = "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if loop.last %}{{ '<|im_end|>'}}{% else %}{{ '<|im_end|>\n' }}{% endif %}{% endfor %}"
 
 local_rank = None
 
@@ -32,7 +33,7 @@ def rank0_print(*args):
 
 @dataclass
 class ModelArguments:
-    model_name_or_path: Optional[str] = field(default="Qwen/Qwen1.5-7B")
+    model_name_or_path: Optional[str] = field(default="Qwen/Qwen-7B")
 
 
 @dataclass
@@ -146,9 +147,10 @@ def preprocess(
         texts.append(
             tokenizer.apply_chat_template(
                 msg,
+                chat_template=TEMPLATE,
                 tokenize=True,
                 add_generation_prompt=False,
-                padding=True,
+                padding="max_length",
                 max_length=max_len,
                 truncation=True,
             )
@@ -349,9 +351,6 @@ def train():
         tokenizer=tokenizer, data_args=data_args, max_len=training_args.model_max_length
     )
 
-    # for epoch in range(training_args.num_train_epochs):
-    #     model.train()
-
     # Start trainer
     trainer = Trainer(
         model=model, tokenizer=tokenizer, args=training_args, **data_module
@@ -369,37 +368,9 @@ def train():
         trainer.train()
     trainer.save_state()
 
-    output_dir = training_args.output_dir
-    if training_args.use_lora:
-        output_dir = os.path.join(output_dir, "_lora")
-
-    safe_save_model_for_hf_trainer(trainer=trainer, output_dir=output_dir, bias=lora_args.lora_bias)
-
-#     if training_args.use_lora and local_rank == 0:
-#         base = AutoModelForCausalLM.from_pretrained(
-#             model_args.model_name_or_path, torch_dtype=torch.float16, trust_remote_code=True, low_cpu_mem_usage=True
-#         )
-#         base_tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, trust_remote_code=True,
-#                                                        use_fast=False)
-#
-#         logging.info(f"Loading the LoRA adapter from {output_dir}")
-#
-#         lora_model = PeftModel.from_pretrained(
-#             base,
-#             output_dir,
-#             # torch_dtype=torch.float16
-#         )
-#
-#         logging.info("Applying the LoRA")
-#         model = lora_model.merge_and_unload()
-#
-#         logging.info(f"Saving the target model to {training_args.output_dir}")
-#         model.save_pretrained(training_args.output_dir)
-#         base_tokenizer.save_pretrained(training_args.output_dir)
-
-        # 删除lora目录
-        # if local_rank == 0:
-        #     os.system("rm -rf " + output_dir)
+    safe_save_model_for_hf_trainer(
+        trainer=trainer, output_dir=training_args.output_dir, bias=lora_args.lora_bias
+    )
 
 
 if __name__ == "__main__":
