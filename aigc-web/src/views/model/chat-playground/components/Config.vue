@@ -5,7 +5,7 @@
     <v-sheet>
       <h6 class="text-h6 mb-3">会话设置</h6>
       <v-label class="mb-2 font-weight-medium">包含过去的消息</v-label>
-      <v-slider v-model="sendHistoryCount" color="primary" :max="20" :min="0" step="1" hide-details thumb-label>
+      <v-slider v-model="sendHistoryCount" color="primary" :max="50" :min="0" step="1" hide-details thumb-label>
         <template v-slot:append>
           <v-text-field
             v-model.number="sendHistoryCount"
@@ -13,7 +13,7 @@
             single-line
             density="compact"
             type="number"
-            :max="20"
+            :max="50"
             :min="0"
             style="width: 80px"
           ></v-text-field>
@@ -52,9 +52,10 @@
 import { computed, reactive, ref } from "vue";
 import ModelSelect from "@/components/business/ModelSelect.vue";
 import { useRoute } from "vue-router";
+import { http } from "@/utils";
 
 interface IEmits {
-  (e: "change:model", val: string): void;
+  (e: "update:model:info", val: string): void;
 }
 
 const emit = defineEmits<IEmits>();
@@ -98,10 +99,17 @@ const paramsConfig = computed(() => {
   ];
 });
 
-const modelUpdate = val => {
-  emit("change:model", val);
-  const maxTokens = val.maxTokens;
-  config.maxTokens = config.maxTokens > maxTokens ? maxTokens : 512;
+const modelUpdate = async val => {
+  const [err, res] = await http.get({
+    url: `/api/models/${val.modelName}/info`
+  });
+  if (res) {
+    emit("update:model:info", res);
+    const generateConfig = res.generateConfig;
+    config.maxTokens = config.maxTokens > res.maxTokens ? res.maxTokens : 512;
+    config.temperature = generateConfig?.temperature || 0;
+    config.topP = generateConfig?.top_p || 0;
+  }
 };
 
 const getData = () => {

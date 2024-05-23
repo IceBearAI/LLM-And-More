@@ -19,13 +19,15 @@ interface IProps {
   fileType?: string[];
   isSuffixValid?: boolean;
   autoUpload?: boolean;
+  disabled?: boolean;
 }
 const props = withDefaults(defineProps<IProps>(), {
   limit: 1,
   fileSize: 2,
   fileType: () => [],
   isSuffixValid: false,
-  autoUpload: true
+  autoUpload: true,
+  disabled: false
 });
 
 interface IEmits {
@@ -40,6 +42,7 @@ const loading = ref(false);
 const refUpload = ref();
 
 const handleSelectFile = () => {
+  if (props.disabled) return;
   refUpload.value.click();
 };
 

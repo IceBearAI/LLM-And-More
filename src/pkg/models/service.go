@@ -269,8 +269,8 @@ func (s *service) ModelTree(ctx context.Context, modelName, catalog string) (res
 
 	pathInfo, err := os.Stat(modelPath)
 	if err != nil {
-		_ = level.Error(logger).Log("os.Stat", "err", err.Error())
-		return res, encode.ErrSystem.Wrap(errors.Wrap(err, "模型目录不存在"))
+		_ = level.Warn(logger).Log("os.Stat", "err", err.Error())
+		return res, nil
 	}
 
 	if !pathInfo.IsDir() {
@@ -306,24 +306,11 @@ func (s *service) ModelTree(ctx context.Context, modelName, catalog string) (res
 
 	for _, v := range files {
 		info := fileInfo{
-			Name:      v.Name(),
-			Size:      v.Size(),
-			IsDir:     v.IsDir(),
-			UpdatedAt: v.ModTime(),
-		}
-		if !v.IsDir() {
-			fullPath := path.Join(modelPath, v.Name())
-			if f, fErr := os.Open(fullPath); fErr == nil {
-				// 读取文件的前 512 个字节
-				buffer := make([]byte, 512)
-				if _, rErr := f.Read(buffer); rErr != nil {
-					_ = level.Warn(logger).Log("f.Read", fullPath, "err", rErr.Error())
-					continue
-				}
-				_ = f.Close()
-				// 使用 net/http 包的 DetectContentType 函数来获取文件类型
-				info.ContentType = http.DetectContentType(buffer)
-			}
+			Name:        v.Name(),
+			Size:        v.Size(),
+			IsDir:       v.IsDir(),
+			UpdatedAt:   v.ModTime(),
+			ContentType: v.ContentType,
 		}
 		res.Tree = append(res.Tree, info)
 	}

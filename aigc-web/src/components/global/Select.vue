@@ -74,7 +74,8 @@ const props = defineProps({
         data: {}, //api 接口入参
         labelField: "", //给人看的字段名
         valueField: "", //给程序传值的字段名
-        search_keywordField: "" //使用关键词搜索，关键词对应的字段名。未指定时静态搜索，指定了动态搜索。
+        search_keywordField: "", //使用关键词搜索，关键词对应的字段名。未指定时静态搜索，指定了动态搜索。
+        responsePath: "" // 取值路径
       };
     }
   },

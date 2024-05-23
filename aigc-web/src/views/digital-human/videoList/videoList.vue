@@ -61,6 +61,7 @@
                 <v-card-item class="pa-5">
                   <h5 class="text-h5">{{ item.title }}</h5>
                   <p class="text-subtitle-1 mt-1 text-medium-emphasis text-truncate">{{ item.ttsText }}</p>
+                  <p class="text-subtitle-1 mt-1 text-medium-emphasis text-truncate">{{ item.synthesisModel }}</p>
                   <p v-copy="item.uuid" class="text-subtitle-2 mt-1 text-medium-emphasis text-truncate">{{ item.uuid }}</p>
                   <div class="d-flex align-center justify-space-between mt-2" style="height: 32px">
                     <div class="flex-1-1 d-flex justify-space-between text-medium-emphasis">

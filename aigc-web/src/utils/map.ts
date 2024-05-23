@@ -1,3 +1,5 @@
+import { IconPhoto, IconFileTypePdf } from "@tabler/icons-vue";
+
 export const statusMap = {
   running: {
     color: "info"
@@ -33,4 +35,15 @@ export const textMarkStatus = {
   completed: "已完成",
   abandoned: "已废弃",
   cleaned: "已取消"
+};
+
+export const fileTypes = {
+  image: {
+    text: "图片",
+    icon: IconPhoto
+  },
+  pdf: {
+    text: "PDF",
+    icon: IconFileTypePdf
+  }
 };

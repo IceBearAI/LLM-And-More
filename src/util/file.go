@@ -262,8 +262,13 @@ func GetHttpFileBody(url string) (body []byte, err error) {
 	return
 }
 
+type FileInfo struct {
+	os.FileInfo
+	ContentType string
+}
+
 // GetFileList 取读目录下的文件列表
-func GetFileList(dirPth string) (files []os.FileInfo, err error) {
+func GetFileList(dirPth string) (files []FileInfo, err error) {
 	dir, err := os.ReadDir(dirPth)
 	if err != nil {
 		return nil, err
@@ -273,7 +278,31 @@ func GetFileList(dirPth string) (files []os.FileInfo, err error) {
 		if err != nil {
 			continue
 		}
-		files = append(files, info)
+		fullPath := filepath.Join(dirPth, info.Name())
+		fileInfo := FileInfo{
+			FileInfo: info,
+		}
+		// 判断是否为软链，如果是软链获取真实文件路径
+		if !info.IsDir() {
+			if link, err := os.Readlink(fullPath); err == nil {
+				fullPath = link
+				f, err := os.Open(fullPath)
+				if err != nil {
+					continue
+				}
+				// 读取文件的前 512 个字节
+				buffer := make([]byte, 512)
+				if _, rErr := f.Read(buffer); rErr != nil {
+					continue
+				}
+				_ = f.Close()
+				// 使用 net/http 包的 DetectContentType 函数来获取文件类型
+				info, _ = f.Stat()
+				fileInfo.FileInfo = info
+				fileInfo.ContentType = http.DetectContentType(buffer)
+			}
+		}
+		files = append(files, fileInfo)
 	}
 	return files, nil
 }

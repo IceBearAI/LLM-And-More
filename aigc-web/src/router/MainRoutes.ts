@@ -103,6 +103,11 @@ const MainRoutes: RouteRecordRaw = {
       path: "/image-services/face-recognition/list",
       component: () => import("@/views/image-services/face-recognition/faceRecognition.vue")
     },
+    // ocr服务
+    {
+      path: "/ocr-services/ocr-detection/list",
+      component: () => import("@/views/ocr-services/ocr-detection/ocrDetection.vue")
+    },
     {
       path: "/voice-print/synthesis/speaker",
       component: () => import("@/components/business/AspectPage.vue"),

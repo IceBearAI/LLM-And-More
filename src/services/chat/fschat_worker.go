@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -22,6 +23,11 @@ func WithControllerAddress(addr string) WorkerCreationOption {
 	return func(o *WorkerCreationOptions) {
 		o.controllerAddress = addr
 	}
+}
+
+type ErrorResponse struct {
+	Text      string `json:"text"`
+	ErrorCode int    `json:"error_code"`
 }
 
 type worker struct {
@@ -109,68 +115,52 @@ func (s *worker) WorkerGetConvTemplate(ctx context.Context, workerAddress string
 	}
 	return
 }
-
 func (s *worker) WorkerGenerateStream(ctx context.Context, workerAddress string, params GenerateStreamParams) (res <-chan WorkerGenerateStreamResponse, err error) {
 	u, err := url.Parse(fmt.Sprintf("%s/worker_generate_stream", workerAddress))
 	if err != nil {
-		err = errors.Wrap(err, "failed to parse url")
-		return
+		return nil, errors.Wrap(err, "failed to parse url")
 	}
+
 	opts := s.options.httpClientOpts
 	opts = append(opts, kithttp.BufferedStream(true))
 
-	ep := kithttp.NewClient(http.MethodPost, u, func(ctx context.Context, r *http.Request, request interface{}) error {
-		r.Header.Set("Content-Type", "application/json; charset=utf-8")
-		r.Header.Set("Accept", "text/event-stream")
-		r.Header.Set("Cache-Control", "no-cache")
-		r.Header.Set("Connection", "keep-alive")
-		var b bytes.Buffer
-		r.Body = io.NopCloser(&b)
-		return json.NewEncoder(&b).Encode(request)
-	}, func(ctx context.Context, response2 *http.Response) (response interface{}, err error) {
-		return response2.Body, nil
-	}, opts...).Endpoint()
+	ep := kithttp.NewClient(http.MethodPost, u, encodeRequest, decodeResponse, opts...).Endpoint()
 	resStream, err := ep(ctx, params)
 	if err != nil {
-		err = errors.Wrap(err, "failed to call endpoint")
-		return
+		return nil, errors.Wrap(err, "failed to call endpoint")
 	}
+
 	dot := make(chan WorkerGenerateStreamResponse)
 	go func() {
+		defer close(dot)
 		rc := resStream.(io.ReadCloser)
 		defer rc.Close()
-		defer close(dot)
-		resp := WorkerGenerateStreamResponse{}
-		for {
-			buf := make([]byte, 327680)
-			_, readErr := rc.Read(buf)
-			delimiter := []byte("\x00")
-			for {
-				chunkEnd := bytes.Index(buf, delimiter)
-				if chunkEnd < 0 {
-					break
+
+		scanner := bufio.NewScanner(rc)
+		scanner.Split(splitAtDelimiter([]byte("\x00")))
+
+		for scanner.Scan() {
+			var resp WorkerGenerateStreamResponse
+			if err := json.Unmarshal(scanner.Bytes(), &resp); err != nil {
+				dot <- WorkerGenerateStreamResponse{
+					ErrorCode:    1,
+					Text:         err.Error(),
+					FinishReason: "stop",
 				}
-				chunk := buf[:chunkEnd]
-				buf = buf[chunkEnd+1:]
-				if len(chunk) == 0 {
-					continue
-				}
-				decoder := json.NewDecoder(bytes.NewReader(chunk))
-				if err = decoder.Decode(&resp); err != nil {
-					dot <- WorkerGenerateStreamResponse{
-						ErrorCode:    1,
-						Text:         err.Error(),
-						FinishReason: "stop",
-					}
-					return
-				}
-				if readErr == io.EOF {
-					resp.FinishReason = "stop"
-				}
-				dot <- resp
+				return
+			}
+			dot <- resp
+		}
+
+		if err := scanner.Err(); err != nil {
+			dot <- WorkerGenerateStreamResponse{
+				ErrorCode:    1,
+				Text:         err.Error(),
+				FinishReason: "stop",
 			}
 		}
 	}()
+
 	return dot, nil
 }
 
@@ -183,55 +173,43 @@ func (s *worker) WorkerGenerate(ctx context.Context, workerAddress string, param
 	opts := s.options.httpClientOpts
 	opts = append(opts, kithttp.BufferedStream(true))
 
-	ep := kithttp.NewClient(http.MethodPost, u, func(ctx context.Context, r *http.Request, request interface{}) error {
-		r.Header.Set("Content-Type", "application/json; charset=utf-8")
-		r.Header.Set("Accept", "text/event-stream")
-		r.Header.Set("Cache-Control", "no-cache")
-		r.Header.Set("Connection", "keep-alive")
-		var b bytes.Buffer
-		r.Body = io.NopCloser(&b)
-		return json.NewEncoder(&b).Encode(request)
-	}, func(ctx context.Context, response2 *http.Response) (response interface{}, err error) {
-		return response2.Body, nil
-	}, opts...).Endpoint()
+	ep := kithttp.NewClient(http.MethodPost, u, encodeRequest, decodeResponse, opts...).Endpoint()
 	resStream, err := ep(ctx, params)
 	if err != nil {
-		err = errors.Wrap(err, "failed to call endpoint")
-		return
+		return nil, errors.Wrap(err, "failed to call endpoint")
 	}
+
 	dot := make(chan WorkerGenerateStreamResponse)
 	go func() {
+		defer close(dot)
 		rc := resStream.(io.ReadCloser)
 		defer rc.Close()
-		defer close(dot)
-		resp := WorkerGenerateStreamResponse{}
-		for {
-			buf := make([]byte, 327680)
-			_, _ = rc.Read(buf)
-			delimiter := []byte("\x00")
-			for {
-				chunkEnd := bytes.Index(buf, delimiter)
-				if chunkEnd < 0 {
-					break
+
+		scanner := bufio.NewScanner(rc)
+		scanner.Split(splitAtDelimiter([]byte("\x00")))
+
+		for scanner.Scan() {
+			var resp WorkerGenerateStreamResponse
+			if err := json.Unmarshal(scanner.Bytes(), &resp); err != nil {
+				dot <- WorkerGenerateStreamResponse{
+					ErrorCode:    1,
+					Text:         err.Error(),
+					FinishReason: "stop",
 				}
-				chunk := buf[:chunkEnd]
-				buf = buf[chunkEnd+1:]
-				if len(chunk) == 0 {
-					continue
-				}
-				decoder := json.NewDecoder(bytes.NewReader(chunk))
-				if err = decoder.Decode(&resp); err != nil {
-					dot <- WorkerGenerateStreamResponse{
-						ErrorCode:    1,
-						Text:         err.Error(),
-						FinishReason: "stop",
-					}
-					return
-				}
-				dot <- resp
+				return
+			}
+			dot <- resp
+		}
+
+		if err := scanner.Err(); err != nil {
+			dot <- WorkerGenerateStreamResponse{
+				ErrorCode:    1,
+				Text:         err.Error(),
+				FinishReason: "stop",
 			}
 		}
 	}()
+
 	return dot, nil
 }
 
@@ -364,4 +342,37 @@ func decodeJsonResponse(data interface{}) func(ctx context.Context, res *http.Re
 		}
 		return res, nil
 	}
+}
+
+// splitAtDelimiter returns a bufio.SplitFunc closure that splits at the given delimiter.
+func splitAtDelimiter(delimiter []byte) bufio.SplitFunc {
+	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		if atEOF && len(data) == 0 {
+			return 0, nil, nil
+		}
+		if i := bytes.Index(data, delimiter); i >= 0 {
+			// We have a full delimiter-terminated chunk.
+			return i + len(delimiter), data[0:i], nil
+		}
+		// If we're at EOF, we have a final, non-terminated chunk. Return it.
+		if atEOF {
+			return len(data), data, nil
+		}
+		// Request more data.
+		return 0, nil, nil
+	}
+}
+
+func encodeRequest(ctx context.Context, r *http.Request, request interface{}) error {
+	r.Header.Set("Content-Type", "application/json; charset=utf-8")
+	r.Header.Set("Accept", "text/event-stream")
+	r.Header.Set("Cache-Control", "no-cache")
+	r.Header.Set("Connection", "keep-alive")
+	var b bytes.Buffer
+	r.Body = io.NopCloser(&b)
+	return json.NewEncoder(&b).Encode(request)
+}
+
+func decodeResponse(ctx context.Context, response *http.Response) (interface{}, error) {
+	return response.Body, nil
 }

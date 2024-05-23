@@ -1,6 +1,8 @@
 <template>
-  <div class="codemirror-wrapper">
-    <Codemirror v-model="codeValue" :style="codeStyle" :extensions="extensions" :tabSize="2" v-bind="$attrs" />
+  <div class="flex w-100">
+    <div class="codemirror-wrapper">
+      <Codemirror v-model="codeValue" :style="codeStyle" :extensions="extensions" :tabSize="2" v-bind="$attrs" />
+    </div>
   </div>
 </template>
 <script setup lang="ts">
@@ -51,7 +53,9 @@ const extensions = computed(() => {
 </script>
 <style lang="scss" scoped>
 .codemirror-wrapper {
-  width: 100%;
+  // 需要外面包括元素设置display：flex，设置最大最小值才生效，不知道为啥？？
+  flex: 1;
+  overflow: hidden; // https://juejin.cn/post/6974356682574921765
   min-height: 120px;
   max-height: 660px;
 }

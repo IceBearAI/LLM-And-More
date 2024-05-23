@@ -62,6 +62,10 @@
             </div>
           </v-input>
           <v-input hide-details>
+            <template #prepend> <label>模型类型</label></template>
+            {{ showData.synthesisModel }}
+          </v-input>
+          <v-input hide-details>
             <template #prepend> <label>是否超分</label></template>
             {{ showData.isGfpgan ? "是" : "否" }}
           </v-input>

@@ -1,6 +1,6 @@
 <template>
   <div class="d-flex align-center pa-2">
-    <v-btn icon flat @click="handleClear"><IconTrash stroke-width="1.5" :size="20" class="text-error" /></v-btn>
+    <v-btn size="x-small" icon flat @click="handleClear"><IconTrash stroke-width="1.5" :size="20" class="text-error" /></v-btn>
     <v-textarea
       variant="solo"
       hide-details
@@ -28,7 +28,6 @@ import { useVModel } from "@vueuse/core";
 
 interface IProps {
   modelValue?: string;
-  sendLoading?: boolean;
 }
 
 interface IEmits {
@@ -38,15 +37,14 @@ interface IEmits {
 }
 
 const props = withDefaults(defineProps<IProps>(), {
-  modelValue: "",
-  sendLoading: false
+  modelValue: ""
 });
 const emit = defineEmits<IEmits>();
 
 const msg = useVModel(props, "modelValue", emit);
 
 const sendBtnDisabled = computed(() => {
-  return props.sendLoading || !msg.value || msg.value.trim() === "";
+  return !msg.value || msg.value.trim() === "";
 });
 
 const handleEnter = event => {

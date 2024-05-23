@@ -57,6 +57,12 @@ func (s *docker) GetContainers(ctx context.Context, jobName string) (res []Conta
 	for _, v := range list {
 		var ip = "127.0.0.1"
 		if v.NetworkSettings != nil {
+			if v.NetworkSettings.Networks == nil {
+				continue
+			}
+			if v.NetworkSettings.Networks["bridge"] == nil {
+				continue
+			}
 			ip = v.NetworkSettings.Networks["bridge"].IPAddress
 		}
 		res = append(res, Container{

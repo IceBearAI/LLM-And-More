@@ -179,7 +179,7 @@ func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai
 		if content.Usage.TotalTokens > 0 {
 			usage = content.Usage
 		}
-		if content.Choices[0].FinishReason == openai.FinishReasonStop && content.Choices[0].Delta.Content != "" {
+		if content.Choices[0].FinishReason == openai.FinishReasonStop {
 			isError = false
 			finished = true
 			// 更新数据库

@@ -61,6 +61,17 @@
             </v-col>
 
             <v-col cols="12">
+              <v-label class="mb-2 required">模型选择</v-label>
+              <Select
+                :mapDictionary="{ code: 'digitalhuman_synthesis_model' }"
+                v-model="formData.synthesisModel"
+                defaultFirst
+                :clearable="false"
+              >
+              </Select>
+            </v-col>
+
+            <v-col v-if="formData.synthesisModel === 'wav2lip'" cols="12">
               <v-label class="mb-2 required">是否超分</v-label>
               <v-switch v-model="formData.isGfpgan" color="primary" hide-details="auto"></v-switch>
             </v-col>
@@ -169,7 +180,8 @@ const state = reactive<ItfProvideState>({
     text: "",
     title: "",
     speakName: "",
-    isGfpgan: false
+    isGfpgan: false,
+    synthesisModel: null
   },
   selectedSpeaker: {
     speakName: "",
@@ -277,6 +289,9 @@ const onAIText = async () => {
 const onSubmit = async () => {
   const { valid } = await refForm.value.validate();
   if (valid) {
+    if (state.formData.synthesisModel !== "wav2lip") {
+      state.formData.isGfpgan = false;
+    }
     const [err, res] = await http.post({
       url: "/api/digitalhuman/synthesis/create",
       showSuccess: true,

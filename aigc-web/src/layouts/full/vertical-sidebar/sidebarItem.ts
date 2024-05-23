@@ -21,7 +21,8 @@ import {
   IconPhotoUp,
   IconPhotoX,
   IconPhotoCheck,
-  IconTools
+  IconTools,
+  IconPhotoSensor2
 } from "@tabler/icons-vue";
 
 export interface menu {
@@ -242,6 +243,14 @@ let sidebarItem: menu[] = [
   //   title: "faceRecognition",
   //   icon: IconPhotoX,
   //   to: "/image-services/face-recognition/list"
+  // },
+
+  // ocr服务
+  // { header: "ocrServices" },
+  // {
+  //   title: "ocrDetection",
+  //   icon: IconPhotoSensor2,
+  //   to: "/ocr-services/ocr-detection/list"
   // },
 
   // { header: "videoService" },
