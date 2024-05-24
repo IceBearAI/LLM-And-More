@@ -254,33 +254,32 @@ def make_supervised_data_module(
     return dict(train_dataset=train_dataset, eval_dataset=eval_dataset)
 
 
-def merge_lora_model(model, model_args, training_args):
+def merge_lora_model(trainer: transformers.Trainer, model_name_or_path: str, output_dir: str, lora_bias):
+    lora_output_dir = os.path.join(output_dir, "_lora")
+
+    safe_save_model_for_hf_trainer(trainer=trainer, output_dir=lora_output_dir, bias=lora_bias)
+
     # Load the model and tokenizer from the checkpoint
-    output_dir = training_args.output_dir
-    if training_args.use_lora:
-        output_dir = os.path.join(output_dir, "_lora")
+    base = AutoModelForCausalLM.from_pretrained(
+        model_name_or_path, torch_dtype=torch.float16, trust_remote_code=True, low_cpu_mem_usage=True
+    )
+    base_tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=True,
+                                                   use_fast=False)
 
-    if training_args.use_lora and local_rank == 0:
-        base = AutoModelForCausalLM.from_pretrained(
-            model_args.model_name_or_path, torch_dtype=torch.float16, trust_remote_code=True, low_cpu_mem_usage=True
-        )
-        base_tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, trust_remote_code=True,
-                                                       use_fast=False)
+    logging.info(f"Loading the LoRA adapter from {output_dir}")
 
-        logging.info(f"Loading the LoRA adapter from {output_dir}")
+    lora_model = PeftModel.from_pretrained(
+        base,
+        lora_output_dir,
+        # torch_dtype=torch.float16
+    )
 
-        lora_model = PeftModel.from_pretrained(
-            base,
-            output_dir,
-            # torch_dtype=torch.float16
-        )
+    logging.info("Applying the LoRA")
+    model = lora_model.merge_and_unload()
 
-        logging.info("Applying the LoRA")
-        model = lora_model.merge_and_unload()
-
-        logging.info(f"Saving the target model to {training_args.output_dir}")
-        model.save_pretrained(training_args.output_dir)
-        base_tokenizer.save_pretrained(training_args.output_dir)
+    logging.info(f"Saving the target model to {output_dir}")
+    model.save_pretrained(output_dir)
+    base_tokenizer.save_pretrained(output_dir)
 
     # 删除lora目录
     if local_rank == 0:
@@ -401,8 +400,8 @@ def train():
         trainer.train()
     trainer.save_state()
 
-    if os.getenv("MERGE_LORA_MODEL", "false") == "true":
-        merge_lora_model(model, model_args, training_args)
+    if os.getenv("MERGE_LORA_MODEL", "true") == "false" and training_args.use_lora and local_rank == 0:
+        merge_lora_model(trainer, model_args, training_args, lora_args)
     else:
         safe_save_model_for_hf_trainer(trainer=trainer, output_dir=training_args.output_dir, bias=lora_args.lora_bias)
 
