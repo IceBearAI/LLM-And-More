@@ -147,7 +147,7 @@ def preprocess(
         texts.append(
             tokenizer.apply_chat_template(
                 msg,
-                chat_template=TEMPLATE,
+                # chat_template=TEMPLATE,
                 tokenize=True,
                 add_generation_prompt=False,
                 padding="max_length",
@@ -283,7 +283,7 @@ def merge_lora_model(trainer: transformers.Trainer, model_name_or_path: str, out
 
     # 删除lora目录
     if local_rank == 0:
-        os.system("rm -rf " + output_dir)
+        os.system("rm -rf " + lora_output_dir)
 
 
 def train():
@@ -401,7 +401,7 @@ def train():
     trainer.save_state()
 
     if os.getenv("MERGE_LORA_MODEL", "true") == "true" and training_args.use_lora and local_rank == 0:
-        merge_lora_model(trainer, model_args, training_args, lora_args)
+        merge_lora_model(trainer, model_args.model_name_or_path, training_args.output_dir, lora_args.lora_bias)
     else:
         safe_save_model_for_hf_trainer(trainer=trainer, output_dir=training_args.output_dir, bias=lora_args.lora_bias)
 
