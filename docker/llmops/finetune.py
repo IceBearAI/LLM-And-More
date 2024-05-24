@@ -400,7 +400,7 @@ def train():
         trainer.train()
     trainer.save_state()
 
-    if os.getenv("MERGE_LORA_MODEL", "true") == "false" and training_args.use_lora and local_rank == 0:
+    if os.getenv("MERGE_LORA_MODEL", "true") == "true" and training_args.use_lora and local_rank == 0:
         merge_lora_model(trainer, model_args, training_args, lora_args)
     else:
         safe_save_model_for_hf_trainer(trainer=trainer, output_dir=training_args.output_dir, bias=lora_args.lora_bias)
