@@ -53,6 +53,7 @@
           type="text"
           placeholder="请输入微调后模型名称的后缀"
           hide-details="auto"
+          :rules="rules.suffix"
           clearable
           v-model="formData.suffix"
         >
@@ -158,7 +159,7 @@ import _ from "lodash";
 import Explain from "@/components/ui/Explain.vue";
 import AlertBlock from "@/components/ui/AlertBlock.vue";
 import FileList from "./FileList.vue";
-import { http } from "@/utils";
+import { http, validator } from "@/utils";
 
 const paneConfig = reactive({
   operateType: "add"
@@ -194,10 +195,15 @@ const rules = reactive({
   scenario: [v => !!v || "请选择应用场景"],
   fileId: [v => !!v || "请选择微调文件"],
   baseModel: [v => !!v || "请选择基础模型"],
+  suffix: [
+    value => {
+      return validator.isModelName({ value, required: false });
+    }
+  ],
   trainEpoch: [v => validNumberInput(v, 1, 512, "请输入训练轮次", true)],
   trainBatchSize: [v => validNumberInput(v, 1, 512, "请输入训练批次", true)],
   evalBatchSize: [v => validNumberInput(v, 1, 32, "请输入评估批次", true)],
-  accumulationSteps: [v => validNumberInput(v, 1, 32, "请输入梯度累加步数", true)],
+  accumulationSteps: [v => validNumberInput(v, 1, 1024, "请输入梯度累加步数", true)],
   procPerNode: [v => validNumberInput(v, 1, 16, "请输入GPU数量", true)],
   learningRate: [v => validNumberInput(v, 0.000001, 1, "请输入学习率")],
   modelMaxLength: [v => validNumberInput(v, 1, 500000, "请输入模型最大长度", true)]

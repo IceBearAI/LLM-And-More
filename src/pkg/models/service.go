@@ -146,15 +146,16 @@ type service struct {
 }
 
 type generationConfig struct {
-	BosTokenId          int     `json:"bos_token_id"`
-	PadTokenId          int     `json:"pad_token_id"`
-	DoSample            bool    `json:"do_sample"`
-	EosTokenId          []int   `json:"eos_token_id"`
-	RepetitionPenalty   float64 `json:"repetition_penalty"`
+	BosTokenId          int     `json:"bosTokenId"`
+	PadTokenId          int     `json:"padTokenId"`
+	DoSample            bool    `json:"doSample"`
+	EosTokenId          []int   `json:"eosTokenId"`
+	RepetitionPenalty   float64 `json:"repetitionPenalty"`
+	PresencePenalty     float64 `json:"presencePenalty"`
 	Temperature         float64 `json:"temperature"`
-	TopP                float64 `json:"top_p"`
-	TopK                int     `json:"top_k"`
-	TransformersVersion string  `json:"transformers_version"`
+	TopP                float64 `json:"topP"`
+	TopK                int     `json:"topK"`
+	TransformersVersion string  `json:"transformersVersion"`
 }
 
 func (s *service) ModelCheckpoint(ctx context.Context, modelName string) (res []string, err error) {
@@ -843,7 +844,7 @@ func (s *service) CreateModel(ctx context.Context, request CreateModelRequest) (
 		return
 	}
 
-	if request.ProviderName == types.ModelProviderLocalAI.String() {
+	if request.ProviderName == types.ModelProviderLocalAI.String() && request.BaseModelName == "" {
 		inferenceShell, _ := s.options.dataFs.ReadFile("data/inference.sh")
 		// 自动添加模版
 		if err = s.store.Sys().SaveFineTuningTemplate(ctx, &types.FineTuningTemplate{

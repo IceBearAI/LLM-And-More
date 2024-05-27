@@ -47,7 +47,10 @@ export const dataDictionary = {
       data
     });
     if (res) {
-      const list = responsePath === "top" ? res : _.get(res, responsePath);
+      let list = responsePath === "top" ? res : _.get(res, responsePath) || [];
+      if (!Array.isArray(list)) {
+        list = [];
+      }
       ret = list.map(item => {
         if (typeof item !== "object") {
           return {

@@ -171,11 +171,7 @@ func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai
 	var resContent string
 	usage := openai.Usage{}
 	for content := range completionStream {
-		if util.StringInArray([]string{string(services.ProviderOpenAI)}, string(providerName)) {
-			resContent += content.Choices[0].Delta.Content
-		} else if util.StringInArray([]string{string(services.ProviderFsChat)}, string(providerName)) && content.Choices[0].Delta.Content != "" {
-			resContent = content.Choices[0].Delta.Content
-		}
+		resContent += content.Choices[0].Delta.Content
 		if content.Usage.TotalTokens > 0 {
 			usage = content.Usage
 		}

@@ -24,7 +24,7 @@ build:
 	GO111MODULE=on GOPROXY=$(GOPROXY) go build -v -o $(BINARY_UNIX) $(GO_LDFLAGS) ./cmd/main.go
 
 run:
-	GOPROXY=$(GOPROXY) GO111MODULE=on go run ./cmd/main.go start -p :8080 -a $(APPNAME)
+	GOPROXY=$(GOPROXY) GO111MODULE=on go run ./cmd/main.go start -p :8080 -a $(APPNAME) --cronjob.auto false
 
 run-api:
 	GOPROXY=$(GOPROXY) GO111MODULE=on go run ./cmd/main.go start-api -p :8000 -a $(APPNAME)-api

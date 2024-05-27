@@ -47,3 +47,7 @@ export const fileTypes = {
     icon: IconFileTypePdf
   }
 };
+
+export const fileLanguageMap = {
+  py: "python"
+};
