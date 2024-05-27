@@ -126,6 +126,16 @@
             <label>推理加速</label>
           </template>
         </Select>
+        <Select
+          placeholder="请选择检查点"
+          v-model="formData.checkpoint"
+          :mapAPI="{ url: `/models/${state.modelName}/checkpoints`, responsePath: 'top' }"
+          hide-details="auto"
+        >
+          <template #prepend>
+            <label>检查点</label>
+          </template>
+        </Select>
       </v-form>
     </div>
   </Pane>
@@ -158,7 +168,8 @@ const state = reactive<{
     quantization: "",
     inferredType: "cpu",
     k8sCluster: null,
-    modelWorker: null
+    modelWorker: null,
+    checkpoint: null
   }
 });
 const { formData, id } = toRefs(state);
@@ -226,6 +237,7 @@ const onSubmit = async ({ valid, showLoading }) => {
     }
     data.maxGpuMemory = data.maxGpuMemory || 0;
     data.modelWorker = data.modelWorker || "";
+    data.checkpoint = data.checkpoint || "";
     const [err, res] = await http.post({
       ...showLoading,
       showSuccess: true,

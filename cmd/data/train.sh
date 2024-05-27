@@ -26,25 +26,54 @@
 # - EVAL_FILE: 验证文件URL或路径
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
+# 使用 nvidia-smi 获取 GPU 信息
+gpu_info=$(nvidia-smi --query-gpu=name --format=csv,noheader)
+
+# 设置一个标志，初始为未找到
+found=0
+
+# 检查每个型号
+for model in "RTX 4090" "RTX 3090" "RTX 4080"
+do
+    if echo "$gpu_info" | grep -q "$model"; then
+        echo "存在 $model GPU。"
+        found=1
+    fi
+done
+
+# 如果没有找到任何型号
+if [ $found -eq 0 ]; then
+    echo "未检测到 RTX 4090、RTX 3090 或 RTX 4080 GPU。"
+else
+    export NCCL_P2P_DISABLE=1
+    export NCCL_IB_DISABLE=1
+fi
+
+#NNODES=1
+#NODE_RANK=0
+#MASTER_ADDR=localhost
+Q_LORA=False
+
+DS_CONFIG_PATH="ds_config_zero3.json"
+
+DISTRIBUTED_ARGS="
+    --nproc_per_node $GPUS_PER_NODE \
+    --nnodes $NNODES \
+    --node_rank $NODE_RANK \
+    --master_addr $MASTER_ADDR \
+    --master_port $MASTER_PORT
+"
+if [ "$USE_LORA" == "true" ]; then
+    USE_LORA=True
+    DS_CONFIG_PATH="ds_config_zero2.json"
+else
+    USE_LORA=False
+    DS_CONFIG_PATH="ds_config_zero3.json"
+fi
+
+
 JOB_STATUS="success"
 JOB_MESSAGE=""
-
-if [ "$MASTER_PORT" == "" ]; then
-    MASTER_PORT=29500
-fi
-
-# shellcheck disable=SC2153
-if [ "$HTTP_PROXY" != "" ]; then
-    export http_proxy=$HTTP_PROXY
-fi
-
-if [ "$HTTPS_PROXY" != "" ]; then
-    export https_proxy=$HTTPS_PROXY
-fi
-
-if [ "$NO_PROXY" != "" ]; then
-    export no_proxy=$NO_PROXY
-fi
 
 function callback() {
   # 根据退出状态判断执行是否异常
@@ -57,144 +86,25 @@ function callback() {
   else
       # 发生异常
       echo "执行失败!"
-      # 调用API并传递错误信息
       sleep 40
+      # 调用API并传递错误信息
       JOB_MESSAGE=$(jq -n --arg content "$JOB_MESSAGE" '{"status": "failed", "message": $content}')
       curl -X PUT "${API_URL}" -H "Authorization: ${AUTH}" -H "X-Tenant-Id: ${TENANT_ID}" -H "Content-Type: application/json" -d "$JOB_MESSAGE"
   fi
 }
 
-function set_cuda_devices {
-    # 验证输入是否为空
-    if [ -z "$1" ]; then
-        echo "Error: No argument provided."
-        echo "Usage: set_cuda_devices <number_of_gpus>"
-        exit 1
-    fi
-
-    if ! [[ "$1" =~ ^[0-9]+$ ]]; then
-        echo "Error: Invalid argument. Please provide a positive integer."
-        exit 1
-    fi
-
-    # 使用循环动态构建
-    devices=$(printf ",%d" $(seq 0 $(($1-1)) | sed 's/ //g'))
-    export CUDA_VISIBLE_DEVICES=${devices:1}
-}
-set_cuda_devices $GPUS_PER_NODE
-
-
-function copy_file {
-    if [ "$#" -ne 3 ]; then
-        echo "Usage: copy_file <base_model_path> <output_dir> <modename>"
-        return 1
-    fi
-    base_model_path="$1"
-    output_dir="$2"
-    modename="$3"
-    set +e
-    cp "$base_model_path/tokenizer_config.json" "./$output_dir" || cp "./faq/$modename/tokenizer_config.json" "./$output_dir"
-    cp "$base_model_path/tokenization_chatglm.py" "./$output_dir" || cp "./faq/$modename/tokenization_chatglm.py" "./$output_dir"
-    cp "$base_model_path/modeling_chatglm.py" "./$output_dir" || cp "./faq/$modename/modeling_chatglm.py" "./$output_dir"
-    cp "$base_model_path/quantization.py" "./$output_dir" || cp "./faq/$modename/quantization.py" "./$output_dir"
-    set -e
-}
-
-IS_MERGE_LORA=true
-merge_lora_models() {
-    # 参数检查
-    if [ "$#" -ne 4 ]; then
-        echo "Usage: merge_lora_models <merge_lora_script> <base_model_path> <output_dir> <modename>"
-        return 1
-    fi
-    merge_lora_script="$1"
-    base_model_path="$2"
-    output_dir="$3"
-    modename="$4"
-    # 执行 merge_lora.py 脚本
-    python "$merge_lora_script" --ori_model_dir "$base_model_path" --model_dir "$output_dir" --mode "$modename"
-    # 复制 token 文件和 config.json 到输出目录
-    cp  "$base_model_path/config"* "./$output_dir/"
-    cp  "$base_model_path/config.json" "./$output_dir/"
-    cp  "$base_model_path/token"* "./$output_dir/"
-    if [[ $modename == *"glm3"* ]]; then
-        copy_file "$base_model_path" "$output_dir" "$modename"
-    fi
-}
-
-LORA_MODULE_NAME='decoder.layers.'
-MODENAME=$(echo "$BASE_MODEL_NAME" | tr '[:upper:]' '[:lower:]' | tr -d '-')
-case $MODENAME in
-    *'llama2'*)
-        LORA_MODULE_NAME='gate_proj,down_proj,up_proj'
-        MODENAME='llama2'
-        ;;
-    *'baichuan2'*)
-        LORA_MODULE_NAME='W_pack'
-        MODENAME='baichuan2_13b'
-        ;;
-    *'glm3'*'32k'*)
-        LORA_MODULE_NAME='query_key_value,dense_h_to_4h,dense_4h_to_h,dense'
-        MODENAME='glm3_32k'
-        ;;
-    *'glm3'*)
-        LORA_MODULE_NAME='query_key_value,dense_h_to_4h,dense_4h_to_h,dense'
-        MODENAME='glm3'
-        ;;
-    *'glm2'*)
-        LORA_MODULE_NAME='gate_proj,down_proj,up_proj'
-        MODENAME='glm2'
-        ;;
-    *'glm'*)
-        LORA_MODULE_NAME='gate_proj,down_proj,up_proj'
-        MODENAME='glm'
-        ;;
-    *'qwen1.5'*)
-        LORA_MODULE_NAME='q_proj,k_proj,v_proj,o_proj,up_proj,gate_proj,down_proj'
-        MODENAME='qwen1.5'
-        ;;
-    *)
-        MODENAME='auto'
-        echo "未知模型名称"
-        ;;
-esac
-
-if [ "$USE_LORA" = true ]; then
-    TRAIN_TYPE="lora"
-    ZERO_STAGE=2
-    DS_FILE=faq/ds_zero2_no_offload.json
-else
-    TRAIN_TYPE="all"
-    ZERO_STAGE=3
-    DS_FILE=faq/ds_zero3_offload.json
-fi
-
 URL_REGEX="^(http|https)://"
-DATA_DIR="/data/train-data/"
-mkdir -p "$DATA_DIR"
-if [[ -f "$TRAIN_FILE" || "$TRAIN_FILE" =~ $URL_REGEX ]]; then
-    TRAIN_LOCAL_FILE="${DATA_DIR}train-${JOB_ID}.jsonl"
-else
-    TRAIN_LOCAL_FILE="${DATA_DIR}train_dir_${JOB_ID}"
-    mkdir -p "$TRAIN_LOCAL_FILE"
-fi
-EVAL_LOCAL_FILE="${DATA_DIR}eval-${JOB_ID}.jsonl"
+mkdir -p /data/train-data/
+TRAIN_LOCAL_FILE=/data/train-data/train-${JOB_ID}.jsonl
+EVAL_LOCAL_FILE=/data/train-data/eval-${JOB_ID}.jsonl
 
 function download_file {
-    local SOURCE="$1"
-    local DEST="$2"
-    if [[ -d "$SOURCE" ]]; then
-        echo "Source is a directory. Copying files..."
-        cp -r "$SOURCE"/* "$DEST"
-    elif [[ -f "$SOURCE" ]]; then
-        echo "Source is a file. Copying file..."
-        cp "$SOURCE" "$DEST"
-    elif [[ "$SOURCE" =~ $URL_REGEX ]]; then
-        echo "Source is a URL. Starting download..."
-        wget -O "$DEST" "$SOURCE"
+    if [[ "$1" =~ $URL_REGEX ]]; then
+        echo "The path is a URL. Starting download..."
+        wget -O $2 "$1"
     else
-        echo "Invalid source provided."
-        return 1
+        echo "File path is local. No download needed."
+        cp "$1" "$2"
     fi
 }
 
@@ -206,131 +116,31 @@ fi
 
 temp_file=$(mktemp)
 
-if [ "$SCENARIO" == "general" ]; then
-  GENERAL_DATA_PATH=/data/train-data/formatted_datasets/${JOB_ID}
-  mkdir -p $GENERAL_DATA_PATH
-  if [ -n "$EVAL_FILE" ]; then
-    python3 jsonl_to_arrow_format.py \
-        --train_path "$TRAIN_LOCAL_FILE" \
-        --test_path "$EVAL_LOCAL_FILE" \
-        --output_path "$GENERAL_DATA_PATH" \
-        --split_ratio 0.9
-  else
-    python3 jsonl_to_arrow_format.py \
-        --train_path "$TRAIN_LOCAL_FILE" \
-        --output_path "$GENERAL_DATA_PATH" \
-        --split_ratio 0.9
-  fi
-
-  deepspeed /app/llmops_deepspeed_main.py \
-      --data_path $GENERAL_DATA_PATH \
-      --data_output_path $OUTPUT_DIR/data_output \
-      --data_split 10,0,0 \
-      --model_name_or_path $BASE_MODEL_PATH \
-      --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
-      --per_device_eval_batch_size $PER_DEVICE_EVAL_BATCH_SIZE \
-      --max_seq_len $MODEL_MAX_LENGTH \
-      --learning_rate $LEARNING_RATE \
-      --weight_decay 0. \
-      --num_train_epochs $NUM_TRAIN_EPOCHS  \
-      --train_type $TRAIN_TYPE \
-      --lora_dim 2 \
-      --lora_module_name $LORA_MODULE_NAME \
-      --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
-      --lr_scheduler_type cosine \
-      --num_warmup_steps 0 \
-      --seed 1234 \
-      --gradient_checkpointing \
-      --zero_stage $ZERO_STAGE \
-      --offload \
-      --only_optimize_lora \
-      --deepspeed \
-      --output_dir $OUTPUT_DIR \
-      --start_from_step -1 \
-      --save_total_limit 0 \
-      --save_per_steps 200  > >(tee "$temp_file") 2>&1
-  if [[ $MODENAME == *"glm3"* ]]; then
-    copy_file "$BASE_MODEL_PATH" "$OUTPUT_DIR" "$MODENAME"
-  fi
-
-elif [ "$SCENARIO" == "faq" ]; then
-  formatted_datasets_path=/data/train-data/faq_formatted_datasets
-  mkdir -p "$formatted_datasets_path"
-
-  python3 /app/convert_new_format.py \
-      --train_path $TRAIN_LOCAL_FILE \
-      --test_path $EVAL_LOCAL_FILE \
-      --output_path "$formatted_datasets_path"
-
-  deepspeed /app/faq/faq_train.py \
-      --train_path "$formatted_datasets_path/train_dataset.jsonl" \
-      --model_name_or_path $BASE_MODEL_PATH \
-      --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
-      --max_len $MODEL_MAX_LENGTH \
-      --max_src_len 128 \
-      --learning_rate $LEARNING_RATE \
-      --weight_decay 0.1 \
-      --num_train_epochs $NUM_TRAIN_EPOCHS \
-      --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
-      --warmup_ratio 0.1 \
-      --mode $MODENAME \
-      --train_type $TRAIN_TYPE \
-      --lora_module_name $LORA_MODULE_NAME \
-      --lora_dim 4 \
-      --lora_alpha 64 \
-      --lora_dropout 0.1 \
-      --seed 1234 \
-      --ds_file $DS_FILE \
-      --gradient_checkpointing \
-      --show_loss_step 10 \
-      --output_dir $OUTPUT_DIR  > >(tee "$temp_file") 2>&1
-
-  if [ "$USE_LORA" = true ] && [ "$IS_MERGE_LORA" = true ]; then
-    merge_lora_models "./faq/merge_lora.py" "$BASE_MODEL_PATH" "$OUTPUT_DIR" "$MODENAME"
-  fi
-
-elif [ "$SCENARIO" == "rag" ]; then
-    RAG_ENHANCEMENT=False
-#     RETRIEVAL_METHOD="bm25"
-    RETRIEVAL_METHOD="st"
-    ST="BAAI/bge-large-zh-v1.5"
-
-    deepspeed /app/rag/rag_train.py \
-        --train_path $TRAIN_LOCAL_FILE \
-        --enhancement $RAG_ENHANCEMENT \
-        --merge_lora $IS_MERGE_LORA \
-        --retrieval_method $RETRIEVAL_METHOD \
-        --top_k 1 \
-        --st $ST \
-        --model_name_or_path $BASE_MODEL_PATH \
-        --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
-        --per_device_eval_batch_size $PER_DEVICE_EVAL_BATCH_SIZE \
-        --max_len $MODEL_MAX_LENGTH \
-        --max_src_len 1024 \
-        --learning_rate $LEARNING_RATE \
-        --weight_decay 0.1 \
-        --num_train_epochs $NUM_TRAIN_EPOCHS \
-        --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
-        --warmup_ratio 0.1 \
-        --mode $MODENAME \
-        --train_type $TRAIN_TYPE \
-        --load_in_kbits 16 \
-        --fp16 \
-        --lora_module_name  $LORA_MODULE_NAME \
-        --lora_dim 4 \
-        --lora_alpha 64 \
-        --lora_dropout 0.1 \
-        --seed 1234 \
-        --ds_file $DS_FILE \
-        --gradient_checkpointing \
-        --show_loss_step 10 \
-        --output_dir $OUTPUT_DIR  > >(tee "$temp_file") 2>&1
-    if [[ $MODENAME == *"glm3"* ]]; then
-        copy_file "$BASE_MODEL_PATH" "$OUTPUT_DIR" "$MODENAME"
-    fi
-else
-  echo "Invalid scenario selection!"
-fi
+torchrun --nproc_per_node $GPUS_PER_NODE /app/finetune.py \
+    --model_name_or_path "$BASE_MODEL_PATH" \
+    --data_path "${TRAIN_LOCAL_FILE}" \
+    --bf16 True \
+    --output_dir "$OUTPUT_DIR" \
+    --num_train_epochs $NUM_TRAIN_EPOCHS \
+    --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
+    --per_device_eval_batch_size $PER_DEVICE_EVAL_BATCH_SIZE \
+    --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
+    --evaluation_strategy "no" \
+    --save_strategy "epoch" \
+    --save_total_limit 5 \
+    --learning_rate $LEARNING_RATE \
+    --weight_decay 0.1 \
+    --adam_beta2 0.95 \
+    --warmup_ratio 0.01 \
+    --lr_scheduler_type "cosine" \
+    --logging_steps 1 \
+    --report_to "none" \
+    --model_max_length $MODEL_MAX_LENGTH \
+    --gradient_checkpointing True \
+    --lazy_preprocess True \
+    --use_lora ${USE_LORA} \
+    --q_lora ${Q_LORA} \
+    --deepspeed $DS_CONFIG_PATH  > >(tee "$temp_file") 2>&1
 
 JOB_STATUS=$?
 JOB_MESSAGE=$(<"$temp_file")

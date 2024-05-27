@@ -21,7 +21,8 @@ import {
   IconPhotoUp,
   IconPhotoX,
   IconPhotoCheck,
-  IconTools
+  IconTools,
+  IconPhotoSensor2
 } from "@tabler/icons-vue";
 
 export interface menu {
@@ -244,6 +245,14 @@ let sidebarItem: menu[] = [
   //   to: "/image-services/face-recognition/list"
   // },
 
+  // ocr服务
+  // { header: "ocrServices" },
+  // {
+  //   title: "ocrDetection",
+  //   icon: IconPhotoSensor2,
+  //   to: "/ocr-services/ocr-detection/list"
+  // },
+
   // { header: "videoService" },
   // {
   //   title: "digitalHuman",
@@ -297,19 +306,19 @@ let sidebarItem: menu[] = [
       }
     ]
   },
-  // {
-  //   title: "sceneManagement",
-  //   icon: IconBrandBinance,
-  //   to: "/",
-  //   children: [
-  //     {
-  //       title: "sceneList",
-  //       icon: IconCircleDot,
-  //       iconSize: "small",
-  //       to: "/scene/scene-list"
-  //     }
-  //   ]
-  // },
+  {
+    title: "sceneManagement",
+    icon: IconBrandBinance,
+    to: "/",
+    children: [
+      {
+        title: "sceneList",
+        icon: IconCircleDot,
+        iconSize: "small",
+        to: "/scene/scene-list"
+      }
+    ]
+  },
   { header: "systemManagement" },
   {
     title: "systemManagement",

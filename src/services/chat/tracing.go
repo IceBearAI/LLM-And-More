@@ -110,7 +110,7 @@ func (s *fschatWorkerTracing) GetWorkerAddress(ctx context.Context, model string
 		Value: "services.chat",
 	})
 	defer func() {
-		span.LogKV("model", model, "err", err)
+		span.LogKV("model", model, "res", res, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
 		span.Finish()
 	}()
@@ -175,7 +175,7 @@ func (s *fschatWorkerTracing) WorkerCountToken(ctx context.Context, workerAddres
 		Value: "services.chat",
 	})
 	defer func() {
-		span.LogKV("workerAddress", workerAddress, "model", model, "prompt", prompt, "err", err)
+		span.LogKV("workerAddress", workerAddress, "model", model, "prompt", prompt, "res", res, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
 		span.Finish()
 	}()
@@ -188,7 +188,7 @@ func (s *fschatWorkerTracing) WorkerGetStatus(ctx context.Context, workerAddress
 		Value: "services.chat",
 	})
 	defer func() {
-		span.LogKV("workerAddress", workerAddress, "err", err)
+		span.LogKV("workerAddress", workerAddress, "res", res, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
 		span.Finish()
 	}()
@@ -201,7 +201,7 @@ func (s *fschatWorkerTracing) WorkerGetModelDetails(ctx context.Context, workerA
 		Value: "services.chat",
 	})
 	defer func() {
-		span.LogKV("workerAddress", workerAddress, "model", model, "err", err)
+		span.LogKV("workerAddress", workerAddress, "model", model, "res", res, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
 		span.Finish()
 	}()

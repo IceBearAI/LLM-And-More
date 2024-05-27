@@ -101,6 +101,7 @@ func (s *fschatWorker) ListModels(ctx context.Context) (res []ModelCard, err err
 		_ = s.logger.Log(
 			s.traceId, ctx.Value(s.traceId),
 			"method", "ListModels",
+			"res", fmt.Sprintf("%+v", res),
 			"took", time.Since(begin),
 			"err", err,
 		)
@@ -187,6 +188,7 @@ func (s *fschatWorker) WorkerCountToken(ctx context.Context, workerAddress, mode
 			"workerAddress", workerAddress,
 			"model", model,
 			"prompt", fmt.Sprintf("%+v", prompt),
+			"res", res,
 			"took", time.Since(begin),
 			"err", err,
 		)
@@ -200,6 +202,7 @@ func (s *fschatWorker) WorkerGetStatus(ctx context.Context, workerAddress string
 			s.traceId, ctx.Value(s.traceId),
 			"method", "WorkerGetStatus",
 			"workerAddress", workerAddress,
+			"res", fmt.Sprintf("%+v", res),
 			"took", time.Since(begin),
 			"err", err,
 		)
@@ -230,6 +233,7 @@ func (s *fschatWorker) WorkerCheckLength(ctx context.Context, workerAddress stri
 			"model", model,
 			"maxTokens", maxTokens,
 			"prompt", fmt.Sprintf("%+v", prompt),
+			"res", res,
 			"took", time.Since(begin),
 			"err", err,
 		)

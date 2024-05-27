@@ -20,7 +20,8 @@
     <template #header>
       <v-tabs v-model="state.tabIndex" align-tabs="start" color="primary">
         <!-- <v-tab :value="1">详情</v-tab> -->
-        <v-tab :value="2">当前模型下的评估列表</v-tab>
+        <v-tab :value="2">评估列表</v-tab>
+        <v-tab :value="3">文件</v-tab>
         <!-- <v-tab :value="3">数据集</v-tab> -->
       </v-tabs>
     </template>
@@ -32,6 +33,9 @@
           :showArrange="rawData.deployStatus"
           :modelTitle="rawData.modelName"
           :providerName="rawData.providerName"
+      /></v-window-item>
+      <v-window-item :value="3">
+        <FileList :showArrange="rawData.deployStatus" :modelTitle="rawData.modelName" :providerName="rawData.providerName"
       /></v-window-item>
     </v-window>
   </UiParentCard>
@@ -47,12 +51,13 @@ import { useRoute } from "vue-router";
 import UiParentCard from "@/components/shared/UiParentCard.vue";
 import ModelListDetailBaseInfo from "./components/ModelListDetailBaseInfo.vue";
 import TabModelEstimate from "./components/TabModelEstimate.vue";
+import FileList from "./components/FileList.vue";
 import ConfirmByClick from "@/components/business/ConfirmByClick.vue";
 import _ from "lodash";
 const route = useRoute();
 const refConfirmByClick = ref();
 const state = reactive({
-  tabIndex: "2",
+  tabIndex: route.query.filePath ? 3 : 2,
   style: {},
   formData: {},
   rawData: {

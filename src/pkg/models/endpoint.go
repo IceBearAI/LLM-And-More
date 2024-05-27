@@ -206,6 +206,10 @@ type (
 		TopP         float64   `json:"topP"`        // 生成文本的多样性
 		Temperature  float64   `json:"temperature"` // 生成文本的多样性
 		MaxTokens    int       `json:"maxTokens"`   // 生成文本的最大长度
+		// 频率惩罚
+		FrequencyPenalty float64 `json:"frequencyPenalty"`
+		// 重复惩罚
+		PresencePenalty float64 `json:"presencePenalty"`
 	}
 
 	// modelInfoResult 模型信息返回
@@ -250,10 +254,11 @@ type (
 
 	// fileInfo 文件信息
 	fileInfo struct {
-		Name      string    `json:"name"`
-		IsDir     bool      `json:"isDir"`
-		Size      int64     `json:"size"`
-		UpdatedAt time.Time `json:"updatedAt"`
+		Name        string    `json:"name"`
+		IsDir       bool      `json:"isDir"`
+		Size        int64     `json:"size"`
+		UpdatedAt   time.Time `json:"updatedAt"`
+		ContentType string    `json:"contentType"`
 	}
 	// modelTreeResult
 	modelTreeResult struct {

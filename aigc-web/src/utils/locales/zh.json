@@ -20,6 +20,8 @@
   "imageSuperResolution": "图像超分",
   "imageMatting": "图像抠图",
   "faceRecognition": "人脸检测",
+  "ocrServices": "OCR服务",
+  "ocrDetection": "OCR检测识别",
   "voiceToText": "声音转文本",
   "ttsSynthesis": "TTS合成",
   "speakerManagement": "发声人管理",

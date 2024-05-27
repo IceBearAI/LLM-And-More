@@ -26,48 +26,20 @@
 # - EVAL_FILE: 验证文件URL或路径
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
-# 使用 nvidia-smi 获取 GPU 信息
-gpu_info=$(nvidia-smi --query-gpu=name --format=csv,noheader)
-
-# 设置一个标志，初始为未找到
-found=0
-
-# 检查每个型号
-for model in "RTX 4090" "RTX 3090" "RTX 4080"
-do
-    if echo "$gpu_info" | grep -q "$model"; then
-        echo "存在 $model GPU。"
-        found=1
-    fi
-done
-
-# 如果没有找到任何型号
-if [ $found -eq 0 ]; then
-    echo "未检测到 RTX 4090、RTX 3090 或 RTX 4080 GPU。"
-else
-    export NCCL_P2P_DISABLE=1
-    export NCCL_IB_DISABLE=1
-fi
-
-#NNODES=1
-#NODE_RANK=0
-#MASTER_ADDR=localhost
+NNODES=1
+NODE_RANK=0
+MASTER_ADDR=localhost
 Q_LORA=False
 
 DS_CONFIG_PATH="ds_config_zero3.json"
 
-if [ "$MASTER_PORT" == "" ]; then
-    MASTER_PORT=29500
-fi
-
-#DISTRIBUTED_ARGS="
-#    --nproc_per_node $GPUS_PER_NODE \
-#    --nnodes $NNODES \
-#    --node_rank $NODE_RANK \
-#    --master_addr $MASTER_ADDR \
-#    --master_port $MASTER_PORT
-#"
-
+DISTRIBUTED_ARGS="
+    --nproc_per_node $GPUS_PER_NODE \
+    --nnodes $NNODES \
+    --node_rank $NODE_RANK \
+    --master_addr $MASTER_ADDR \
+    --master_port $MASTER_PORT
+"
 if [ "$USE_LORA" == "true" ]; then
     USE_LORA=True
     DS_CONFIG_PATH="ds_config_zero2.json"
@@ -75,6 +47,7 @@ else
     USE_LORA=False
     DS_CONFIG_PATH="ds_config_zero3.json"
 fi
+
 
 JOB_STATUS="success"
 JOB_MESSAGE=""
@@ -130,9 +103,7 @@ torchrun --nproc_per_node $GPUS_PER_NODE /app/finetune.py \
     --per_device_eval_batch_size $PER_DEVICE_EVAL_BATCH_SIZE \
     --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
     --evaluation_strategy "no" \
-    --save_strategy "steps" \
-    --save_steps 1000 \
-    --save_total_limit 10 \
+    --save_strategy "epoch" \
     --learning_rate $LEARNING_RATE \
     --weight_decay 0.1 \
     --adam_beta2 0.95 \

@@ -1,4 +1,5 @@
 import { http } from "./http";
+import _ from "lodash";
 
 //数据字典
 export const dataDictionary = {
@@ -39,14 +40,18 @@ export const dataDictionary = {
     }
   },
 
-  async getOptionsByAPI({ url, data = {}, labelField = "id", valueField = "name" }) {
+  async getOptionsByAPI({ url, data = {}, labelField = "id", valueField = "name", responsePath = "list" }) {
     let ret = [];
     const [err, res] = await http.get({
       url,
       data
     });
     if (res) {
-      ret = res.list.map(item => {
+      let list = responsePath === "top" ? res : _.get(res, responsePath) || [];
+      if (!Array.isArray(list)) {
+        list = [];
+      }
+      ret = list.map(item => {
         if (typeof item !== "object") {
           return {
             value: item,
