@@ -45,7 +45,7 @@ COPY ./requirements.txt /app/requirements.txt
 
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-RUN pip3 install transformers==4.40.2 --no-cache-dir
+RUN pip3 install transformers==4.41.1 --no-cache-dir
 RUN pip3 install vllm==0.4.2
 
 ADD fschat /app/fschat

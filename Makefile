@@ -15,7 +15,7 @@ ifneq (,$(wildcard ./.env))
     export
 endif
 
-.PHONY: account tenant cronjob-start
+.PHONY: account tenant cronjob-start run
 
 build-linux:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on GOPROXY=$(GOPROXY) go build -v -o $(BINARY_UNIX) $(GO_LDFLAGS) ./cmd/main.go
@@ -24,7 +24,7 @@ build:
 	GO111MODULE=on GOPROXY=$(GOPROXY) go build -v -o $(BINARY_UNIX) $(GO_LDFLAGS) ./cmd/main.go
 
 run:
-	GOPROXY=$(GOPROXY) GO111MODULE=on go run ./cmd/main.go start -p :8080 -a $(APPNAME) --cronjob.auto false
+	GOPROXY=$(GOPROXY) GO111MODULE=on go run ./cmd/main.go start --cronjob.auto false  -p :8080 -a $(APPNAME)
 
 run-api:
 	GOPROXY=$(GOPROXY) GO111MODULE=on go run ./cmd/main.go start-api -p :8000 -a $(APPNAME)-api

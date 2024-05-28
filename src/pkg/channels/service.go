@@ -119,10 +119,14 @@ func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompleti
 			if !ok {
 				return
 			}
-			fullContent += result.Choices[0].Delta.Content
+			var content string
+			if len(result.Choices) > 0 {
+				fullContent += result.Choices[0].Delta.Content
+				content = result.Choices[0].Delta.Content
+			}
 			dot <- CompletionsStreamResult{
 				FullContent: fullContent,
-				Content:     result.Choices[0].Delta.Content,
+				Content:     content,
 				CreatedAt:   begin,
 				ContentType: "text",
 				MessageId:   "",

@@ -72,6 +72,18 @@ func (c *Conversation) AppendMessage(role string, message string) {
 	c.Messages = append(c.Messages, []string{role, message})
 }
 
+func (c *Conversation) GetImages() []string {
+	var images []string
+	for i, message := range c.Messages[c.Offset:] {
+		if i%2 == 0 {
+			if len(message) == 2 {
+				images = append(images, message[1])
+			}
+		}
+	}
+	return nil
+}
+
 func (c *Conversation) GetPrompt() (ret string) {
 	var systemPrompt = strings.ReplaceAll(c.SystemTemplate, "{system_message}", c.SystemMessage)
 	switch SeparatorStyle(c.SepStyle) {

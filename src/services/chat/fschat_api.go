@@ -248,7 +248,7 @@ func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompleti
 		err = errors.New("failed to get conv template")
 		return
 	}
-
+	var imageList []string
 	for _, v := range req.Messages {
 		if v.Role == "system" {
 			conv.SetSystemMessage(strings.TrimSpace(v.Content))
@@ -258,13 +258,14 @@ func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompleti
 				for _, item := range v.MultiContent {
 					if item.Type == openai.ChatMessagePartTypeImageURL {
 						if item.ImageURL != nil {
-							conv.AppendMessage(conv.Roles[0], ImagePlaceholderStr+item.ImageURL.URL)
+							imageList = append(imageList, item.ImageURL.URL)
 						}
 					} else {
 						textList = append(textList, item.Text)
 					}
 				}
-				text := strings.Join(textList, "\n")
+				text := strings.Repeat("<image>\n", len(imageList))
+				text += strings.Join(textList, "\n")
 				conv.AppendMessage(conv.Roles[0], text)
 			} else {
 				conv.AppendMessage(conv.Roles[0], strings.TrimSpace(v.Content))
@@ -298,6 +299,7 @@ func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompleti
 		StopTokenIds:     conv.StopTokenIds,
 		Stop:             req.Stop,
 		Echo:             false,
+		Images:           imageList,
 	}
 	if req.N > 0 {
 		genParams.N = &req.N

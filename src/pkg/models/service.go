@@ -162,15 +162,15 @@ func (s *service) ModelCheckpoint(ctx context.Context, modelName string) (res []
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 	_, modelPath, err := s.getModelPath(ctx, modelName)
 	if err != nil {
-		_ = level.Error(logger).Log("service", "getModelPath", "err", err.Error())
-		return
+		_ = level.Warn(logger).Log("service", "getModelPath", "err", err.Error())
+		return res, nil
 	}
 
 	// 读取模型目录下的文件
 	files, err := util.GetFileList(modelPath)
 	if err != nil {
 		_ = level.Error(logger).Log("util.GetFileList", "err", err.Error())
-		return res, encode.ErrSystem.Wrap(errors.Wrap(err, "获取模型目录失败"))
+		return res, nil
 	}
 
 	for _, v := range files {

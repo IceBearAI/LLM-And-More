@@ -56,7 +56,7 @@ type GenerateStreamParams struct {
 	MaxNewTokens     int     `json:"max_new_tokens"`
 	Echo             bool    `json:"echo"`
 	StopTokenIds     []int   `json:"stop_token_ids"`
-	Images           []any   `json:"images,omitempty"`
+	Images           any     `json:"images,omitempty"`
 	BestOf           *int    `json:"best_of,omitempty"`
 	UseBeamSearch    *bool   `json:"use_beam_search,omitempty"`
 	Stop             any     `json:"stop"`
