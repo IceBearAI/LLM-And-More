@@ -129,7 +129,9 @@ func (c *Conversation) GetPrompt() (ret string) {
 		return ret
 	case LLAMA3:
 		ret = "<|begin_of_text|>"
-		ret += systemPrompt
+		if c.SystemMessage != "" {
+			ret += systemPrompt
+		}
 		for i, message := range c.Messages {
 			if len(message) == 2 && message[1] != "" {
 				ret += "<|start_header_id|>" + c.Roles[i%2] + "<|end_header_id|>\n\n"
@@ -184,7 +186,7 @@ func (c *Conversation) GetPrompt() (ret string) {
 
 func Register(tp Templates) Templates {
 	tp.Register(context.Background(), "llama-3", Conversation{
-		StopStr:        []string{"<|eot_id|>"},
+		StopStr:        []string{"<|start_header_id|>", "<|end_header_id|>", "<|eot_id|>"},
 		Sep:            "",
 		Sep2:           "",
 		StopTokenIds:   []int{128001, 128009},
@@ -192,7 +194,7 @@ func Register(tp Templates) Templates {
 		SepStyle:       int(LLAMA3),
 		Roles:          []string{"user", "assistant"},
 		SystemTemplate: "<|start_header_id|>system<|end_header_id|>\n\n{system_message}<|eot_id|>",
-		SystemMessage:  "You are a helpful assistant.",
+		SystemMessage:  "",
 	})
 	tp.Register(context.Background(), "qwen", Conversation{
 		SystemMessage:  "You are a helpful assistant.",
@@ -267,7 +269,7 @@ func Register(tp Templates) Templates {
 		SepStyle:       int(LLAMA3),
 		Roles:          []string{"user", "assistant"},
 		SystemTemplate: "<|start_header_id|>system<|end_header_id|>\n\n{system_message}<|eot_id|>",
-		SystemMessage:  "You are a helpful assistant.",
+		SystemMessage:  "",
 	})
 	return tp
 }

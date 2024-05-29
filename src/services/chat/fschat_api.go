@@ -139,7 +139,8 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 		now := time.Now().UnixMilli()
 		defer close(dot)
 		streamId := fmt.Sprintf("cmpl-%s", shortuuid.New())
-		var fullContent string
+		var previousText string
+
 		for {
 			content, ok := <-streamResp
 			if !ok {
@@ -149,8 +150,8 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 				err = errors.New(content.Text)
 				return
 			}
+
 			text := content.Text
-			var previousText string
 			// 替换所有的Unicode替代字符\ufffd为空字符串
 			decodedUnicode := strings.Replace(text, "\ufffd", "", -1)
 
@@ -159,15 +160,10 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 			if len(previousText) < len(decodedUnicode) {
 				deltaText = decodedUnicode[len(previousText):]
 			}
-
-			// 更新previous_text变量为当前文本，但只在当前文本的长度大于previous_text的长度时
 			if len(decodedUnicode) > len(previousText) {
 				previousText = decodedUnicode
-			}
-
-			if len(text) >= len(fullContent) {
-				deltaText = deltaText[len(fullContent):]
-				fullContent += deltaText
+			} else {
+				deltaText = ""
 			}
 
 			dot <- CompletionStreamResponse{
