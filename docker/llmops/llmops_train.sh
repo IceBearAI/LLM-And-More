@@ -93,10 +93,10 @@ function copy_file {
     output_dir="$2"
     modename="$3"
     set +e
-    cp "$base_model_path/tokenizer_config.json" "./$output_dir" || cp "./faq/$modename/tokenizer_config.json" "./$output_dir"
-    cp "$base_model_path/tokenization_chatglm.py" "./$output_dir" || cp "./faq/$modename/tokenization_chatglm.py" "./$output_dir"
-    cp "$base_model_path/modeling_chatglm.py" "./$output_dir" || cp "./faq/$modename/modeling_chatglm.py" "./$output_dir"
-    cp "$base_model_path/quantization.py" "./$output_dir" || cp "./faq/$modename/quantization.py" "./$output_dir"
+    cp "$base_model_path/tokenizer_config.json" "$output_dir" || cp "./faq/$modename/tokenizer_config.json" "$output_dir"
+    cp "$base_model_path/tokenization_chatglm.py" "$output_dir" || cp "./faq/$modename/tokenization_chatglm.py" "$output_dir"
+    cp "$base_model_path/modeling_chatglm.py" "$output_dir" || cp "./faq/$modename/modeling_chatglm.py" "$output_dir"
+    cp "$base_model_path/quantization.py" "$output_dir" || cp "./faq/$modename/quantization.py" "$output_dir"
     set -e
 }
 
@@ -114,9 +114,9 @@ merge_lora_models() {
     # 执行 merge_lora.py 脚本
     python "$merge_lora_script" --ori_model_dir "$base_model_path" --model_dir "$output_dir" --mode "$modename"
     # 复制 token 文件和 config.json 到输出目录
-    cp  "$base_model_path/config"* "./$output_dir/"
-    cp  "$base_model_path/config.json" "./$output_dir/"
-    cp  "$base_model_path/token"* "./$output_dir/"
+    cp  "$base_model_path/config"* "$output_dir/"
+    cp  "$base_model_path/config.json" "$output_dir/"
+    cp  "$base_model_path/token"* "$output_dir/"
     if [[ $modename == *"glm3"* ]]; then
         copy_file "$base_model_path" "$output_dir" "$modename"
     fi
