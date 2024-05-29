@@ -22,7 +22,7 @@ def load_model(model_name_or_path, gpu_nums):
     加载模型和分词器
     """
     # 检查是否为 Llama 模型
-    if "llama" in model_name_or_path.lower():
+    if "llama2" in model_name_or_path.lower():
         # 加载 Llama Tokenizer
         tokenizer = LlamaTokenizer.from_pretrained(
             model_name_or_path, trust_remote_code=True)
@@ -38,12 +38,16 @@ def load_model(model_name_or_path, gpu_nums):
     # 加载模型
     model = AutoModelForCausalLM.from_pretrained(
         model_name_or_path, trust_remote_code=True)
+    ds_inference_config = {
+        "mp_size": gpu_nums,
+        "dtype": "fp16",
+        "replace_method": "auto",
+        "enable_cuda_graph": False
+    }
+
     ds_model = deepspeed.init_inference(
         model=model,
-        mp_size=gpu_nums,
-        dtype=torch.float16,
-        replace_method="auto",
-        replace_with_kernel_inject=True,
+        config=ds_inference_config
     )
     print(f"模型加载至设备{ds_model.module.device}\n")
 
