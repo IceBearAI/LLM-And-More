@@ -110,25 +110,19 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 		return
 	}
 	dot := make(chan CompletionStreamResponse)
-	//var maxTokens int
-
-	//prompts := s.processInput(req.Model, req.Messages)
-	//for _, prompt := range prompts {
-	//	maxTokens, err = s.options.workerSvc.WorkerCheckLength(ctx, workerAddress, req.Model, req.MaxTokens, prompt)
-	//	if err != nil {
-	//		err = errors.WithMessage(err, "failed to check length")
-	//		return dot, err
-	//	}
-	//}
-	//if maxTokens != 0 && maxTokens < req.MaxTokens {
-	//	req.MaxTokens = maxTokens
-	//}
 
 	genParams, err := s.genParams(ctx, req, workerAddress)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to get gen params")
 		return
 	}
+
+	genParams.MaxNewTokens, err = s.options.workerSvc.WorkerCheckLength(ctx, workerAddress, req.Model, req.MaxTokens, genParams.Prompt)
+	if err != nil {
+		err = errors.Wrap(err, "failed to check length")
+		return nil, err
+	}
+
 	streamResp, err := s.options.workerSvc.WorkerGenerateStream(ctx, workerAddress, genParams)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to generate stream")

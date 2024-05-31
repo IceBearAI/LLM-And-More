@@ -152,12 +152,26 @@ type OpenAIErrorResponse struct {
 	Object  string `json:"object"`
 }
 
+func (r OpenAIErrorResponse) StatusCode() int {
+	if r.Code == 0 {
+		return http.StatusOK
+	}
+	if r.Code > 600 || r.Code == 501 {
+		return http.StatusOK
+	}
+	return r.Code
+}
+
+func (r OpenAIErrorResponse) Headers() http.Header {
+	return http.Header{"Content-Type": []string{"application/json"}}
+}
+
 func OpenAIErrorEncoder(ctx context.Context, err error, w http.ResponseWriter) {
 	traceId, _ := ctx.Value("traceId").(string)
 	w.Header().Set("TraceId", traceId)
 	_ = kithttp.EncodeJSONResponse(ctx, w, OpenAIErrorResponse{
 		Message: err.Error(),
-		Code:    500,
+		Code:    400,
 		Object:  "error",
 	})
 }

@@ -36,7 +36,7 @@ type worker struct {
 
 func (s *worker) WorkerCheckLength(ctx context.Context, workerAddress string, model string, maxTokens int, prompt any) (res int, err error) {
 	if maxTokens <= 0 {
-		maxTokens = 1024
+		maxTokens = 2048
 	}
 	mc, err := s.WorkerGetModelDetails(ctx, workerAddress, model)
 	if err != nil {
