@@ -116,12 +116,11 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 		err = errors.WithMessage(err, "failed to get gen params")
 		return
 	}
-
-	genParams.MaxNewTokens, err = s.options.workerSvc.WorkerCheckLength(ctx, workerAddress, req.Model, req.MaxTokens, genParams.Prompt)
-	if err != nil {
-		err = errors.Wrap(err, "failed to check length")
-		return nil, err
+	var newMaxTokens = genParams.MaxNewTokens
+	if newMaxTokens, err = s.options.workerSvc.WorkerCheckLength(ctx, workerAddress, req.Model, req.MaxTokens, genParams.Prompt); err != nil {
+		newMaxTokens = 1024
 	}
+	genParams.MaxNewTokens = newMaxTokens
 
 	streamResp, err := s.options.workerSvc.WorkerGenerateStream(ctx, workerAddress, genParams)
 	if err != nil {

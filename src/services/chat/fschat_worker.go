@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 const (
@@ -277,7 +278,13 @@ func (s *worker) WorkerCountToken(ctx context.Context, workerAddress, model stri
 		Count     int `json:"count"`
 		ErrorCode int `json:"error_code"`
 	}
-	ep := kithttp.NewClient(http.MethodPost, u, kithttp.EncodeJSONRequest, decodeJsonResponse(&resp), s.options.httpClientOpts...).Endpoint()
+	// 设置client 请求超时时间
+	httpClient := http.DefaultClient
+	httpClient.Transport = http.DefaultTransport
+	httpClient.Timeout = time.Second
+
+	clientOptions := s.options.httpClientOpts
+	ep := kithttp.NewClient(http.MethodPost, u, kithttp.EncodeJSONRequest, decodeJsonResponse(&resp), clientOptions...).Endpoint()
 	_, err = ep(ctx, map[string]any{"model": model, "prompt": prompt})
 	if err != nil {
 		err = errors.Wrap(err, "failed to call endpoint")
@@ -307,7 +314,15 @@ func (s *worker) WorkerGetModelDetails(ctx context.Context, workerAddress, model
 		err = errors.Wrap(err, "failed to parse url")
 		return
 	}
-	ep := kithttp.NewClient(http.MethodPost, u, kithttp.EncodeJSONRequest, decodeJsonResponse(&res), s.options.httpClientOpts...).Endpoint()
+
+	// 设置client 请求超时时间
+	httpClient := http.DefaultClient
+	httpClient.Transport = http.DefaultTransport
+	httpClient.Timeout = time.Second
+
+	clientOptions := s.options.httpClientOpts
+	clientOptions = append(clientOptions, kithttp.SetClient(httpClient))
+	ep := kithttp.NewClient(http.MethodPost, u, kithttp.EncodeJSONRequest, decodeJsonResponse(&res), clientOptions...).Endpoint()
 	_, err = ep(ctx, map[string]string{"model": model})
 	if err != nil {
 		err = errors.Wrap(err, "failed to call endpoint")

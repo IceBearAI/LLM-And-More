@@ -53,8 +53,10 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 
 RUN pip3 install tensorrt
 RUN pip3 install tensorrt_llm -U --pre --extra-index-url https://pypi.nvidia.com
-RUN pip3 install transformers==4.42.1 --no-cache-dir
+RUN pip3 install transformers==4.41.2 --no-cache-dir
 RUN pip3 install vllm==0.4.2
+
+RUN git clone https://github.com/NVIDIA/TensorRT-LLM.git
 
 ADD fschat /app/fschat
 

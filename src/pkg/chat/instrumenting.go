@@ -87,7 +87,7 @@ func NewChatQueueGaugeService(logger log.Logger, workerSvc chat.WorkerService) p
 		}
 		var queueSize = 0
 		for _, v := range models {
-			_ = level.Debug(logger).Log("msg", "model", "model", v)
+			//_ = level.Debug(logger).Log("msg", "model", "modelId", v.ID)
 			workerAddress, err := workerSvc.GetWorkerAddress(ctx, v.ID)
 			if err != nil {
 				_ = level.Warn(logger).Log("msg", "failed to get worker address", "model", v.ID, "err", err)
