@@ -2,11 +2,10 @@ package model
 
 import (
 	"context"
-	"time"
-
 	"github.com/IceBearAI/aigc/src/helpers/page"
 	"github.com/IceBearAI/aigc/src/repository/types"
 	"gorm.io/gorm"
+	"time"
 )
 
 type Middleware func(Service) Service
@@ -73,18 +72,10 @@ type Service interface {
 	SetModelEnabled(ctx context.Context, modelId string, enabled bool) (err error)
 	// FindByModelId 根据id查询模型
 	FindByModelId(ctx context.Context, modelId string, preloads ...string) (model types.Models, err error)
-	// 根据模型名字列表查模型
-	FindByModelNames(ctx context.Context, modelNames []string) (models []types.Models, err error)
 }
 
 type service struct {
 	db *gorm.DB
-}
-
-// FindByModelNames implements Service.
-func (s *service) FindByModelNames(ctx context.Context, modelNames []string) (models []types.Models, err error) {
-	err = s.db.WithContext(ctx).Where("model_name IN ?", modelNames).Find(&models).Error
-	return
 }
 
 func (s *service) FindByModelId(ctx context.Context, modelId string, preloads ...string) (model types.Models, err error) {
