@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
+	"io"
 	"log"
 	"math/rand"
 	"strings"
@@ -28,8 +29,19 @@ func (s *openAIService) Completion(ctx context.Context, req openai.CompletionReq
 
 func (s *openAIService) getClient() *openai.Client {
 	// 随机取一个endpoint
-	totalEp := len(s.options.endpoints)
-	ep := s.options.endpoints[rand.Intn(totalEp)]
+	var openaiEndpoints []Endpoint
+	for _, ep := range s.options.endpoints {
+		if ep.Platform == "openai" {
+			openaiEndpoints = append(openaiEndpoints, ep)
+		}
+	}
+	var ep Endpoint
+	totalEp := len(openaiEndpoints)
+	if totalEp > 1 {
+		ep = openaiEndpoints[rand.Intn(totalEp)]
+	} else {
+		ep = openaiEndpoints[0]
+	}
 	if !strings.HasSuffix(ep.Host, "/v1") {
 		ep.Host += "/v1"
 	}
@@ -87,6 +99,9 @@ func (s *openAIService) ChatCompletionStream(ctx context.Context, req openai.Cha
 		for {
 			recv, err := resp.Recv()
 			if err != nil {
+				if err == io.EOF {
+					break
+				}
 				log.Println("stream error", err)
 				break
 			}

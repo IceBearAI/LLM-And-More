@@ -12,7 +12,7 @@ type Endpoint struct {
 	Token    string
 }
 
-// CreationOptions is the options for the faceswap service.
+// CreationOptions is the options for the chat service.
 type CreationOptions struct {
 	httpClientOpts []kithttp.ClientOption
 	endpoints      []Endpoint

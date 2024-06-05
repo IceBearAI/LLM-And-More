@@ -242,7 +242,7 @@ func (s *fschatWorker) WorkerCheckLength(ctx context.Context, workerAddress stri
 }
 
 func NewFsChatWorkerLogging(logger log.Logger, traceId string) FsChatWorkerMiddleware {
-	logger = log.With(logger, "api.chat", "logging")
+	logger = log.With(logger, "api.chat", "logging", "provider", "fschat")
 	return func(next WorkerService) WorkerService {
 		return &fschatWorker{
 			logger:  level.Info(logger),

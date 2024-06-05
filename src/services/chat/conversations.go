@@ -34,6 +34,7 @@ const (
 	DEFAULT
 	OPENBUDDY_LLAMA3
 	PHI3
+	GLM4
 )
 
 // Conversation 对话
@@ -177,6 +178,19 @@ func (c *Conversation) GetPrompt() (ret string) {
 			}
 		}
 		return ret
+	case GLM4:
+		ret = "[gMASK]<sop>"
+		if systemPrompt != "" {
+			ret += systemPrompt + c.Sep + "\n"
+		}
+		for _, message := range c.Messages {
+			if len(message) == 2 && message[1] != "" {
+				ret += message[0] + "\n" + message[1] + c.Sep
+			} else {
+				ret += message[0]
+			}
+		}
+		return ret
 	default:
 		ret = ""
 	}
@@ -269,6 +283,17 @@ func Register(tp Templates) Templates {
 		SepStyle:       int(LLAMA3),
 		Roles:          []string{"user", "assistant"},
 		SystemTemplate: "<|start_header_id|>system<|end_header_id|>\n\n{system_message}<|eot_id|>",
+		SystemMessage:  "",
+	})
+	tp.Register(context.Background(), "glm-4", Conversation{
+		StopStr:        []string{"<|endoftext|>", "<|user|>", "<|observation|>"},
+		Sep:            "",
+		Sep2:           "",
+		StopTokenIds:   []int{151329, 151336, 151338},
+		Name:           "glm-4",
+		SepStyle:       int(GLM4),
+		Roles:          []string{"<|user|>", "<|assistant|>"},
+		SystemTemplate: "<|system|>\n{system_message}",
 		SystemMessage:  "",
 	})
 	return tp

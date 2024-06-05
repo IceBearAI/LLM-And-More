@@ -281,7 +281,7 @@ func (s *worker) WorkerCountToken(ctx context.Context, workerAddress, model stri
 	// 设置client 请求超时时间
 	httpClient := http.DefaultClient
 	httpClient.Transport = http.DefaultTransport
-	httpClient.Timeout = time.Second
+	httpClient.Timeout = 1 * time.Second
 
 	clientOptions := s.options.httpClientOpts
 	ep := kithttp.NewClient(http.MethodPost, u, kithttp.EncodeJSONRequest, decodeJsonResponse(&resp), clientOptions...).Endpoint()
@@ -318,7 +318,7 @@ func (s *worker) WorkerGetModelDetails(ctx context.Context, workerAddress, model
 	// 设置client 请求超时时间
 	httpClient := http.DefaultClient
 	httpClient.Transport = http.DefaultTransport
-	httpClient.Timeout = time.Second
+	httpClient.Timeout = 1 * time.Second
 
 	clientOptions := s.options.httpClientOpts
 	clientOptions = append(clientOptions, kithttp.SetClient(httpClient))

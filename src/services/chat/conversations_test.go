@@ -63,4 +63,18 @@ func TestConversation_GetPrompt2(t *testing.T) {
 
 	t.Log(conv.GetPrompt())
 	t.Log(conv.Name)
+
+	t.Log("\n\nglm-4-9b-chat")
+	conv, ok = tpl.GetByModelName(context.Background(), "glm-4-9b-chat")
+	if !ok {
+		t.Error("failed to get conv template")
+		return
+	}
+	conv.SetSystemMessage("you are a helpful assistant")
+	conv.AppendMessage(conv.Roles[0], "hello")
+	conv.AppendMessage(conv.Roles[1], "hi")
+	conv.AppendMessage(conv.Roles[0], "how are you")
+	conv.AppendMessage(conv.Roles[1], "")
+	t.Log(conv.GetPrompt())
+	t.Log(conv.Name)
 }
