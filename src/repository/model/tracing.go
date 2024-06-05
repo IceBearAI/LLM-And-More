@@ -1,10 +1,8 @@
-// Code generated . DO NOT EDIT.
 package model
 
 import (
 	"context"
-	"encoding/json"
-
+	"fmt"
 	"github.com/IceBearAI/aigc/src/repository/types"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
@@ -15,525 +13,264 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
-func (s *tracing) CancelModelDeploy(ctx context.Context, modelId uint) (err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "CancelModelDeploy", opentracing.Tag{
+func (t *tracing) FindByModelId(ctx context.Context, modelId string, preloads ...string) (model types.Models, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "FindByModelId", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		span.LogKV(
-			"modelId", modelId,
-
-			"err", err,
-		)
-
+		span.LogKV("modelId", modelId, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.CancelModelDeploy(ctx, modelId)
-
+	return t.next.FindByModelId(ctx, modelId, preloads...)
 }
 
-func (s *tracing) CreateEval(ctx context.Context, data *types.LLMEvalResults) (err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "CreateEval", opentracing.Tag{
+func (t *tracing) FindDeployPendingModels(ctx context.Context) (models []types.Models, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "FindDeployPendingModels", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		dataByte, _ := json.Marshal(data)
-		dataJson := string(dataByte)
-
-		span.LogKV(
-			"data", dataJson,
-
-			"err", err,
-		)
-
+		span.LogKV("err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.CreateEval(ctx, data)
-
+	return t.next.FindDeployPendingModels(ctx)
 }
 
-func (s *tracing) CreateModel(ctx context.Context, data *types.Models) (err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "CreateModel", opentracing.Tag{
+func (t *tracing) UpdateDeployStatus(ctx context.Context, modelId uint, status types.ModelDeployStatus) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "UpdateDeployStatus", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		dataByte, _ := json.Marshal(data)
-		dataJson := string(dataByte)
-
-		span.LogKV(
-			"data", dataJson,
-
-			"err", err,
-		)
-
+		span.LogKV("modelId", modelId, "status", status, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.CreateModel(ctx, data)
-
+	return t.next.UpdateDeployStatus(ctx, modelId, status)
 }
 
-func (s *tracing) DeleteEval(ctx context.Context, id uint) (err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "DeleteEval", opentracing.Tag{
+func (t *tracing) SetModelEnabled(ctx context.Context, modelId string, enabled bool) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "SetModelEnabled", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		span.LogKV(
-			"id", id,
-
-			"err", err,
-		)
-
+		span.LogKV("modelId", modelId, "enabled", enabled, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.DeleteEval(ctx, id)
-
+	return t.next.SetModelEnabled(ctx, modelId, enabled)
 }
 
-func (s *tracing) DeleteModel(ctx context.Context, id uint) (err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "DeleteModel", opentracing.Tag{
+func (t *tracing) FindModelDeployByModeId(ctx context.Context, modelId uint) (res types.ModelDeploy, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "FindModelDeployByModeId", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		span.LogKV(
-			"id", id,
-
-			"err", err,
-		)
-
+		span.LogKV("modelId", modelId, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.DeleteModel(ctx, id)
-
+	return t.next.FindModelDeployByModeId(ctx, modelId)
 }
 
-func (s *tracing) FindByModelId(ctx context.Context, modelId string, preloads ...string) (model types.Models, err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "FindByModelId", opentracing.Tag{
+func (t *tracing) SaveModel(ctx context.Context, model *types.Models) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "SaveModel", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		preloadsByte, _ := json.Marshal(preloads)
-		preloadsJson := string(preloadsByte)
-
-		span.LogKV(
-			"modelId", modelId, "preloads", preloadsJson,
-
-			"err", err,
-		)
-
+		span.LogKV("model", model, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.FindByModelId(ctx, modelId, preloads...)
-
+	return t.next.SaveModel(ctx, model)
 }
 
-func (s *tracing) FindByModelNames(ctx context.Context, modelNames []string) (models []types.Models, err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "FindByModelNames", opentracing.Tag{
+func (t *tracing) CancelModelDeploy(ctx context.Context, modelId uint) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "CancelModelDeploy", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		modelNamesByte, _ := json.Marshal(modelNames)
-		modelNamesJson := string(modelNamesByte)
-
-		span.LogKV(
-			"modelNames", modelNamesJson,
-
-			"err", err,
-		)
-
+		span.LogKV("modelId", modelId, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.FindByModelNames(ctx, modelNames)
-
+	return t.next.CancelModelDeploy(ctx, modelId)
 }
 
-func (s *tracing) FindDeployPendingModels(ctx context.Context) (models []types.Models, err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "FindDeployPendingModels", opentracing.Tag{
+func (t *tracing) SaveModelDeploy(ctx context.Context, data *types.ModelDeploy) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "SaveModelDeploy", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		span.LogKV(
-
-			"err", err,
-		)
-
+		span.LogKV("data", data, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.FindDeployPendingModels(ctx)
-
+	return t.next.SaveModelDeploy(ctx, data)
 }
 
-func (s *tracing) FindModelDeployByModeId(ctx context.Context, modelId uint) (res types.ModelDeploy, err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "FindModelDeployByModeId", opentracing.Tag{
+func (t *tracing) DeleteEval(ctx context.Context, id uint) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "DeleteEval", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		span.LogKV(
-			"modelId", modelId,
-
-			"err", err,
-		)
-
+		span.LogKV("id", id, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.FindModelDeployByModeId(ctx, modelId)
-
+	return t.next.DeleteEval(ctx, id)
 }
 
-func (s *tracing) FindModelsByTenantId(ctx context.Context, tenantId uint) (res []types.Models, err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "FindModelsByTenantId", opentracing.Tag{
+func (t *tracing) CreateEval(ctx context.Context, data *types.LLMEvalResults) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "CreateEval", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		span.LogKV(
-			"tenantId", tenantId,
-
-			"err", err,
-		)
-
+		span.LogKV("data", fmt.Sprintf("%+v", data), "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.FindModelsByTenantId(ctx, tenantId)
-
+	return t.next.CreateEval(ctx, data)
 }
 
-func (s *tracing) GetEval(ctx context.Context, id uint) (res types.LLMEvalResults, err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "GetEval", opentracing.Tag{
+func (t *tracing) ListEval(ctx context.Context, request ListEvalRequest) (res []types.LLMEvalResults, total int64, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "ListEval", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		span.LogKV(
-			"id", id,
-
-			"err", err,
-		)
-
+		span.LogKV("request", fmt.Sprintf("%+v", request), "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.GetEval(ctx, id)
-
+	return t.next.ListEval(ctx, request)
 }
 
-func (s *tracing) GetModel(ctx context.Context, id uint, preload ...string) (res types.Models, err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "GetModel", opentracing.Tag{
+func (t *tracing) UpdateEval(ctx context.Context, data *types.LLMEvalResults) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "UpdateEval", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		preloadByte, _ := json.Marshal(preload)
-		preloadJson := string(preloadByte)
-
-		span.LogKV(
-			"id", id, "preload", preloadJson,
-
-			"err", err,
-		)
-
+		span.LogKV("data", fmt.Sprintf("%+v", data), "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.GetModel(ctx, id, preload...)
-
+	return t.next.UpdateEval(ctx, data)
 }
 
-func (s *tracing) GetModelByModelName(ctx context.Context, modelName string) (res types.Models, err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "GetModelByModelName", opentracing.Tag{
+func (t *tracing) GetEval(ctx context.Context, id uint) (res types.LLMEvalResults, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "GetEval", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		span.LogKV(
-			"modelName", modelName,
-
-			"err", err,
-		)
-
+		span.LogKV("id", id, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.GetModelByModelName(ctx, modelName)
-
+	return t.next.GetEval(ctx, id)
 }
 
-func (s *tracing) ListEval(ctx context.Context, request ListEvalRequest) (res []types.LLMEvalResults, total int64, err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "ListEval", opentracing.Tag{
+func (t *tracing) ListModels(ctx context.Context, request ListModelRequest, preloads ...string) (res []types.Models, total int64, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "ListModels", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		requestByte, _ := json.Marshal(request)
-		requestJson := string(requestByte)
-
-		span.LogKV(
-			"request", requestJson,
-
-			"err", err,
-		)
-
+		span.LogKV("request", fmt.Sprintf("%+v", request), "preloads", preloads, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.ListEval(ctx, request)
-
+	return t.next.ListModels(ctx, request, preloads...)
 }
 
-func (s *tracing) ListModels(ctx context.Context, request ListModelRequest, preloads ...string) (res []types.Models, total int64, err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "ListModels", opentracing.Tag{
+func (t *tracing) CreateModel(ctx context.Context, data *types.Models) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "CreateModel", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		requestByte, _ := json.Marshal(request)
-		requestJson := string(requestByte)
-
-		preloadsByte, _ := json.Marshal(preloads)
-		preloadsJson := string(preloadsByte)
-
-		span.LogKV(
-			"request", requestJson, "preloads", preloadsJson,
-
-			"err", err,
-		)
-
+		span.LogKV("data", data, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.ListModels(ctx, request, preloads...)
-
+	return t.next.CreateModel(ctx, data)
 }
 
-func (s *tracing) SaveModel(ctx context.Context, model *types.Models) (err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "SaveModel", opentracing.Tag{
+func (t *tracing) GetModel(ctx context.Context, id uint, preload ...string) (res types.Models, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "GetModel", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		modelByte, _ := json.Marshal(model)
-		modelJson := string(modelByte)
-
-		span.LogKV(
-			"model", modelJson,
-
-			"err", err,
-		)
-
+		span.LogKV("id", id, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.SaveModel(ctx, model)
-
+	return t.next.GetModel(ctx, id, preload...)
 }
 
-func (s *tracing) SaveModelDeploy(ctx context.Context, data *types.ModelDeploy) (err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "SaveModelDeploy", opentracing.Tag{
+func (t *tracing) UpdateModel(ctx context.Context, request UpdateModelRequest) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "UpdateModel", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		dataByte, _ := json.Marshal(data)
-		dataJson := string(dataByte)
-
-		span.LogKV(
-			"data", dataJson,
-
-			"err", err,
-		)
-
+		span.LogKV("request", fmt.Sprintf("%+v", request), "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.SaveModelDeploy(ctx, data)
-
+	return t.next.UpdateModel(ctx, request)
 }
 
-func (s *tracing) SetModelEnabled(ctx context.Context, modelId string, enabled bool) (err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "SetModelEnabled", opentracing.Tag{
+func (t *tracing) DeleteModel(ctx context.Context, id uint) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "DeleteModel", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		span.LogKV(
-			"modelId", modelId, "enabled", enabled,
-
-			"err", err,
-		)
-
+		span.LogKV("id", id, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.SetModelEnabled(ctx, modelId, enabled)
-
+	return t.next.DeleteModel(ctx, id)
 }
 
-func (s *tracing) UpdateDeployStatus(ctx context.Context, modelId uint, status types.ModelDeployStatus) (err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "UpdateDeployStatus", opentracing.Tag{
+func (t *tracing) FindModelsByTenantId(ctx context.Context, tenantId uint) (res []types.Models, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "FindModelsByTenantId", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		statusByte, _ := json.Marshal(status)
-		statusJson := string(statusByte)
-
-		span.LogKV(
-			"modelId", modelId, "status", statusJson,
-
-			"err", err,
-		)
-
+		span.LogKV("tenantId", tenantId, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.UpdateDeployStatus(ctx, modelId, status)
-
+	return t.next.FindModelsByTenantId(ctx, tenantId)
 }
 
-func (s *tracing) UpdateEval(ctx context.Context, data *types.LLMEvalResults) (err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "UpdateEval", opentracing.Tag{
+func (t *tracing) GetModelByModelName(ctx context.Context, modelName string) (res types.Models, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "GetModelByModelName", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.model",
 	})
 	defer func() {
-
-		dataByte, _ := json.Marshal(data)
-		dataJson := string(dataByte)
-
-		span.LogKV(
-			"data", dataJson,
-
-			"err", err,
-		)
-
+		span.LogKV("modelName", modelName, "err", err)
 		span.SetTag(string(ext.Error), err != nil)
-
 		span.Finish()
 	}()
-
-	return s.next.UpdateEval(ctx, data)
-
-}
-
-func (s *tracing) UpdateModel(ctx context.Context, request UpdateModelRequest) (err error) {
-
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "UpdateModel", opentracing.Tag{
-		Key:   string(ext.Component),
-		Value: "repository.model",
-	})
-	defer func() {
-
-		requestByte, _ := json.Marshal(request)
-		requestJson := string(requestByte)
-
-		span.LogKV(
-			"request", requestJson,
-
-			"err", err,
-		)
-
-		span.SetTag(string(ext.Error), err != nil)
-
-		span.Finish()
-	}()
-
-	return s.next.UpdateModel(ctx, request)
-
+	return t.next.GetModelByModelName(ctx, modelName)
 }
 
 func NewTracing(otTracer opentracing.Tracer) Middleware {
