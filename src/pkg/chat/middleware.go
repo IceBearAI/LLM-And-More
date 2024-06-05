@@ -16,8 +16,14 @@ type Middleware func(Service) Service
 type contextKey string
 
 const (
-	// ContextKeyChannelId channel id
-	ContextKeyChannelId contextKey = "channel-id"
+	// ContextKeyChannelModelsList is the context key that holds the channel models list.
+	ContextKeyChannelModelsList contextKey = "ctx-channel-models-list"
+	// ContextKeyChannelId is the context key that holds the channel id.
+	ContextKeyChannelId contextKey = "ctx-channel-id"
+	// ContextKeyChannelQuota is the context key that holds the channel.
+	ContextKeyChannelQuota contextKey = "ctx-channel-quota"
+	// ContextKeyTenantId is the context key that holds the tenant id.
+	ContextKeyTenantId contextKey = "ctx-tenant-id"
 )
 
 func CheckChatMiddleware(store repository.Repository, tracer opentracing.Tracer) endpoint.Middleware {
@@ -35,16 +41,28 @@ func CheckChatMiddleware(store repository.Repository, tracer opentracing.Tracer)
 				}()
 			}
 			token := ctx.Value(kithttp.ContextKeyRequestAuthorization).(string)
-			token = strings.ReplaceAll(token, "Bearer ", "")
+			if strings.HasPrefix(token, "Bearer ") {
+				token = strings.TrimPrefix(token, "Bearer ")
+			}
 
 			if token == "" {
 				return nil, encode.ErrChatChannelApiKey.Error()
 			}
-			channelInfo, err := store.Channel().FindChannelByKey(ctx, token)
+			channelInfo, err := store.Channel().FindChannelByKey(ctx, token, "ChannelModels")
 			if err != nil {
 				return nil, encode.ErrChatChannelApiKey.Wrap(err)
 			}
+			var modeNames []string
+			for _, model := range channelInfo.ChannelModels {
+				if model.BaseModelName != "" {
+					modeNames = append(modeNames, model.BaseModelName)
+				}
+				modeNames = append(modeNames, model.ModelName)
+			}
 			ctx = context.WithValue(ctx, ContextKeyChannelId, channelInfo.ID)
+			ctx = context.WithValue(ctx, ContextKeyTenantId, channelInfo.TenantId)
+			ctx = context.WithValue(ctx, ContextKeyChannelModelsList, modeNames)
+			ctx = context.WithValue(ctx, ContextKeyChannelQuota, channelInfo.Quota)
 			return next(ctx, request)
 		}
 	}

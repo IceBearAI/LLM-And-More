@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"github.com/IceBearAI/aigc/src/encode"
+	"github.com/IceBearAI/aigc/src/util"
 	"github.com/go-kit/kit/endpoint"
 	"github.com/sashabaranov/go-openai"
 )
@@ -51,8 +52,17 @@ func makeCompletionEndpoint(s Service) endpoint.Endpoint {
 		if !ok {
 			return nil, encode.ErrChatChannelApiKey.Error()
 		}
+		tenantId, _ := ctx.Value(ContextKeyTenantId).(uint)
+		models, ok := ctx.Value(ContextKeyChannelModelsList).([]string)
+		if !ok || models == nil {
+			return nil, encode.ErrChatChannelNotFound.Error()
+		}
 		req := request.(openai.CompletionRequest)
-
+		if tenantId != 1 {
+			if !util.StringInArray(models, req.Model) {
+				return nil, encode.ErrChatChannelModelIdNotAllow.Error()
+			}
+		}
 		res, err := s.Completion(ctx, channelId, req)
 		return encode.Response{
 			Success: true,
@@ -70,7 +80,17 @@ func makeChatCompletionStreamEndpoint(s Service) endpoint.Endpoint {
 		if !ok {
 			return nil, encode.ErrChatChannelApiKey.Error()
 		}
+		tenantId, _ := ctx.Value(ContextKeyTenantId).(uint)
+		models, ok := ctx.Value(ContextKeyChannelModelsList).([]string)
+		if !ok || models == nil {
+			return nil, encode.ErrChatChannelNotFound.Error()
+		}
 		req := request.(openai.ChatCompletionRequest)
+		if tenantId != 1 {
+			if !util.StringInArray(models, req.Model) {
+				return nil, encode.ErrChatChannelModelIdNotAllow.Error()
+			}
+		}
 		var res interface{}
 		if req.Stream {
 			res, err = s.ChatCompletionStream(ctx, channelId, req)
