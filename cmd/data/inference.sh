@@ -17,67 +17,81 @@
 # - NO_PROXY: 不代理的地址
 # - MODEL_WORKER_TYPE: 模型工作类型
 
-# shellcheck disable=SC2153
-if [ "$HTTP_PROXY" != "" ]; then
-    export http_proxy=$HTTP_PROXY
-fi
+# Set proxy if provided
+[ -n "$HTTP_PROXY" ] && export http_proxy=$HTTP_PROXY
+[ -n "$HTTPS_PROXY" ] && export https_proxy=$HTTPS_PROXY
+[ -n "$NO_PROXY" ] && export no_proxy=$NO_PROXY
 
-if [ "$HTTPS_PROXY" != "" ]; then
-    export https_proxy=$HTTPS_PROXY
-fi
-
-if [ "$NO_PROXY" != "" ]; then
-    export no_proxy=$NO_PROXY
-fi
-
-MODEL_WORKER=fastchat.serve.model_worker
+MODEL_WORKER="fastchat.serve.model_worker"
 OS_TYPE=$(uname)
 
-if [ "$MODEL_WORKER_TYPE" == "sglang" ]; then
-    MODEL_WORKER="fastchat.serve.sglang_worker"
-elif [ "$MODEL_WORKER_TYPE" == "vllm" ]; then
-    MODEL_WORKER="fastchat.serve.vllm_worker"
-fi
+# Set model worker based on the type
+case "$MODEL_WORKER_TYPE" in
+    sglang)
+        MODEL_WORKER="fastchat.serve.sglang_worker"
+        ;;
+    vllm)
+        MODEL_WORKER="fastchat.serve.vllm_worker"
+        ;;
+    tensorrt)
+        MODEL_PATH_ENGINE="${MODEL_PATH}/trtllm/engines/fp16/${NUM_GPUS}-gpu"
+        MODEL_PATH_CKPT="${MODEL_PATH}/trtllm/ckpt/fp16/${NUM_GPUS}-gpu"
+        BASE_MODEL_NAMES=("qwen" "llama" "phi" "chatglm" "baichuan")
 
-# 量化配置
-if [ "$QUANTIZATION" == "8bit" ]; then
-    QUANTIZATION="--load-8bit"
-else
-    QUANTIZATION=""
-fi
+        if [ ! -d "$MODEL_PATH_ENGINE" ]; then
+           selected_base_model=""
+           model_name_lower=$(echo "$MODEL_NAME" | tr '[:upper:]' '[:lower:]')
+           for BASE_MODEL_NAME in "${BASE_MODEL_NAMES[@]}"; do
+               if echo "$model_name_lower" | grep -q "$BASE_MODEL_NAME"; then
+                   selected_base_model="$BASE_MODEL_NAME"
+                   break
+               fi
+           done
 
-# NUM_GPUS
-if [ "$NUM_GPUS" -gt 0 ]; then
-    NUM_GPUS="--num-gpus $NUM_GPUS"
-else
-    NUM_GPUS=""
-fi
+            # Generate TensorRT engine if the directory does not exist
+            python3 /app/TensorRT-LLM/examples/"$selected_base_model"/convert_checkpoint.py \
+              --model_dir "$MODEL_PATH" \
+              --output_dir "$MODEL_PATH_CKPT" \
+              --dtype float16 --tp_size "$NUM_GPUS"
 
-# CPU推理CPU，mps
-if [ "$INFERRED_TYPE" == "cpu" ] && [ "$OS_TYPE" == "Darwin" ]; then
-    DEVICE_OPTION="--device mps"
-elif [ "$INFERRED_TYPE" == "cpu" ]; then
-    DEVICE_OPTION="--device cpu"
+            trtllm-build --checkpoint_dir "$MODEL_PATH_CKPT" \
+              --output_dir "$MODEL_PATH_ENGINE" \
+              --gemm_plugin float16
+
+            MODEL_PATH=$MODEL_PATH_ENGINE
+        else
+          MODEL_PATH=$MODEL_PATH_ENGINE
+        fi
+
+        MODEL_WORKER="fastchat.serve.trt_worker"
+        ;;
+esac
+
+echo "Using model worker: $MODEL_WORKER"
+echo "Model path: $MODEL_PATH"
+
+
+# Set quantization
+QUANTIZATION=$([ "$QUANTIZATION" == "8bit" ] && echo "--load-8bit" || echo "")
+
+# Set number of GPUs
+NUM_GPUS=$([ "$NUM_GPUS" -gt 0 ] && echo "--num-gpus $NUM_GPUS" || echo "")
+
+# Set device option
+if [ "$INFERRED_TYPE" == "cpu" ]; then
+    DEVICE_OPTION=$([ "$OS_TYPE" == "Darwin" ] && echo "--device mps" || echo "--device cpu")
 else
     DEVICE_OPTION=""
 fi
 
-# MAX_GPU_MEMORY
-if [ "$MAX_GPU_MEMORY" -gt 0 ]; then
-    MAX_GPU_MEMORY="--max-gpu-memory ${MAX_GPU_MEMORY}GiB"
-else
-    MAX_GPU_MEMORY=""
-fi
+# Set max GPU memory
+MAX_GPU_MEMORY=$([ "$MAX_GPU_MEMORY" -gt 0 ] && echo "--max-gpu-memory ${MAX_GPU_MEMORY}GiB" || echo "")
 
-# 当前Pod的IP
-if [ ! -n "$MY_POD_IP" ]; then
-	MY_POD_IP=$(hostname -I | awk '{print $1}')
-fi
+# Set pod IP
+MY_POD_IP=${MY_POD_IP:-$(hostname -I | awk '{print $1}')}
 
-# 模型路径
-if [ -n "$MODEL_PATH" ]; then
-	MODEL_PATH="--model-path $MODEL_PATH"
-fi
+# Set model path
+MODEL_PATH=${MODEL_PATH:+"--model-path $MODEL_PATH"}
 
 python3 -m $MODEL_WORKER --host 0.0.0.0 --port $HTTP_PORT \
     --controller-address $CONTROLLER_ADDRESS \

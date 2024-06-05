@@ -76,7 +76,7 @@ func NewInstrumentingService(counter metrics.Counter, latency metrics.Histogram)
 func NewChatQueueGaugeService(logger log.Logger, workerSvc chat.WorkerService) prometheus.GaugeFunc {
 	return prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "chat",
-		Name:      "queue_size",
+		Name:      "total_queue_size",
 		Help:      "Current size of the chat queue.",
 	}, func() float64 {
 		ctx := context.Background()
@@ -87,7 +87,7 @@ func NewChatQueueGaugeService(logger log.Logger, workerSvc chat.WorkerService) p
 		}
 		var queueSize = 0
 		for _, v := range models {
-			_ = level.Debug(logger).Log("msg", "model", "model", v)
+			//_ = level.Debug(logger).Log("msg", "model", "modelId", v.ID)
 			workerAddress, err := workerSvc.GetWorkerAddress(ctx, v.ID)
 			if err != nil {
 				_ = level.Warn(logger).Log("msg", "failed to get worker address", "model", v.ID, "err", err)
@@ -108,7 +108,7 @@ func NewChatQueueGaugeService(logger log.Logger, workerSvc chat.WorkerService) p
 func NewChatAvgSpeedGaugeService(logger log.Logger, workerSvc chat.WorkerService) prometheus.GaugeFunc {
 	return prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "chat",
-		Name:      "avg_speed",
+		Name:      "total_avg_speed",
 		Help:      "Current model avg speed of the chat.",
 	}, func() float64 {
 		ctx := context.Background()

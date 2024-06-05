@@ -61,7 +61,10 @@ func (s *service) Completion(ctx context.Context, channelId uint, req openai.Com
 	}
 	var finished = true
 	prompt, _ := json.Marshal(req.Prompt)
-	stop, _ := json.Marshal(req.Stop)
+	var stop []byte
+	if req.Stop != nil {
+		stop, _ = json.Marshal(req.Stop)
+	}
 	msgData := &types.ChatMessages{
 		ModelName:        req.Model,
 		ChannelId:        channelId,
@@ -130,7 +133,10 @@ func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai
 	isError := true
 	finished := false
 	b, _ := json.Marshal(req.Messages)
-	stop, _ := json.Marshal(req.Stop)
+	var stop []byte
+	if req.Stop != nil {
+		stop, _ = json.Marshal(req.Stop)
+	}
 	msgData := &types.ChatMessages{
 		ModelName:        req.Model,
 		ChannelId:        channelId,
@@ -161,56 +167,43 @@ func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai
 	if modelInfo.ProviderName == types.ModelProviderLocalAI {
 		providerName = services.ProviderFsChat
 	}
-	completionStream, err := s.services.Chat(providerName).ChatCompletionStream(ctx, req)
+	completionResult, err := s.services.Chat(providerName).ChatCompletion(ctx, req)
 	if err != nil {
 		msgData.ErrorMessage = err.Error()
+		// todo: 更新数据库
 		_ = level.Warn(logger).Log("msg", "failed to get completion stream", "err", err)
 		return
 	}
 
 	var resContent string
-	usage := openai.Usage{}
-	for content := range completionStream {
-		resContent += content.Choices[0].Delta.Content
-		if content.Usage.TotalTokens > 0 {
-			usage = content.Usage
-		}
-		if content.Choices[0].FinishReason == openai.FinishReasonStop {
-			isError = false
-			finished = true
-			// 更新数据库
-			msgData.Response = resContent
-			msgData.Error = &isError
-			msgData.Created = content.Created
-			msgData.TimeCost = time.Since(msgData.CreatedAt).String()
-			msgData.Finished = &finished
-			msgData.PromptTokens = content.Usage.PromptTokens
-			msgData.ResponseTokens = content.Usage.CompletionTokens
-			if err = s.repository.Messages().Update(ctx, msgData); err != nil {
-				_ = level.Warn(logger).Log("msg", "failed to update message", "err", err)
-			}
-			_ = level.Info(logger).Log("msg", "chat completion stream finished", "usage", fmt.Sprintf("%+v", content.Usage))
-			res = openai.ChatCompletionResponse{
-				ID:      content.ID,
-				Object:  content.Object,
-				Created: content.Created,
-				Model:   content.Model,
-				Choices: []openai.ChatCompletionChoice{
-					{
-						Index: content.Choices[0].Index,
-						Message: openai.ChatCompletionMessage{
-							Role:    "assistant",
-							Content: resContent,
-						},
-						FinishReason: openai.FinishReasonStop,
-					},
-				},
-				Usage: usage,
-			}
-			break
-		}
+	res = openai.ChatCompletionResponse{
+		ID:                completionResult.ID,
+		Object:            completionResult.Object,
+		Created:           completionResult.Created,
+		Model:             completionResult.Model,
+		Choices:           completionResult.Choices,
+		Usage:             completionResult.Usage,
+		SystemFingerprint: completionResult.SystemFingerprint,
 	}
 
+	if len(res.Choices) > 0 {
+		resContent = res.Choices[0].Message.Content
+	}
+
+	isError = false
+	finished = true
+	// 更新数据库
+	msgData.Response = resContent
+	msgData.Error = &isError
+	msgData.Created = time.Now().Unix()
+	msgData.TimeCost = time.Since(msgData.CreatedAt).String()
+	msgData.Finished = &finished
+	msgData.PromptTokens = res.Usage.PromptTokens
+	msgData.ResponseTokens = res.Usage.CompletionTokens
+	if err = s.repository.Messages().Update(ctx, msgData); err != nil {
+		_ = level.Warn(logger).Log("msg", "failed to update message", "err", err)
+	}
+	_ = level.Info(logger).Log("msg", "chat completion stream finished", "usage", fmt.Sprintf("%+v", res.Usage))
 	return
 }
 
@@ -232,7 +225,10 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 	isError := true
 	finished := false
 	b, _ := json.Marshal(req.Messages)
-	stop, _ := json.Marshal(req.Stop)
+	var stop []byte
+	if req.Stop != nil {
+		stop, _ = json.Marshal(req.Stop)
+	}
 	msgData := &types.ChatMessages{
 		ModelName:        req.Model,
 		ChannelId:        channelId,
@@ -273,6 +269,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 	completionStream, err := s.services.Chat(providerName).ChatCompletionStream(ctx, req)
 	if err != nil {
 		msgData.ErrorMessage = err.Error()
+		// 更新错误信息到数据表
 		_ = level.Warn(logger).Log("msg", "failed to get completion stream", "err", err)
 		return
 	}
@@ -282,12 +279,12 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 		var resContent string
 		for content := range completionStream {
 			if util.StringInArray([]string{string(services.ProviderFsChat), string(services.ProviderFsChat)}, string(providerName)) {
-				if len(content.Choices[0].Delta.Content) >= len(resContent) {
+				if len(content.Choices) > 0 && len(content.Choices[0].Delta.Content) >= len(resContent) && len(resContent) > 0 {
 					content.Choices[0].Delta.Content = content.Choices[0].Delta.Content[len(resContent):]
 					resContent += content.Choices[0].Delta.Content
 				}
 			}
-			if content.Choices[0].FinishReason == openai.FinishReasonStop && content.Choices[0].Delta.Content != "" {
+			if len(content.Choices) > 0 && content.Choices[0].FinishReason == openai.FinishReasonStop {
 				isError = false
 				finished = true
 				// 更新数据库

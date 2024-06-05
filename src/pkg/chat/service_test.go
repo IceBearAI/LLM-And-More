@@ -12,7 +12,7 @@ import (
 func initSvc() Service {
 	_ = os.Setenv("AIGC_DB_DRIVE", "sqlite")
 	_ = os.Setenv("AIGC_FSCHAT_CONTROLLER_ADDRESS", "http://fschat-controller:21001")
-	_ = os.Setenv("AIGC_ADMIN_SERVER_STORAGE_PATH", "~/go/src/github.com/icowan/LLM-And-More/storage")
+	_ = os.Setenv("AIGC_SERVER_STORAGE_PATH", "~/go/src/github.com/icowan/LLM-And-More/storage")
 	services, err := tests.Init()
 	if err != nil {
 		panic(err)

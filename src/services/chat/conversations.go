@@ -34,6 +34,7 @@ const (
 	DEFAULT
 	OPENBUDDY_LLAMA3
 	PHI3
+	GLM4
 )
 
 // Conversation 对话
@@ -70,6 +71,18 @@ func (c *Conversation) SetSystemMessage(systemMessage string) {
 
 func (c *Conversation) AppendMessage(role string, message string) {
 	c.Messages = append(c.Messages, []string{role, message})
+}
+
+func (c *Conversation) GetImages() []string {
+	var images []string
+	for i, message := range c.Messages[c.Offset:] {
+		if i%2 == 0 {
+			if len(message) == 2 {
+				images = append(images, message[1])
+			}
+		}
+	}
+	return nil
 }
 
 func (c *Conversation) GetPrompt() (ret string) {
@@ -117,7 +130,9 @@ func (c *Conversation) GetPrompt() (ret string) {
 		return ret
 	case LLAMA3:
 		ret = "<|begin_of_text|>"
-		ret += systemPrompt
+		if c.SystemMessage != "" {
+			ret += systemPrompt
+		}
 		for i, message := range c.Messages {
 			if len(message) == 2 && message[1] != "" {
 				ret += "<|start_header_id|>" + c.Roles[i%2] + "<|end_header_id|>\n\n"
@@ -163,6 +178,19 @@ func (c *Conversation) GetPrompt() (ret string) {
 			}
 		}
 		return ret
+	case GLM4:
+		ret = "[gMASK]<sop>"
+		if systemPrompt != "" {
+			ret += systemPrompt + c.Sep + "\n"
+		}
+		for _, message := range c.Messages {
+			if len(message) == 2 && message[1] != "" {
+				ret += message[0] + "\n" + message[1] + c.Sep
+			} else {
+				ret += message[0]
+			}
+		}
+		return ret
 	default:
 		ret = ""
 	}
@@ -172,7 +200,7 @@ func (c *Conversation) GetPrompt() (ret string) {
 
 func Register(tp Templates) Templates {
 	tp.Register(context.Background(), "llama-3", Conversation{
-		StopStr:        []string{"<|eot_id|>"},
+		StopStr:        []string{"<|start_header_id|>", "<|end_header_id|>", "<|eot_id|>"},
 		Sep:            "",
 		Sep2:           "",
 		StopTokenIds:   []int{128001, 128009},
@@ -180,7 +208,7 @@ func Register(tp Templates) Templates {
 		SepStyle:       int(LLAMA3),
 		Roles:          []string{"user", "assistant"},
 		SystemTemplate: "<|start_header_id|>system<|end_header_id|>\n\n{system_message}<|eot_id|>",
-		SystemMessage:  "You are a helpful assistant.",
+		SystemMessage:  "",
 	})
 	tp.Register(context.Background(), "qwen", Conversation{
 		SystemMessage:  "You are a helpful assistant.",
@@ -255,7 +283,18 @@ func Register(tp Templates) Templates {
 		SepStyle:       int(LLAMA3),
 		Roles:          []string{"user", "assistant"},
 		SystemTemplate: "<|start_header_id|>system<|end_header_id|>\n\n{system_message}<|eot_id|>",
-		SystemMessage:  "You are a helpful assistant.",
+		SystemMessage:  "",
+	})
+	tp.Register(context.Background(), "glm-4", Conversation{
+		StopStr:        []string{"<|endoftext|>", "<|user|>", "<|observation|>"},
+		Sep:            "",
+		Sep2:           "",
+		StopTokenIds:   []int{151329, 151336, 151338},
+		Name:           "glm-4",
+		SepStyle:       int(GLM4),
+		Roles:          []string{"<|user|>", "<|assistant|>"},
+		SystemTemplate: "<|system|>\n{system_message}",
+		SystemMessage:  "",
 	})
 	return tp
 }

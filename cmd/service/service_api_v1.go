@@ -106,9 +106,11 @@ func startApiHttpServer(ctx context.Context) error {
 		}, fieldKeys))(chatApi)
 
 	if logger != nil {
+		chatApi = chat.NewLogging(logger, "traceId")(chatApi)
 	}
 
 	if tracer != nil {
+		chatApi = chat.NewTracing(tracer)(chatApi)
 	}
 
 	apiGroup := &group.Group{}

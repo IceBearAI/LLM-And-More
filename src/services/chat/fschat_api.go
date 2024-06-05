@@ -71,7 +71,7 @@ func (s *fsChatApiClient) ChatCompletion(ctx context.Context, req openai.ChatCom
 		ChatCompletionResponse: openai.ChatCompletionResponse{
 			ID:      fmt.Sprintf("cmpl-%s", shortuuid.New()),
 			Object:  "chat.completion",
-			Created: time.Now().UnixMilli(),
+			Created: time.Now().Unix(),
 			Model:   req.Model,
 			Choices: []openai.ChatCompletionChoice{
 				{
@@ -110,25 +110,18 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 		return
 	}
 	dot := make(chan CompletionStreamResponse)
-	//var maxTokens int
-
-	//prompts := s.processInput(req.Model, req.Messages)
-	//for _, prompt := range prompts {
-	//	maxTokens, err = s.options.workerSvc.WorkerCheckLength(ctx, workerAddress, req.Model, req.MaxTokens, prompt)
-	//	if err != nil {
-	//		err = errors.WithMessage(err, "failed to check length")
-	//		return dot, err
-	//	}
-	//}
-	//if maxTokens != 0 && maxTokens < req.MaxTokens {
-	//	req.MaxTokens = maxTokens
-	//}
 
 	genParams, err := s.genParams(ctx, req, workerAddress)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to get gen params")
 		return
 	}
+	var newMaxTokens = genParams.MaxNewTokens
+	if newMaxTokens, err = s.options.workerSvc.WorkerCheckLength(ctx, workerAddress, req.Model, req.MaxTokens, genParams.Prompt); err != nil {
+		newMaxTokens = 1024
+	}
+	genParams.MaxNewTokens = newMaxTokens
+
 	streamResp, err := s.options.workerSvc.WorkerGenerateStream(ctx, workerAddress, genParams)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to generate stream")
@@ -136,10 +129,11 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 	}
 
 	go func() {
-		now := time.Now().UnixMilli()
+		now := time.Now().Unix()
 		defer close(dot)
 		streamId := fmt.Sprintf("cmpl-%s", shortuuid.New())
-		var fullContent string
+		var previousText string
+
 		for {
 			content, ok := <-streamResp
 			if !ok {
@@ -149,8 +143,8 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 				err = errors.New(content.Text)
 				return
 			}
+
 			text := content.Text
-			var previousText string
 			// 替换所有的Unicode替代字符\ufffd为空字符串
 			decodedUnicode := strings.Replace(text, "\ufffd", "", -1)
 
@@ -159,15 +153,10 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 			if len(previousText) < len(decodedUnicode) {
 				deltaText = decodedUnicode[len(previousText):]
 			}
-
-			// 更新previous_text变量为当前文本，但只在当前文本的长度大于previous_text的长度时
 			if len(decodedUnicode) > len(previousText) {
 				previousText = decodedUnicode
-			}
-
-			if len(text) >= len(fullContent) {
-				deltaText = deltaText[len(fullContent):]
-				fullContent += deltaText
+			} else {
+				deltaText = ""
 			}
 
 			dot <- CompletionStreamResponse{
@@ -248,7 +237,7 @@ func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompleti
 		err = errors.New("failed to get conv template")
 		return
 	}
-
+	var imageList []string
 	for _, v := range req.Messages {
 		if v.Role == "system" {
 			conv.SetSystemMessage(strings.TrimSpace(v.Content))
@@ -258,13 +247,14 @@ func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompleti
 				for _, item := range v.MultiContent {
 					if item.Type == openai.ChatMessagePartTypeImageURL {
 						if item.ImageURL != nil {
-							conv.AppendMessage(conv.Roles[0], ImagePlaceholderStr+item.ImageURL.URL)
+							imageList = append(imageList, item.ImageURL.URL)
 						}
 					} else {
 						textList = append(textList, item.Text)
 					}
 				}
-				text := strings.Join(textList, "\n")
+				text := strings.Repeat("<image>\n", len(imageList))
+				text += strings.Join(textList, "\n")
 				conv.AppendMessage(conv.Roles[0], text)
 			} else {
 				conv.AppendMessage(conv.Roles[0], strings.TrimSpace(v.Content))
@@ -298,6 +288,7 @@ func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompleti
 		StopTokenIds:     conv.StopTokenIds,
 		Stop:             req.Stop,
 		Echo:             false,
+		Images:           imageList,
 	}
 	if req.N > 0 {
 		genParams.N = &req.N
