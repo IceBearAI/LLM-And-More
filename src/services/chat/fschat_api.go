@@ -71,7 +71,7 @@ func (s *fsChatApiClient) ChatCompletion(ctx context.Context, req openai.ChatCom
 		ChatCompletionResponse: openai.ChatCompletionResponse{
 			ID:      fmt.Sprintf("cmpl-%s", shortuuid.New()),
 			Object:  "chat.completion",
-			Created: time.Now().UnixMilli(),
+			Created: time.Now().Unix(),
 			Model:   req.Model,
 			Choices: []openai.ChatCompletionChoice{
 				{
@@ -129,7 +129,7 @@ func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.C
 	}
 
 	go func() {
-		now := time.Now().UnixMilli()
+		now := time.Now().Unix()
 		defer close(dot)
 		streamId := fmt.Sprintf("cmpl-%s", shortuuid.New())
 		var previousText string
