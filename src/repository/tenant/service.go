@@ -2,6 +2,7 @@ package tenant
 
 import (
 	"context"
+
 	"github.com/IceBearAI/aigc/src/repository/types"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -16,10 +17,18 @@ type Service interface {
 	AddModel(ctx context.Context, id uint, models ...*types.Models) (err error)
 	// FindTenantByTenantId 通过租户ID获取租户信息
 	FindTenantByTenantId(ctx context.Context, tenantId string, preloads ...string) (res types.Tenants, err error)
+	// FindByPublicTenantIdItems 通过公共租户ID获取租户信息
+	FindByPublicTenantIdItems(ctx context.Context, publicTenantIdItems []string, preloads ...string) (res []types.Tenants, err error)
 }
 
 type service struct {
 	db *gorm.DB
+}
+
+// FindByPublicTenantIdItems implements Service.
+func (s *service) FindByPublicTenantIdItems(ctx context.Context, publicTenantIdItems []string, preloads ...string) (res []types.Tenants, err error) {
+	err = s.db.WithContext(ctx).Where("public_tenant_id IN ?", publicTenantIdItems).Find(&res).Error
+	return
 }
 
 func (s service) FindTenantByTenantId(ctx context.Context, tenantId string, preloads ...string) (res types.Tenants, err error) {

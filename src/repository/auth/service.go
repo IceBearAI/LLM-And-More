@@ -2,14 +2,18 @@ package auth
 
 import (
 	"context"
+
 	"github.com/IceBearAI/aigc/src/helpers/page"
 	"github.com/IceBearAI/aigc/src/repository/types"
+	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
 type Middleware func(Service) Service
 
 type Service interface {
+	// GetTenantById 根据id获取租户信息
+	GetTenantById(ctx context.Context, id uint, preload ...string) (res types.Tenants, err error)
 	// GetTenantByUuid 根据uuid获取租户信息
 	GetTenantByUuid(ctx context.Context, uuid string, preload ...string) (res types.Tenants, err error)
 	// GetAccountByEmail 根据email获取账号信息
@@ -23,7 +27,7 @@ type Service interface {
 	// ListTenants 租户列表
 	ListTenants(ctx context.Context, request ListTenantRequest) (res []types.Tenants, total int64, err error)
 	// CreateAccount 创建账号
-	CreateAccount(ctx context.Context, data *types.Accounts, tenantId uint) (err error)
+	CreateAccount(ctx context.Context, data *types.Accounts) (err error)
 	// ListAccount 获取账号列表
 	ListAccount(ctx context.Context, request ListAccountRequest) (res []types.Accounts, total int64, err error)
 	// UpdateAccount 更新账号
@@ -52,9 +56,25 @@ type service struct {
 	db *gorm.DB
 }
 
-func (s *service) UpdateTenant(ctx context.Context, data *types.Tenants) (err error) {
-	err = s.db.WithContext(ctx).Save(data).Error
+// GetTenantById implements Service.
+func (s *service) GetTenantById(ctx context.Context, id uint, preload ...string) (res types.Tenants, err error) {
+	db := s.db.WithContext(ctx).Where("id = ?", id)
+	for _, v := range preload {
+		db = db.Preload(v)
+	}
+	err = db.First(&res).Error
 	return
+}
+
+func (s *service) UpdateTenant(ctx context.Context, data *types.Tenants) (err error) {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err = tx.Model(&types.Tenants{Model: data.Model}).Association("Models").Clear(); err != nil {
+			err = errors.Wrap(err, "取消关联模型失败")
+			return err
+		}
+		return tx.Save(data).Error
+	})
+
 }
 
 func (s *service) DeleteTenant(ctx context.Context, id uint) (err error) {
@@ -82,12 +102,28 @@ func (s *service) ListAccount(ctx context.Context, request ListAccountRequest) (
 		query = query.Where("status = ?", request.Status)
 	}
 	limit, offset := page.Limit(request.Page, request.PageSize)
-	err = query.Count(&total).Order("id DESC").Limit(limit).Offset(offset).Find(&res).Error
+	err = query.Count(&total).Order("id DESC").Limit(limit).Offset(offset).Preload("Tenants").Find(&res).Error
 	return
 }
 
 func (s *service) UpdateAccount(ctx context.Context, data *types.Accounts) (err error) {
-	err = s.db.WithContext(ctx).Save(data).Error
+	db := s.db.WithContext(ctx)
+
+	err = db.Transaction(func(tx *gorm.DB) (err error) {
+		err = tx.Model(&types.Accounts{Model: data.Model}).Association("Tenants").Clear()
+		if err != nil {
+			err = errors.Wrap(err, "取消关联租户失败")
+			return
+		}
+
+		err = tx.Save(data).Error
+		if err != nil {
+			err = errors.Wrap(err, "更新账号信息失败")
+			return
+		}
+
+		return nil
+	})
 	return
 }
 
@@ -117,21 +153,12 @@ func (s *service) ListTenants(ctx context.Context, request ListTenantRequest) (r
 		query = query.Where("name LIKE ?", "%"+request.Name+"%")
 	}
 	limit, offset := page.Limit(request.Page, request.PageSize)
-	err = query.Count(&total).Order("id DESC").Limit(limit).Offset(offset).Find(&res).Error
+	err = query.Count(&total).Order("id DESC").Limit(limit).Offset(offset).Preload("Models").Find(&res).Error
 	return
 }
 
-func (s *service) CreateAccount(ctx context.Context, data *types.Accounts, tenantId uint) (err error) {
-	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err = tx.Create(data).Error; err != nil {
-			return err
-		}
-		return tx.Create(&types.TenantAccountAssociations{
-			TenantID:  tenantId,
-			AccountID: data.ID,
-		}).Error
-	})
-	return
+func (s *service) CreateAccount(ctx context.Context, data *types.Accounts) (err error) {
+	return s.db.WithContext(ctx).Save(data).Error
 }
 
 func (s *service) GetAccountByEmail(ctx context.Context, email string, preload ...string) (res types.Accounts, err error) {

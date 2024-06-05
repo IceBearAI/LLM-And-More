@@ -4,6 +4,17 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io/fs"
+	"net"
+	"net/http"
+	"net/http/httputil"
+	"os"
+	"os/signal"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
 	tiktoken2 "github.com/IceBearAI/aigc/src/helpers/tiktoken"
 	"github.com/IceBearAI/aigc/src/pkg/assistants"
 	"github.com/IceBearAI/aigc/src/pkg/auth"
@@ -22,16 +33,6 @@ import (
 	"github.com/igm/sockjs-go/v3/sockjs"
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/tmc/langchaingo/llms/openai"
-	"io/fs"
-	"net"
-	"net/http"
-	"net/http/httputil"
-	"os"
-	"os/signal"
-	"strconv"
-	"strings"
-	"syscall"
-	"time"
 
 	"github.com/go-kit/kit/tracing/opentracing"
 
@@ -66,9 +67,9 @@ aigc-server start -p :8080
 				return err
 			}
 
-			_ = generateTable()
 			// 判断是否需要初始化数据，如果没有则初始化数据
 			if !gormDB.Migrator().HasTable(types.Accounts{}) {
+				_ = generateTable()
 				if err = initData(); err != nil {
 					_ = level.Error(logger).Log("cmd.start.PreRunE", "initData", "err", err.Error())
 					return err
