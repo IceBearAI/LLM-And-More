@@ -4,6 +4,17 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io/fs"
+	"net"
+	"net/http"
+	"net/http/httputil"
+	"os"
+	"os/signal"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
 	tiktoken2 "github.com/IceBearAI/aigc/src/helpers/tiktoken"
 	"github.com/IceBearAI/aigc/src/pkg/assistants"
 	"github.com/IceBearAI/aigc/src/pkg/auth"
@@ -16,22 +27,13 @@ import (
 	"github.com/IceBearAI/aigc/src/pkg/modelevaluate"
 	"github.com/IceBearAI/aigc/src/pkg/models"
 	"github.com/IceBearAI/aigc/src/pkg/sys"
+	"github.com/IceBearAI/aigc/src/pkg/sysauth"
 	"github.com/IceBearAI/aigc/src/pkg/terminal"
 	"github.com/IceBearAI/aigc/src/pkg/tools"
 	"github.com/IceBearAI/aigc/src/repository/types"
 	"github.com/igm/sockjs-go/v3/sockjs"
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/tmc/langchaingo/llms/openai"
-	"io/fs"
-	"net"
-	"net/http"
-	"net/http/httputil"
-	"os"
-	"os/signal"
-	"strconv"
-	"strings"
-	"syscall"
-	"time"
 
 	"github.com/go-kit/kit/tracing/opentracing"
 
@@ -66,9 +68,9 @@ aigc-server start -p :8080
 				return err
 			}
 
-			_ = generateTable()
 			// 判断是否需要初始化数据，如果没有则初始化数据
 			if !gormDB.Migrator().HasTable(types.Accounts{}) {
+				_ = generateTable()
 				if err = initData(); err != nil {
 					_ = level.Error(logger).Log("cmd.start.PreRunE", "initData", "err", err.Error())
 					return err
@@ -107,6 +109,7 @@ aigc-server start -p :8080
 	assistantsSvc      assistants.Service
 	modelEvaluateSvc   modelevaluate.Service
 	terminalSvc        terminal.Service
+	sysauthSvc         sysauth.Service
 )
 
 func start(ctx context.Context) (err error) {
@@ -183,6 +186,8 @@ func start(ctx context.Context) (err error) {
 		datasetTaskSvc = datasettask.NewLogging(logger, logging.TraceId)(datasetTaskSvc)
 		modelEvaluateSvc = modelevaluate.NewLogging(logger, logging.TraceId)(modelEvaluateSvc)
 		terminalSvc = terminal.NewLogging(logger, logging.TraceId)(terminalSvc)
+		sysauthSvc = sysauth.NewLogging(logger, logging.TraceId)(sysauthSvc)
+
 	}
 
 	if tracer != nil {
@@ -198,6 +203,7 @@ func start(ctx context.Context) (err error) {
 		datasetTaskSvc = datasettask.NewTracing(tracer)(datasetTaskSvc)
 		modelEvaluateSvc = modelevaluate.NewTracing(tracer)(modelEvaluateSvc)
 		terminalSvc = terminal.NewTracing(tracer)(terminalSvc)
+		sysauthSvc = sysauth.NewTracing(tracer)(sysauthSvc)
 	}
 
 	g := &group.Group{}
@@ -302,7 +308,8 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 	r := mux.NewRouter()
 	// auth模块
 	r.PathPrefix("/api/auth").Handler(http.StripPrefix("/api/auth", auth.MakeHTTPHandler(authSvc, authEms, opts)))
-
+	// sysauth模块
+	r.PathPrefix("/api/sysauth").Handler(http.StripPrefix("/api/sysauth", sysauth.MakeHTTPHandler(sysauthSvc, authEms, opts)))
 	// file模块
 	r.PathPrefix("/api/files").Handler(http.StripPrefix("/api", files.MakeHTTPHandler(fileSvc, authEms, opts)))
 	// channel模块
