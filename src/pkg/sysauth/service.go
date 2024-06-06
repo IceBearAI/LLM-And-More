@@ -253,7 +253,7 @@ func (s *service) CreateAccount(ctx context.Context, request CreateAccountReques
 		return
 	}
 
-	err = s.store.Auth().CreateAccount(ctx, &data)
+	err = s.store.Auth().CreateAccountV2(ctx, &data)
 	if err != nil {
 		_ = level.Error(logger).Log("auth", "CreateAccount", "err", err.Error())
 		return res, err

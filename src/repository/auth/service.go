@@ -11,6 +11,7 @@ import (
 
 type Middleware func(Service) Service
 
+//go:generate gowrap.exe gen -g -p ./ -i Service -bt "ce_log:logging.go ce_trace:tracing.go"
 type Service interface {
 	// GetTenantById 根据id获取租户信息
 	GetTenantById(ctx context.Context, id uint, preload ...string) (res types.Tenants, err error)
@@ -27,7 +28,7 @@ type Service interface {
 	// ListTenants 租户列表
 	ListTenants(ctx context.Context, request ListTenantRequest) (res []types.Tenants, total int64, err error)
 	// CreateAccount 创建账号
-	CreateAccount(ctx context.Context, data *types.Accounts) (err error)
+	CreateAccountV2(ctx context.Context, data *types.Accounts) (err error)
 	// ListAccount 获取账号列表
 	ListAccount(ctx context.Context, request ListAccountRequest) (res []types.Accounts, total int64, err error)
 	// UpdateAccount 更新账号
@@ -36,6 +37,8 @@ type Service interface {
 	GetAccountById(ctx context.Context, id uint) (res types.Accounts, err error)
 	// DeleteAccount 删除账号
 	DeleteAccount(ctx context.Context, id uint) (err error)
+	// CreateAccount 创建账号
+	CreateAccount(ctx context.Context, data *types.Accounts, tenantId uint) (err error)
 }
 
 type ListTenantRequest struct {
@@ -83,6 +86,19 @@ func (s *service) DeleteTenant(ctx context.Context, id uint) (err error) {
 			return err
 		}
 		return tx.Delete(&types.TenantAccountAssociations{}, "tenant_id = ?", id).Error
+	})
+	return
+}
+
+func (s *service) CreateAccount(ctx context.Context, data *types.Accounts, tenantId uint) (err error) {
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err = tx.Create(data).Error; err != nil {
+			return err
+		}
+		return tx.Create(&types.TenantAccountAssociations{
+			TenantID:  tenantId,
+			AccountID: data.ID,
+		}).Error
 	})
 	return
 }
@@ -157,7 +173,7 @@ func (s *service) ListTenants(ctx context.Context, request ListTenantRequest) (r
 	return
 }
 
-func (s *service) CreateAccount(ctx context.Context, data *types.Accounts) (err error) {
+func (s *service) CreateAccountV2(ctx context.Context, data *types.Accounts) (err error) {
 	return s.db.WithContext(ctx).Save(data).Error
 }
 

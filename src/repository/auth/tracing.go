@@ -15,9 +15,35 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
-func (s *tracing) CreateAccount(ctx context.Context, data *types.Accounts) (err error) {
+func (s *tracing) CreateAccount(ctx context.Context, data *types.Accounts, tenantId uint) (err error) {
 
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "CreateAccount", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "repository.auth",
+	})
+	defer func() {
+
+		dataByte, _ := json.Marshal(data)
+		dataJson := string(dataByte)
+
+		span.LogKV(
+			"data", dataJson, "tenantId", tenantId,
+
+			"err", err,
+		)
+
+		span.SetTag(string(ext.Error), err != nil)
+
+		span.Finish()
+	}()
+
+	return s.next.CreateAccount(ctx, data, tenantId)
+
+}
+
+func (s *tracing) CreateAccountV2(ctx context.Context, data *types.Accounts) (err error) {
+
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "CreateAccountV2", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "repository.auth",
 	})
@@ -37,7 +63,7 @@ func (s *tracing) CreateAccount(ctx context.Context, data *types.Accounts) (err 
 		span.Finish()
 	}()
 
-	return s.next.CreateAccount(ctx, data)
+	return s.next.CreateAccountV2(ctx, data)
 
 }
 

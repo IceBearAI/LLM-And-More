@@ -17,7 +17,7 @@ type logging struct {
 	traceId string
 }
 
-func (s *logging) CreateAccount(ctx context.Context, data *types.Accounts) (err error) {
+func (s *logging) CreateAccount(ctx context.Context, data *types.Accounts, tenantId uint) (err error) {
 
 	defer func(begin time.Time) {
 
@@ -30,13 +30,38 @@ func (s *logging) CreateAccount(ctx context.Context, data *types.Accounts) (err 
 
 			"data", dataJson,
 
+			"tenantId", tenantId,
+
 			"took", time.Since(begin),
 
 			"err", err,
 		)
 	}(time.Now())
 
-	return s.next.CreateAccount(ctx, data)
+	return s.next.CreateAccount(ctx, data, tenantId)
+
+}
+
+func (s *logging) CreateAccountV2(ctx context.Context, data *types.Accounts) (err error) {
+
+	defer func(begin time.Time) {
+
+		dataByte, _ := json.Marshal(data)
+		dataJson := string(dataByte)
+
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "CreateAccountV2",
+
+			"data", dataJson,
+
+			"took", time.Since(begin),
+
+			"err", err,
+		)
+	}(time.Now())
+
+	return s.next.CreateAccountV2(ctx, data)
 
 }
 
