@@ -4,7 +4,19 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io/fs"
+	"net"
+	"net/http"
+	"net/http/httputil"
+	"os"
+	"os/signal"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
 	tiktoken2 "github.com/IceBearAI/aigc/src/helpers/tiktoken"
+	"github.com/IceBearAI/aigc/src/pkg/account"
 	"github.com/IceBearAI/aigc/src/pkg/assistants"
 	"github.com/IceBearAI/aigc/src/pkg/auth"
 	"github.com/IceBearAI/aigc/src/pkg/channels"
@@ -16,22 +28,13 @@ import (
 	"github.com/IceBearAI/aigc/src/pkg/modelevaluate"
 	"github.com/IceBearAI/aigc/src/pkg/models"
 	"github.com/IceBearAI/aigc/src/pkg/sys"
+	"github.com/IceBearAI/aigc/src/pkg/tenant"
 	"github.com/IceBearAI/aigc/src/pkg/terminal"
 	"github.com/IceBearAI/aigc/src/pkg/tools"
 	"github.com/IceBearAI/aigc/src/repository/types"
 	"github.com/igm/sockjs-go/v3/sockjs"
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/tmc/langchaingo/llms/openai"
-	"io/fs"
-	"net"
-	"net/http"
-	"net/http/httputil"
-	"os"
-	"os/signal"
-	"strconv"
-	"strings"
-	"syscall"
-	"time"
 
 	"github.com/go-kit/kit/tracing/opentracing"
 
@@ -108,6 +111,8 @@ aigc-server start -p :8080
 	assistantsSvc      assistants.Service
 	modelEvaluateSvc   modelevaluate.Service
 	terminalSvc        terminal.Service
+	accountSvc         account.Service
+	tenantSvc          tenant.Service
 )
 
 func start(ctx context.Context) (err error) {
@@ -128,6 +133,8 @@ func start(ctx context.Context) (err error) {
 	tiktoken.SetBpeLoader(tiktoken2.NewBpeLoader(DataFs))
 
 	authSvc = auth.New(logger, traceId, store, apiSvc)
+	accountSvc = account.New(logger, traceId, store, apiSvc)
+	tenantSvc = tenant.New(logger, traceId, store, apiSvc)
 	fileSvc = files.NewService(logger, traceId, store, apiSvc, []files.CreationOption{
 		files.WithLocalDataPath(serverStoragePath),
 		files.WithServerUrl(fmt.Sprintf("%s/storage", serverDomain)),
@@ -186,6 +193,8 @@ func start(ctx context.Context) (err error) {
 		datasetTaskSvc = datasettask.NewLogging(logger, logging.TraceId)(datasetTaskSvc)
 		modelEvaluateSvc = modelevaluate.NewLogging(logger, logging.TraceId)(modelEvaluateSvc)
 		terminalSvc = terminal.NewLogging(logger, logging.TraceId)(terminalSvc)
+		accountSvc = account.NewLogging(logger, logging.TraceId)(accountSvc)
+		tenantSvc = tenant.NewLogging(logger, logging.TraceId)(tenantSvc)
 	}
 
 	if tracer != nil {
@@ -201,6 +210,8 @@ func start(ctx context.Context) (err error) {
 		datasetTaskSvc = datasettask.NewTracing(tracer)(datasetTaskSvc)
 		modelEvaluateSvc = modelevaluate.NewTracing(tracer)(modelEvaluateSvc)
 		terminalSvc = terminal.NewTracing(tracer)(terminalSvc)
+		accountSvc = account.NewTracing(tracer)(accountSvc)
+		tenantSvc = tenant.NewTracing(tracer)(tenantSvc)
 	}
 
 	g := &group.Group{}
@@ -305,7 +316,10 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 	r := mux.NewRouter()
 	// auth模块
 	r.PathPrefix("/api/auth").Handler(http.StripPrefix("/api/auth", auth.MakeHTTPHandler(authSvc, authEms, opts)))
-
+	// account模块
+	r.PathPrefix("/api/accounts").Handler(http.StripPrefix("/api", account.MakeHTTPHandler(accountSvc, authEms, opts)))
+	// tenant模块
+	r.PathPrefix("/api/tenants").Handler(http.StripPrefix("/api", tenant.MakeHTTPHandler(tenantSvc, authEms, opts)))
 	// file模块
 	r.PathPrefix("/api/files").Handler(http.StripPrefix("/api", files.MakeHTTPHandler(fileSvc, authEms, opts)))
 	// channel模块
