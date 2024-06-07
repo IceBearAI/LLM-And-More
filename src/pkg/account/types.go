@@ -1,22 +1,7 @@
-package sysauth
+package account
 
 import "time"
 
-type LoginRequest struct {
-	// Username 登陆用户的邮箱或邮箱前缀
-	Username string `json:"username" validate:"required" param:",username"`
-	// Username 登陆用户的邮箱密码
-	Password string `json:"password" validate:"required" param:",password"`
-}
-
-type LoginResult struct {
-	// Token jwt token
-	Token string `json:"token"`
-	// Username 登陆用户的姓名
-	Username string `json:"username"`
-	// Avatar 登陆用户的头像地址
-	Avatar string `json:"avatar,omitempty"`
-}
 type AccountRequest struct {
 	Email string `json:"email" param:",email"`
 }
@@ -42,12 +27,6 @@ type TenantDetail struct {
 	ModelNames     []string  `json:"modelNames"`
 	CreatedAt      time.Time `json:"createdAt"`
 	UpdatedAt      time.Time `json:"updatedAt"`
-}
-
-type ListTenantRequest struct {
-	Page     int    `json:"page" param:"query,page"`
-	PageSize int    `json:"pageSize" param:"query,pageSize"`
-	Name     string `json:"name" param:"query,name"`
 }
 
 type CreateAccountRequest struct {
@@ -82,12 +61,6 @@ type ListAccountRequest struct {
 	Status   *bool  `json:"status,omitempty"`
 }
 
-type CreateTenantRequest struct {
-	Name         string   `json:"name" validate:"required"`
-	ContactEmail string   `json:"contactEmail" validate:"required"`
-	ModelNames   []string `json:"modelNames"`
-}
-
 type UpdateAccountRequest struct {
 	Id                        uint     `json:"id" param:"path,id" validate:"required"`
 	Nickname                  string   `json:"nickname"`
@@ -101,15 +74,4 @@ type UpdateAccountRequest struct {
 
 type DeleteAccountRequest struct {
 	Id uint `json:"id" validate:"required" param:"path,id"`
-}
-
-type DeleteTenantRequest struct {
-	Id uint `json:"publicTenantId" validate:"required" param:"path,id"`
-}
-
-type UpdateTenantRequest struct {
-	Id           uint     `json:"id" param:"path,id" validate:"required"`
-	Name         string   `json:"name" validate:"required"`
-	ContactEmail string   `json:"contactEmail" validate:"required"`
-	ModelNames   []string `json:"modelNames"`
 }

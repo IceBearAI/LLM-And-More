@@ -1,5 +1,5 @@
 // Code generated . DO NOT EDIT.
-package sysauth
+package account
 
 import (
 	"context"
@@ -39,28 +39,6 @@ func (s *logging) CreateAccount(ctx context.Context, req CreateAccountRequest) (
 
 }
 
-func (s *logging) CreateTenant(ctx context.Context, req CreateTenantRequest) (res TenantDetail, err error) {
-
-	defer func(begin time.Time) {
-
-		reqByte, _ := json.Marshal(req)
-		reqJson := string(reqByte)
-
-		_ = s.logger.Log(
-			s.traceId, ctx.Value(s.traceId),
-			"method", "CreateTenant",
-
-			"req", reqJson,
-
-			"took", time.Since(begin),
-
-			"err", err,
-		)
-	}(time.Now())
-
-	return s.next.CreateTenant(ctx, req)
-
-}
 
 func (s *logging) DeleteAccount(ctx context.Context, id uint) (err error) {
 
@@ -82,25 +60,7 @@ func (s *logging) DeleteAccount(ctx context.Context, id uint) (err error) {
 
 }
 
-func (s *logging) DeleteTenant(ctx context.Context, id uint) (err error) {
 
-	defer func(begin time.Time) {
-
-		_ = s.logger.Log(
-			s.traceId, ctx.Value(s.traceId),
-			"method", "DeleteTenant",
-
-			"id", id,
-
-			"took", time.Since(begin),
-
-			"err", err,
-		)
-	}(time.Now())
-
-	return s.next.DeleteTenant(ctx, id)
-
-}
 
 func (s *logging) ListAccount(ctx context.Context, req ListAccountRequest) (list []Account, total int64, err error) {
 
@@ -122,29 +82,6 @@ func (s *logging) ListAccount(ctx context.Context, req ListAccountRequest) (list
 	}(time.Now())
 
 	return s.next.ListAccount(ctx, req)
-
-}
-
-func (s *logging) ListTenants(ctx context.Context, req ListTenantRequest) (list []TenantDetail, total int64, err error) {
-
-	defer func(begin time.Time) {
-
-		reqByte, _ := json.Marshal(req)
-		reqJson := string(reqByte)
-
-		_ = s.logger.Log(
-			s.traceId, ctx.Value(s.traceId),
-			"method", "ListTenants",
-
-			"req", reqJson,
-
-			"took", time.Since(begin),
-
-			"err", err,
-		)
-	}(time.Now())
-
-	return s.next.ListTenants(ctx, req)
 
 }
 
@@ -172,28 +109,6 @@ func (s *logging) UpdateAccount(ctx context.Context, req UpdateAccountRequest) (
 
 }
 
-func (s *logging) UpdateTenant(ctx context.Context, req UpdateTenantRequest) (err error) {
-
-	defer func(begin time.Time) {
-
-		reqByte, _ := json.Marshal(req)
-		reqJson := string(reqByte)
-
-		_ = s.logger.Log(
-			s.traceId, ctx.Value(s.traceId),
-			"method", "UpdateTenant",
-
-			"req", reqJson,
-
-			"took", time.Since(begin),
-
-			"err", err,
-		)
-	}(time.Now())
-
-	return s.next.UpdateTenant(ctx, req)
-
-}
 
 func NewLogging(logger log.Logger, traceId string) Middleware {
 	logger = log.With(logger, "pkg.auth", "logging")
