@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"time"
+
 	"github.com/IceBearAI/aigc/src/encode"
 	authjwt "github.com/IceBearAI/aigc/src/jwt"
 	"github.com/IceBearAI/aigc/src/repository"
@@ -15,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
-	"time"
 )
 
 type Service interface {
