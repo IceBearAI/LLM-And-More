@@ -127,7 +127,7 @@ torchrun --nproc_per_node $GPUS_PER_NODE /app/finetune.py \
     --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
     --evaluation_strategy "no" \
     --save_strategy "epoch" \
-    --save_total_limit 5 \
+    --save_total_limit 10 \
     --learning_rate $LEARNING_RATE \
     --weight_decay 0.1 \
     --adam_beta2 0.95 \

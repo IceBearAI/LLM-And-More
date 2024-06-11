@@ -150,7 +150,7 @@ def preprocess(
             tokenizer.apply_chat_template(
                 msg,
                 # chat_template=TEMPLATE,
-                tokenize=False,
+                tokenize=True,
                 add_generation_prompt=False,
                 padding="max_length",
                 max_length=max_len,
