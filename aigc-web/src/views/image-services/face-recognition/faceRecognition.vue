@@ -29,6 +29,11 @@
           </el-table-column>
           <el-table-column label="人脸个数" prop="faceNum" min-width="160px"></el-table-column>
           <el-table-column label="比对阈值" prop="denoiseStrength" min-width="160px"></el-table-column>
+          <el-table-column label="比分" min-width="100px">
+            <template #default="{ row }">
+              {{ row.dist.toFixed(4) }}
+            </template>
+          </el-table-column>
           <el-table-column label="人脸边距" prop="faceMargin" min-width="160px">
             <template #default="{ row }">
               <v-row class="text-left" dense>
@@ -40,6 +45,16 @@
           <el-table-column label="是否同一个人" min-width="120px">
             <template #default="{ row }">
               <ChipBoolean v-model="row.isSame"></ChipBoolean>
+            </template>
+          </el-table-column>
+          <el-table-column label="py耗时" prop="durationPy" min-width="90px">
+            <template #default="{ row }">
+              {{ row.durationPy.toFixed(4) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="接口耗时" prop="duration" min-width="90px">
+            <template #default="{ row }">
+              {{ row.duration.toFixed(4) }}
             </template>
           </el-table-column>
           <el-table-column label="操作人" prop="operatorEmail" min-width="150px" show-overflow-tooltip></el-table-column>

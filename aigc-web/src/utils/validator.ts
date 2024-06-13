@@ -66,6 +66,20 @@ export const validator = {
       errorValid
     });
   },
+  isPassword({
+    value,
+    errorEmpty = "请输入密码",
+    required = false,
+    errorValid = "不符合密码要求格式：大写英文字母+小写英文字母+数字+特殊字符，8-20位"
+  }: typeValidator) {
+    return handlerValidator({
+      value,
+      exp: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$/,
+      required,
+      errorEmpty,
+      errorValid
+    });
+  },
   //中文、空格、标点符号
   isCNOrSymbol({ value, errorEmpty = "请输入", required = false, errorValid = "请输入中文" }: typeValidator) {
     return handlerValidator({

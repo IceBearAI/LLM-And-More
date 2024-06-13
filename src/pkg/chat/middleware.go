@@ -31,7 +31,7 @@ func CheckChatMiddleware(store repository.Repository, tracer opentracing.Tracer)
 		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 			if tracer != nil {
 				var span opentracing.Span
-				span, ctx = opentracing.StartSpanFromContextWithTracer(ctx, tracer, "CheckAuthMiddleware", opentracing.Tag{
+				span, ctx = opentracing.StartSpanFromContextWithTracer(ctx, tracer, "CheckChatMiddleware", opentracing.Tag{
 					Key:   string(ext.Component),
 					Value: "Middleware",
 				})

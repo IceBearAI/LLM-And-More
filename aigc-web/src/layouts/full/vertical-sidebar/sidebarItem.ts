@@ -22,7 +22,11 @@ import {
   IconPhotoX,
   IconPhotoCheck,
   IconTools,
-  IconPhotoSensor2
+  IconPhotoSensor2,
+  IconMoodCheck,
+  IconUserCheck,
+  IconMoodUp,
+  IconMoodSearch
 } from "@tabler/icons-vue";
 
 export interface menu {
@@ -239,10 +243,27 @@ let sidebarItem: menu[] = [
   //   icon: IconPhotoCheck,
   //   to: "/image-services/image-matting/list"
   // },
+
+  // { header: "faceServices" },
   // {
   //   title: "faceRecognition",
-  //   icon: IconPhotoX,
-  //   to: "/image-services/face-recognition/list"
+  //   icon: IconMoodCheck,
+  //   to: "/face-services/face-recognition/list"
+  // },
+  // {
+  //   title: "liveRecognition",
+  //   icon: IconUserCheck,
+  //   to: "/face-services/live-recognition/list"
+  // },
+  // {
+  //   title: "faceReg",
+  //   icon: IconMoodUp,
+  //   to: "/face-services/face-reg/list"
+  // },
+  // {
+  //   title: "faceSearchLog",
+  //   icon: IconMoodSearch,
+  //   to: "/face-services/face-search-log/list"
   // },
 
   // ocr服务
@@ -318,7 +339,22 @@ let sidebarItem: menu[] = [
         to: "/scene/scene-list"
       }
     ]
-  },
+  }
+];
+
+const userStore = useUserStore();
+if (userStore.userInfo.tenantId == "5f9b3b3d-9b9c-4e1a-8e1a-5a4b4b4b4b43") {
+  sidebarItem = [
+    {
+      title: "audioAnnotation",
+      icon: IconCircleDot,
+      iconSize: "small",
+      to: "/audio-manage/audio-mark"
+    }
+  ];
+}
+// if (userStore.userInfo.tenantId === "5f9b3b3d-9b9c-4e1a-8e1a-5a4b4b4b4b4b") {
+sidebarItem = sidebarItem.concat([
   { header: "systemManagement" },
   {
     title: "systemManagement",
@@ -336,21 +372,22 @@ let sidebarItem: menu[] = [
         icon: IconCircleDot,
         iconSize: "small",
         to: "/system/template"
+      },
+      {
+        title: "tenantList",
+        icon: IconCircleDot,
+        iconSize: "small",
+        to: "/system/tenant/list"
+      },
+      {
+        title: "userList",
+        icon: IconCircleDot,
+        iconSize: "small",
+        to: "/system/user/list"
       }
     ]
   }
-];
-
-const userStore = useUserStore();
-if (userStore.userInfo.tenantId == "5f9b3b3d-9b9c-4e1a-8e1a-5a4b4b4b4b43") {
-  sidebarItem = [
-    {
-      title: "audioAnnotation",
-      icon: IconCircleDot,
-      iconSize: "small",
-      to: "/audio-manage/audio-mark"
-    }
-  ];
-}
+]);
+// }
 
 export default sidebarItem;

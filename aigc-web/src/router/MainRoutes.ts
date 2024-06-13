@@ -99,9 +99,22 @@ const MainRoutes: RouteRecordRaw = {
       path: "/image-services/image-matting/list",
       component: () => import("@/views/image-services/image-matting/imageMatting.vue")
     },
+    // 人脸服务
     {
-      path: "/image-services/face-recognition/list",
+      path: "/face-services/face-recognition/list",
       component: () => import("@/views/image-services/face-recognition/faceRecognition.vue")
+    },
+    {
+      path: "/face-services/live-recognition/list",
+      component: () => import("@/views/face-services/live-recognition/liveRecognition.vue")
+    },
+    {
+      path: "/face-services/face-reg/list",
+      component: () => import("@/views/face-services/face-reg/faceReg.vue")
+    },
+    {
+      path: "/face-services/face-search-log/list",
+      component: () => import("@/views/face-services/face-search-log/faceSearchLog.vue")
     },
     // ocr服务
     {
@@ -326,6 +339,14 @@ const MainRoutes: RouteRecordRaw = {
     {
       path: "/system/dict",
       component: () => import("@/views/system/dict/dict.vue")
+    },
+    {
+      path: "/system/tenant/list",
+      component: () => import("@/views/system/tenants/tenantList.vue")
+    },
+    {
+      path: "/system/user/list",
+      component: () => import("@/views/system/user-list/userList.vue")
     }
   ]
 };
