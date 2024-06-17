@@ -388,7 +388,7 @@ func preRun() {
 
 	// [fschat]
 	fsChatControllerAddress = envString(EnvNameFsChatControllerAddress, "http://fschat-controller:21001")
-	fsChatApiAddress = envString(EnvNameFsChatControllerAddress, "http://fschat-api:8000")
+	//fsChatApiAddress = envString(EnvNameFsChatControllerAddress, "http://fschat-api:8000")
 }
 
 func Init() (services.Service, error) {
