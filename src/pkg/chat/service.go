@@ -37,23 +37,33 @@ type service struct {
 	repository repository.Repository
 }
 
+func (s *service) getModelInfo(ctx context.Context, modelId string) (modelInfo types.Models, providerName services.ProviderName, err error) {
+	modelInfo, err = s.repository.Model().FindByModelId(ctx, modelId)
+	if err != nil {
+		err = errors.WithMessage(err, "failed to find model")
+		return
+	}
+	if modelInfo.BaseModelName != "" {
+		modelInfo.ModelName = modelInfo.BaseModelName
+	}
+	providerName = services.ProviderOpenAI
+	if modelInfo.ProviderName == types.ModelProviderLocalAI {
+		providerName = services.ProviderFsChat
+	}
+	return
+
+}
+
 func (s *service) Completion(ctx context.Context, channelId uint, req openai.CompletionRequest) (res openai.CompletionResponse, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 	now := time.Now()
-	modelInfo, err := s.repository.Model().FindByModelId(ctx, req.Model)
+	modelInfo, providerName, err := s.getModelInfo(ctx, req.Model)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to find model")
 		_ = level.Warn(logger).Log("msg", "failed to find model", "err", err)
 		return
 	}
-
-	if modelInfo.BaseModelName != "" {
-		req.Model = modelInfo.BaseModelName
-	}
-	providerName := services.ProviderOpenAI
-	if modelInfo.ProviderName == types.ModelProviderLocalAI {
-		providerName = services.ProviderFsChat
-	}
+	req.Model = modelInfo.ModelName
 	res, err = s.services.Chat(providerName).Completion(ctx, req)
 	if err != nil {
 		_ = level.Warn(logger).Log("msg", "failed to get completion", "err", err)
@@ -116,19 +126,41 @@ func (s *service) Models(ctx context.Context, channelId uint) (res []openai.Mode
 	return
 }
 
+func getProviderName(provider types.ModelProvider) services.ProviderName {
+	providerName := services.ProviderOpenAI
+	if provider == types.ModelProviderLocalAI {
+		providerName = services.ProviderFsChat
+	}
+	return providerName
+}
+
 func (s *service) Embeddings(ctx context.Context, channelId uint, req openai.EmbeddingRequest) (res openai.EmbeddingResponse, err error) {
-	//TODO implement me
-	panic("implement me")
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	modelInfo, providerName, err := s.getModelInfo(ctx, string(req.Model))
+	if err != nil {
+		err = errors.WithMessage(err, "failed to find model")
+		_ = level.Warn(logger).Log("msg", "failed to find model", "err", err)
+		return
+	}
+	req.Model = openai.EmbeddingModel(modelInfo.ModelName)
+	embeddings, err := s.services.Chat(providerName).Embeddings(ctx, req)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get embeddings")
+		_ = level.Warn(logger).Log("msg", "failed to get embeddings", "err", err)
+		return
+	}
+
+	return embeddings, nil
 }
 
 func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai.ChatCompletionRequest) (res openai.ChatCompletionResponse, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 
-	modelInfo, err := s.repository.Model().FindByModelId(ctx, req.Model)
+	modelInfo, providerName, err := s.getModelInfo(ctx, req.Model)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to find model")
 		_ = level.Warn(logger).Log("msg", "failed to find model", "err", err)
-		return res, err
+		return
 	}
 	isError := true
 	finished := false
@@ -163,10 +195,7 @@ func (s *service) ChatCompletion(ctx context.Context, channelId uint, req openai
 	if modelInfo.BaseModelName != "" {
 		req.Model = modelInfo.BaseModelName
 	}
-	providerName := services.ProviderOpenAI
-	if modelInfo.ProviderName == types.ModelProviderLocalAI {
-		providerName = services.ProviderFsChat
-	}
+
 	completionResult, err := s.services.Chat(providerName).ChatCompletion(ctx, req)
 	if err != nil {
 		msgData.ErrorMessage = err.Error()
@@ -216,7 +245,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 			close(dot)
 		}
 	}()
-	modelInfo, err := s.repository.Model().FindByModelId(ctx, req.Model)
+	modelInfo, providerName, err := s.getModelInfo(ctx, req.Model)
 	if err != nil {
 		err = errors.WithMessage(err, "failed to find model")
 		_ = level.Warn(logger).Log("msg", "failed to find model", "err", err)
@@ -255,17 +284,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, channelId uint, req 
 	if modelInfo.BaseModelName != "" {
 		req.Model = modelInfo.BaseModelName
 	}
-	if modelInfo.BaseModelName != "" {
-		req.Model = modelInfo.BaseModelName
-	}
 	_ = level.Info(logger).Log("model", req.Model, "providerName", modelInfo.ProviderName)
-	providerName := services.ProviderOpenAI
-	if modelInfo.ProviderName == types.ModelProviderLocalAI {
-		providerName = services.ProviderFsChat
-	}
-	if modelInfo.BaseModelName != "" {
-		req.Model = modelInfo.BaseModelName
-	}
 	completionStream, err := s.services.Chat(providerName).ChatCompletionStream(ctx, req)
 	if err != nil {
 		msgData.ErrorMessage = err.Error()

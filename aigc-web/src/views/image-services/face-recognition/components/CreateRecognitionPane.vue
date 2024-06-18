@@ -99,17 +99,15 @@
         :md="paneConfig.operateType === 'add' ? 5 : 0"
       >
         <UiParentCard title="输出">
-          <v-input v-if="result.inputS3Url">
-            <template #prepend> <label>检测图片：</label></template>
-            <img :src="result.inputS3Url" width="200" alt="检测图片" class="rounded-md align-end text-right" />
+          <v-input class="image-vs" v-if="result.inputS3Url">
+            <template #prepend> <label>检测vs比对：</label></template>
+            <el-image class="w-[350px] h-[350px]" :src="result.inputS3Url" fit="contain" />
+            <p class="text-2xl">vs</p>
+            <el-image class="w-[350px] h-[350px]" :src="result.outputS3Url" fit="contain" />
           </v-input>
           <v-input v-if="result.faceMargin">
             <template #prepend> <label>人脸边距：</label></template>
             {{ result.faceMargin }}
-          </v-input>
-          <v-input v-if="result.outputS3Url">
-            <template #prepend> <label>比对图片：</label></template>
-            <img :src="result.outputS3Url" width="200" alt="比对图片" class="rounded-md align-end text-right" />
           </v-input>
           <v-input>
             <template #prepend> <label>人脸个数：</label></template>
@@ -118,6 +116,10 @@
           <v-input v-if="result.outputS3Url">
             <template #prepend> <label>比对阈值：</label></template>
             {{ result.denoiseStrength }}
+          </v-input>
+          <v-input v-if="result.dist">
+            <template #prepend> <label>相似比分：</label></template>
+            {{ result.dist.toFixed(4) }}
           </v-input>
           <v-input v-if="formData.checkType === 2 || result.outputS3Url">
             <template #prepend> <label>同一个人：</label></template>
@@ -193,7 +195,7 @@ defineExpose({
   show({ title, operateType, infos }) {
     refPane.value.show({
       title,
-      width: operateType === "add" ? "1000px" : "600px",
+      width: "1000px",
       hasSubmitBtn: false
     });
     paneConfig.operateType = operateType;
@@ -219,5 +221,11 @@ label {
 }
 .result-right label {
   width: 150px;
+}
+.image-vs :deep() {
+  .v-input__control {
+    align-items: center;
+    justify-content: space-between;
+  }
 }
 </style>

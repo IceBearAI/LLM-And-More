@@ -13,7 +13,6 @@
           </v-btn>
         </template>
         <v-sheet class="pa-4" rounded="md" width="350" elevation="10">
-          <h4 class="text-h6 mb-6">配置</h4>
           <Config ref="configRef" @update:model:info="modelChange" />
         </v-sheet>
       </v-menu>
@@ -220,7 +219,7 @@ defineExpose({
 <style lang="scss" scoped>
 :deep() {
   .menu-model-btn .v-btn__content {
-    max-width: 168px;
+    max-width: 305px;
   }
 }
 </style>

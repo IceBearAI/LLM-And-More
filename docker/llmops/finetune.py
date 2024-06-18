@@ -21,6 +21,8 @@ from accelerate.utils import DistributedType
 
 IGNORE_TOKEN_ID = LabelSmoother.ignore_index
 
+GNORE_TOKEN_ID = LabelSmoother.ignore_index
+
 TEMPLATE = "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if loop.last %}{{ '<|im_end|>'}}{% else %}{{ '<|im_end|>\n' }}{% endif %}{% endfor %}"
 
 local_rank = None
@@ -33,7 +35,7 @@ def rank0_print(*args):
 
 @dataclass
 class ModelArguments:
-    model_name_or_path: Optional[str] = field(default="Qwen/Qwen-7B")
+    model_name_or_path: Optional[str] = field(default="Qwen/Qwen2-7B")
 
 
 @dataclass
@@ -399,6 +401,10 @@ def train():
     else:
         trainer.train()
     trainer.save_state()
+
+    safe_save_model_for_hf_trainer(
+        trainer=trainer, output_dir=training_args.output_dir, bias=lora_args.lora_bias
+    )
 
     if os.getenv("MERGE_LORA_MODEL", "true") == "true" and training_args.use_lora and local_rank == 0:
         merge_lora_model(trainer, model_args.model_name_or_path, training_args.output_dir, lora_args.lora_bias)

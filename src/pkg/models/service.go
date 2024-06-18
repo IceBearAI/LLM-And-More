@@ -174,11 +174,11 @@ func (s *service) ModelCheckpoint(ctx context.Context, modelName string) (res []
 	}
 
 	for _, v := range files {
-		if !v.IsDir() {
+		if !v.IsDir {
 			continue
 		}
-		if strings.HasPrefix(v.Name(), "checkpoint") {
-			res = append(res, v.Name())
+		if strings.HasPrefix(v.Name, "checkpoint") {
+			res = append(res, v.Name)
 		}
 	}
 
@@ -231,7 +231,7 @@ func (s *service) getModelPath(ctx context.Context, modelName string) (res types
 	}
 
 	// 判断modelPath是否是绝对路径
-	if !path.IsAbs(modelPath) {
+	if isDir, _ := util.DirectoryExists(modelPath); !isDir {
 		hfHome := os.Getenv("HF_HOME")
 		if hfHome == "" {
 			hfHome, _ = os.UserHomeDir()
@@ -253,24 +253,11 @@ func (s *service) ModelTree(ctx context.Context, modelName, catalog string) (res
 		return
 	}
 
-	// 判断modelPath是否是绝对路径
-	if !path.IsAbs(modelPath) {
-		hfHome := os.Getenv("HF_HOME")
-		if hfHome == "" {
-			hfHome, _ = os.UserHomeDir()
-			hfHome = path.Join(hfHome, ".cache", "huggingface")
-		}
-		modelPath = path.Join(hfHome, "hub", fmt.Sprintf("models--%s", strings.ReplaceAll(modelPath, "/", "--")))
-		dirId, _ := os.ReadFile(modelPath + "/refs/main")
-		_ = level.Info(logger).Log("modelPath", modelPath, "dirId", string(dirId))
-		modelPath = path.Join(modelPath, "snapshots", string(dirId))
-	}
 	modelPath = path.Join(modelPath, catalog)
 	_ = level.Info(logger).Log("modelPath", modelPath)
-
 	pathInfo, err := os.Stat(modelPath)
 	if err != nil {
-		_ = level.Warn(logger).Log("os.Stat", "err", err.Error())
+		_ = level.Warn(logger).Log("os.Stat", modelPath, "err", err.Error())
 		return res, nil
 	}
 
@@ -307,10 +294,10 @@ func (s *service) ModelTree(ctx context.Context, modelName, catalog string) (res
 
 	for _, v := range files {
 		info := fileInfo{
-			Name:        v.Name(),
-			Size:        v.Size(),
-			IsDir:       v.IsDir(),
-			UpdatedAt:   v.ModTime(),
+			Name:        v.Name,
+			Size:        v.Size,
+			IsDir:       v.IsDir,
+			UpdatedAt:   v.ModTime,
 			ContentType: v.ContentType,
 		}
 		res.Tree = append(res.Tree, info)

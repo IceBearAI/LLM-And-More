@@ -26,8 +26,7 @@ type EmbeddingsResponse struct {
 	//Data   []map[string]any `json:"data"`
 	//Model  string           `json:"model"`
 	//Usage  UsageInfo        `json:"usage"`
-	Embedding []interface {
-	} `json:"embedding"`
+	Embedding any    `json:"embedding"`
 	TokenNum  int    `json:"token_num"`
 	Text      string `json:"text"`
 	ErrorCode int    `json:"error_code"`

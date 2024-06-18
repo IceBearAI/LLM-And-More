@@ -1,2 +1,2 @@
-export const previewCodeSuffix = ["json", "python", "txt"];
-export const previewTextSuffix = ["md"];
+export const previewCodeSuffix = ["json", "py", "txt"];
+export const previewMarkdownSuffix = ["md"];

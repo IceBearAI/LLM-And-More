@@ -47,6 +47,11 @@ func MakeHTTPHandler(s Service, mdw []endpoint.Middleware, opts []kithttp.Server
 		kithttp.NopRequestDecoder,
 		encodeJsonResponse,
 		kitopts...)).Methods(http.MethodGet)
+	r.Handle("/embeddings", kithttp.NewServer(
+		eps.ModelsEndpoint,
+		kithttp.NopRequestDecoder,
+		encodeJsonResponse,
+		kitopts...)).Methods(http.MethodGet)
 	return r
 }
 

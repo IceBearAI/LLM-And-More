@@ -10,6 +10,26 @@ func initSvc() WorkerService {
 	return NewFastChatWorker(WithControllerAddress("http://localhost:21001"))
 }
 
+func TestWorkerService_Embeddings(t *testing.T) {
+	svc := initSvc()
+	addr, err := svc.GetWorkerAddress(context.Background(), "glm-4-9b-chat")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	models, err := svc.WorkerGetEmbeddings(context.Background(), addr, EmbeddingPayload{
+		Model: "glm-4-9b-chat",
+		//Input:          []int{1, 2, 3, 4, 5},
+		EncodingFormat: "encoding_format",
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	t.Log(models)
+}
+
 func TestWorkerService_ListModels(t *testing.T) {
 	svc := initSvc()
 	models, err := svc.ListModels(context.Background())

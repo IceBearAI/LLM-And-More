@@ -50,7 +50,7 @@ import { IconFile, IconFolder } from "@tabler/icons-vue";
 import FileBreadcrumb from "./FileBreadcrumb.vue";
 import FilePreview from "./FilePreview.vue";
 import { toast } from "vue3-toastify";
-import { previewCodeSuffix, previewTextSuffix } from "../../modelList";
+import { previewCodeSuffix, previewMarkdownSuffix } from "../../modelList";
 
 const route = useRoute();
 const router = useRouter();
@@ -103,7 +103,7 @@ const fileClick = row => {
   const query = route.query;
   const fileType = row.name.split(".").pop();
   const filePath = `${currentFilePath.value}/${row.name}`;
-  const previewSuffix = [...previewCodeSuffix, ...previewTextSuffix];
+  const previewSuffix = [...previewCodeSuffix, ...previewMarkdownSuffix];
   if (row.isDir || previewSuffix.includes(fileType)) {
     router.push({
       path: "/model/model-list/detail",

@@ -228,44 +228,6 @@ func (s *worker) WorkerGetEmbeddings(ctx context.Context, workerAddress string, 
 		return
 	}
 	return
-
-	// request.input = process_input(request.model, request.input)
-	//
-	//    data = []
-	//    token_num = 0
-	//    batch_size = WORKER_API_EMBEDDING_BATCH_SIZE
-	//    batches = [
-	//        request.input[i : min(i + batch_size, len(request.input))]
-	//        for i in range(0, len(request.input), batch_size)
-	//    ]
-	//    for num_batch, batch in enumerate(batches):
-	//        payload = {
-	//            "model": request.model,
-	//            "input": batch,
-	//            "encoding_format": request.encoding_format,
-	//        }
-	//        embedding = await get_embedding(payload)
-	//        if "error_code" in embedding and embedding["error_code"] != 0:
-	//            return create_error_response(embedding["error_code"], embedding["text"])
-	//        data += [
-	//            {
-	//                "object": "embedding",
-	//                "embedding": emb,
-	//                "index": num_batch * batch_size + i,
-	//            }
-	//            for i, emb in enumerate(embedding["embedding"])
-	//        ]
-	//        token_num += embedding["token_num"]
-	//    return EmbeddingsResponse(
-	//        data=data,
-	//        model=request.model,
-	//        usage=UsageInfo(
-	//            prompt_tokens=token_num,
-	//            total_tokens=token_num,
-	//            completion_tokens=None,
-	//        ),
-	//    ).dict(exclude_none=True)
-	return
 }
 
 func (s *worker) WorkerCountToken(ctx context.Context, workerAddress, model string, prompt any) (res int, err error) {

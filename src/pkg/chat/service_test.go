@@ -10,9 +10,6 @@ import (
 )
 
 func initSvc() Service {
-	_ = os.Setenv("AIGC_DB_DRIVE", "sqlite")
-	_ = os.Setenv("AIGC_FSCHAT_CONTROLLER_ADDRESS", "http://fschat-controller:21001")
-	_ = os.Setenv("AIGC_SERVER_STORAGE_PATH", "~/go/src/github.com/icowan/LLM-And-More/storage")
 	services, err := tests.Init()
 	if err != nil {
 		panic(err)
@@ -40,5 +37,53 @@ func TestService_ChatCompletionStream(t *testing.T) {
 	}
 	for v := range stream {
 		t.Log(v.Choices[0].Delta.Content)
+	}
+}
+
+func TestService_ChatEmbeddings(t *testing.T) {
+	svc := initSvc()
+	ctx := context.Background()
+	res, err := svc.Embeddings(ctx, 1, openai.EmbeddingRequest{
+		Input: [][]int{
+			{161,
+				102,
+				112,
+				161,
+				226,
+				123,
+				16205,
+				227,
+				72406,
+				253,
+				11883,
+				21990,
+				44659,
+				223,
+				21007,
+				227,
+				49691,
+				248,
+				98806,
+				21043,
+				163,
+				228,
+				253,
+				44659,
+				223,
+				21007,
+				227,
+				49691,
+				248},
+		},
+		//Input: "您好！",
+		Model:          "llama-3-8b-instruct",
+		EncodingFormat: openai.EmbeddingEncodingFormatBase64,
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	for _, emb := range res.Data {
+		t.Log(emb.Embedding)
 	}
 }

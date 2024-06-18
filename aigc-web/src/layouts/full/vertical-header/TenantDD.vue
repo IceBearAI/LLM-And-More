@@ -4,6 +4,7 @@ import { useUserStore } from "@/stores";
 import { TypeTenant } from "@/stores/types/stores.type.ts";
 import { useRouter } from "vue-router";
 import { IconWorld } from "@tabler/icons-vue";
+import { nextTick } from "process";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -12,7 +13,10 @@ const onSelect = (item: TypeTenant) => {
   //变更租户id
   userStore.userInfo.tenantId = item.id;
   //跳转首页
-  router.replace("/");
+  // router.replace({ path: "/" }).then(() => {
+  //   window.location.reload();
+  // });
+  window.location.replace("/");
 };
 </script>
 <template>

@@ -263,8 +263,12 @@ func GetHttpFileBody(url string) (body []byte, err error) {
 }
 
 type FileInfo struct {
-	os.FileInfo
+	//os.FileInfo
 	ContentType string
+	Name        string
+	Size        int64     // length in bytes for regular files; system-dependent for others
+	ModTime     time.Time // modification time
+	IsDir       bool      // abbreviation for Mode().IsDir()
 }
 
 // GetFileList 取读目录下的文件列表
@@ -280,12 +284,20 @@ func GetFileList(dirPth string) (files []FileInfo, err error) {
 		}
 		fullPath := filepath.Join(dirPth, info.Name())
 		fileInfo := FileInfo{
-			FileInfo: info,
+			Name:    info.Name(),
+			Size:    info.Size(),
+			ModTime: info.ModTime(),
+			IsDir:   info.IsDir(),
 		}
 		// 判断是否为软链，如果是软链获取真实文件路径
 		if !info.IsDir() {
-			if link, err := os.Readlink(fullPath); err == nil {
-				fullPath = link
+			symlink, _ := IsSymlink(fullPath)
+			if symlink {
+				readlink, rlErr := os.Readlink(fullPath)
+				if rlErr != nil {
+					continue
+				}
+				fullPath = path.Join(dirPth, readlink)
 				f, err := os.Open(fullPath)
 				if err != nil {
 					continue
@@ -295,14 +307,39 @@ func GetFileList(dirPth string) (files []FileInfo, err error) {
 				if _, rErr := f.Read(buffer); rErr != nil {
 					continue
 				}
-				_ = f.Close()
 				// 使用 net/http 包的 DetectContentType 函数来获取文件类型
 				info, _ = f.Stat()
-				fileInfo.FileInfo = info
+				_ = f.Close()
+				fileInfo.Size = info.Size()
+				fileInfo.ModTime = info.ModTime()
+				fileInfo.IsDir = info.IsDir()
 				fileInfo.ContentType = http.DetectContentType(buffer)
 			}
 		}
 		files = append(files, fileInfo)
 	}
 	return files, nil
+}
+
+// IsSymlink 判断给定路径是否为符号链接
+func IsSymlink(path string) (bool, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return false, err
+	}
+
+	// 检查文件模式位是否设置了 os.ModeSymlink
+	return info.Mode()&os.ModeSymlink != 0, nil
+}
+
+// DirectoryExists 判断给定路径是否为存在的目录
+func DirectoryExists(path string) (bool, error) {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return info.IsDir(), nil
 }

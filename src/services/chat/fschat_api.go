@@ -2,12 +2,14 @@ package chat
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"github.com/lithammer/shortuuid/v4"
 	"github.com/pkg/errors"
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/sashabaranov/go-openai"
-	"reflect"
+	"math"
 	"strings"
 	"time"
 )
@@ -88,27 +90,12 @@ func (s *fsChatApiClient) ChatCompletion(ctx context.Context, req openai.ChatCom
 }
 
 func (s *fsChatApiClient) ChatCompletionStream(ctx context.Context, req openai.ChatCompletionRequest) (stream <-chan CompletionStreamResponse, err error) {
-	models, err := s.options.workerSvc.ListModels(ctx)
-	if err != nil {
-		err = errors.WithMessage(err, "failed to list models")
-		return
-	}
-	var exists bool
-	for _, model := range models {
-		if model.ID == req.Model {
-			exists = true
-			break
-		}
-	}
-	if !exists {
-		err = errors.New("model not found")
-		return
-	}
-	workerAddress, err := s.options.workerSvc.GetWorkerAddress(ctx, req.Model)
+	workerAddress, err := s.getAddress(ctx, string(req.Model))
 	if err != nil {
 		err = errors.WithMessage(err, "failed to get worker address")
 		return
 	}
+
 	dot := make(chan CompletionStreamResponse)
 
 	genParams, err := s.genParams(ctx, req, workerAddress)
@@ -205,9 +192,137 @@ func (s *fsChatApiClient) Models(ctx context.Context) (res []openai.Model, err e
 	return
 }
 
+func (s *fsChatApiClient) getAddress(ctx context.Context, modelName string) (workerAddress string, err error) {
+	models, err := s.options.workerSvc.ListModels(ctx)
+	if err != nil {
+		err = errors.WithMessage(err, "failed to list models")
+		return
+	}
+	var exists bool
+	for _, model := range models {
+		if strings.ToLower(model.ID) == strings.ToLower(modelName) ||
+			strings.ToLower(model.Root) == strings.ToLower(modelName) {
+			exists = true
+			break
+		}
+	}
+	if !exists {
+		err = errors.New("model not found")
+		return
+	}
+	workerAddress, err = s.options.workerSvc.GetWorkerAddress(ctx, modelName)
+	if err != nil {
+		err = errors.WithMessage(err, "failed to get worker address")
+		return
+	}
+	return
+
+}
+
+func processEmbedding(emb interface{}, n int) (openai.Embedding, error) {
+	if embd, ok := emb.([]interface{}); ok {
+		var embeddings []float32
+		for _, v := range embd {
+			if vv, vvOk := v.([]interface{}); vvOk {
+				for _, vvv := range vv {
+					embeddings = append(embeddings, float32(vvv.(float64)))
+				}
+			} else if vv, vvOk := v.(string); vvOk {
+				respf, err := embeddingDecode(vv)
+				if err != nil {
+					return openai.Embedding{}, err
+				}
+				embeddings = append(embeddings, respf...)
+			}
+		}
+		return openai.Embedding{
+			Index:     n,
+			Object:    "embedding",
+			Embedding: embeddings,
+		}, nil
+	} else if embStr, ok := emb.(string); ok {
+		respf, err := embeddingDecode(embStr)
+		if err != nil {
+			return openai.Embedding{}, err
+		}
+		return openai.Embedding{
+			Index:     n,
+			Object:    "embedding",
+			Embedding: respf,
+		}, nil
+	}
+	return openai.Embedding{}, nil
+}
+
 func (s *fsChatApiClient) Embeddings(ctx context.Context, req openai.EmbeddingRequest) (res openai.EmbeddingResponse, err error) {
-	//TODO implement me
-	panic("implement me")
+	workerAddress, err := s.getAddress(ctx, string(req.Model))
+	if err != nil {
+		err = errors.WithMessage(err, "failed to get worker address")
+		return
+	}
+
+	var input []string
+	input = processInput(string(req.Model), req.Input)
+	var data []openai.Embedding
+	var tokenNum int
+	var batch []string
+	batchSize := 64
+	var n = 0
+	for i := 0; i < len(input); i += batchSize {
+		batch = input[i:min(i+batchSize, len(input))]
+		payload := EmbeddingPayload{
+			Model:          string(req.Model),
+			Input:          batch,
+			EncodingFormat: string(req.EncodingFormat),
+			User:           req.User,
+		}
+		resp, err := s.options.workerSvc.WorkerGetEmbeddings(ctx, workerAddress, payload)
+		if err != nil {
+			err = errors.WithMessage(err, "failed to get embeddings")
+			return res, err
+		}
+		if resp.ErrorCode != 0 {
+			err = errors.New(resp.Text)
+			return res, err
+		}
+		embedding, err := processEmbedding(resp.Embedding, n)
+		if err != nil {
+			err = errors.WithMessage(err, "failed to process embedding")
+			return res, err
+		}
+		data = append(data, embedding)
+	}
+	res = openai.EmbeddingResponse{
+		Object: "list",
+		Model:  req.Model,
+		Usage:  openai.Usage{PromptTokens: tokenNum, TotalTokens: tokenNum},
+		Data:   data,
+	}
+
+	return
+}
+
+// embeddingDecode 方法将 base64 编码的字符串解码为 float32 列表
+func embeddingDecode(encodedData string) ([]float32, error) {
+	bytes, err := base64.StdEncoding.DecodeString(encodedData)
+	if err != nil {
+		return nil, err
+	}
+	floats := make([]float32, len(bytes)/4)
+	for i := 0; i < len(floats); i++ {
+		floats[i] = math.Float32frombits(binary.LittleEndian.Uint32(bytes[i*4 : (i+1)*4]))
+	}
+	return floats, nil
+}
+
+// Encode 方法将 float32 列表编码为 base64 编码的字符串
+func embeddingEncode(floats []float32) string {
+	bytes := make([]byte, len(floats)*4)
+	for i, f := range floats {
+		binary.LittleEndian.PutUint32(bytes[i*4:(i+1)*4], math.Float32bits(f))
+	}
+	encodedData := base64.StdEncoding.EncodeToString(bytes)
+	return encodedData
 }
 
 func NewFsChatApi(opts ...CreationOption) Service {
@@ -301,56 +416,51 @@ func (s *fsChatApiClient) genParams(ctx context.Context, req openai.ChatCompleti
 	return genParams, nil
 }
 
-func (s *fsChatApiClient) processInput(modelName string, inp any) (newInp []string) {
-	//var prompt string
-	//switch inp.(type) {
-	//case string:
-	//	prompt = inp.(string)
-	//case []string:
-	//	prompt = strings.Join(inp.([]string), " ")
-	//case []interface{}:
-	//	prompts, _ := ConvertToSliceOfStrings(inp.([]interface{}))
-	//	prompt = strings.Join(prompts, " ")
-	//}
-
-	fmt.Println(reflect.TypeOf(inp))
-	if reflect.TypeOf(inp).Name() == "string" {
-		newInp = []string{inp.(string)}
-	} else if reflect.TypeOf(inp).Name() == "[]openai.ChatCompletionMessage" {
-		fastInp := inp.([]openai.ChatCompletionMessage)
-		if reflect.TypeOf(fastInp[0]).Name() == "int" {
-			decoding, err := tiktoken.EncodingForModel(modelName)
-			if err != nil {
-				model := "cl100k_base"
-				decoding, err = tiktoken.GetEncoding(model)
-			}
-			newInp = []string{decoding.Decode(inp.([]int))}
-		} else if reflect.TypeOf(fastInp[0]).Name() == "[]int" {
-			decoding, err := tiktoken.EncodingForModel(modelName)
-			if err != nil {
-				model := "cl100k_base"
-				decoding, err = tiktoken.GetEncoding(model)
-			}
-			for _, text := range inp.([][]int) {
-				newInp = append(newInp, decoding.Decode(text))
-			}
+func processInput(modelName string, inp any) (newInp []string) {
+	switch v := inp.(type) {
+	case string:
+		newInp = append(newInp, v)
+	case []string:
+		newInp = append(newInp, v...)
+	case []interface{}:
+		prompts, _ := ConvertToSliceOfStrings(v)
+		newInp = append(newInp, prompts...)
+	case []int:
+		decoding, err := getEncoding(modelName)
+		if err != nil {
+			return
+		}
+		newInp = append(newInp, decoding.Decode(v))
+	case [][]int:
+		decoding, err := getEncoding(modelName)
+		if err != nil {
+			return
+		}
+		for _, text := range v {
+			newInp = append(newInp, decoding.Decode(text))
 		}
 	}
-	return
+
+	return newInp
 }
 
-func ConvertToSliceOfStrings(data interface{}) ([]string, bool) {
-	var result []string
-	slice, ok := data.([]interface{})
-	if !ok {
-		return nil, false
+func getEncoding(modelName string) (*tiktoken.Tiktoken, error) {
+	decoding, err := tiktoken.EncodingForModel(modelName)
+	if err != nil {
+		modelName = "cl100k_base"
+		decoding, err = tiktoken.GetEncoding(modelName)
 	}
-	for _, item := range slice {
-		if num, ok := item.(string); ok {
-			result = append(result, num)
+	return decoding, err
+}
+
+func ConvertToSliceOfStrings(input []interface{}) ([]string, error) {
+	var result []string
+	for _, v := range input {
+		if str, ok := v.(string); ok {
+			result = append(result, str)
 		} else {
-			return nil, false
+			return nil, fmt.Errorf("element is not a string")
 		}
 	}
-	return result, true
+	return result, nil
 }
