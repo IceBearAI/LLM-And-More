@@ -245,8 +245,7 @@ func (s *service) getModelPath(ctx context.Context, modelName string, preloads .
 		dirId, _ := os.ReadFile(modelPath + "/refs/main")
 		modelPath = path.Join(modelPath, "snapshots", string(dirId))
 	}
-	return
-
+	return m, modelPath, nil
 }
 
 func (s *service) ModelTree(ctx context.Context, modelName, catalog string) (res modelTreeResult, err error) {
@@ -365,8 +364,8 @@ func (s *service) ModelInfo(ctx context.Context, modelName string) (res modelInf
 	if content, err := fs.ReadFile(os.DirFS(modelPath), "generation_config.json"); err == nil {
 		_ = json.Unmarshal(content, &res.GenerationConfig)
 	}
-
-	res.MaxTokens = 1024
+	res.ModelName = m.ModelName
+	res.MaxTokens = 4096
 
 	return res, nil
 }
