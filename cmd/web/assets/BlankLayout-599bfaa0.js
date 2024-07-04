@@ -1,0 +1,1 @@
+import{d as e,k as a,l as t,m as o,j as r,n,R as s}from"./utils-91854e55.js";import{V as p}from"./VApp-f552d55e.js";import"./index-38e2b3cf.js";const i=e({__name:"BlankLayout",setup(c){return(m,u)=>(a(),t(p,null,{default:o(()=>[r(n(s))]),_:1}))}});export{i as default};

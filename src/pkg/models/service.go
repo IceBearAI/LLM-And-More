@@ -190,8 +190,8 @@ func (s *service) ModelCard(ctx context.Context, modelName string) (res modelCar
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 	_, modelPath, err := s.getModelPath(ctx, modelName)
 	if err != nil {
-		_ = level.Error(logger).Log("getModelPath", "err", err.Error())
-		return
+		_ = level.Warn(logger).Log("getModelPath", "err", err.Error())
+		return res, nil
 	}
 	dirFs := os.DirFS(modelPath)
 	readmeContent, err := fs.ReadFile(dirFs, "README.md")
@@ -206,9 +206,13 @@ func (s *service) getModelPath(ctx context.Context, modelName string, preloads .
 	if len(preloads) == 0 {
 		preloads = []string{"FineTuningTrainJob"}
 	}
-	m, err := s.store.Model().FindByModelId(ctx, modelName, "FineTuningTrainJob")
+	m, err := s.store.Model().FindByModelId(ctx, modelName, preloads...)
 	if err != nil {
 		return res, modelPath, encode.ErrSystem.Wrap(errors.New("查询模型失败"))
+	}
+
+	if m.ProviderName != types.ModelProviderLocalAI {
+		return m, modelPath, errors.New("只支持本地模型")
 	}
 
 	if m.BaseModelName != "" {
@@ -252,8 +256,8 @@ func (s *service) ModelTree(ctx context.Context, modelName, catalog string) (res
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 	_, modelPath, err := s.getModelPath(ctx, modelName)
 	if err != nil {
-		_ = level.Error(logger).Log("getModelPath", "err", err.Error())
-		return
+		_ = level.Warn(logger).Log("getModelPath", "err", err.Error())
+		return res, nil
 	}
 
 	modelPath = path.Join(modelPath, catalog)
@@ -315,8 +319,8 @@ func (s *service) ModelInfo(ctx context.Context, modelName string) (res modelInf
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 	m, modelPath, err := s.getModelPath(ctx, modelName, "ModelDeploy", "FineTuningTrainJob")
 	if err != nil {
-		_ = level.Error(logger).Log("getModelPath", "err", err.Error())
-		return res, encode.ErrSystem.Wrap(errors.New("查询模型失败"))
+		_ = level.Warn(logger).Log("getModelPath", "err", err.Error())
+		return res, nil
 	}
 	res = modelInfoResult{
 		ModelName:    m.ModelName,
