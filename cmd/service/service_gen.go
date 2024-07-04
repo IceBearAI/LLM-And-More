@@ -106,8 +106,28 @@ func generateTable() (err error) {
 	return
 }
 
+type modelData struct {
+	Name          string
+	ContextLength int
+}
+
 // 初始化数据
 func initData() (err error) {
+
+	initModels := []modelData{
+		{Name: "Qwen/Qwen2-0.5B", ContextLength: 32768},
+		{Name: "Qwen/Qwen2-0.5B-Instruct", ContextLength: 32768},
+		{Name: "Qwen/Qwen2-1.5B", ContextLength: 32768},
+		{Name: "Qwen/Qwen2-1.5B-Instruct", ContextLength: 32768},
+		{Name: "Qwen/Qwen2-7B", ContextLength: 131072},
+		{Name: "Qwen/Qwen2-7B-Instruct", ContextLength: 131072},
+		{Name: "Qwen/Qwen2-72B", ContextLength: 131072},
+		{Name: "Qwen/Qwen2-72B-Instruct", ContextLength: 131072},
+		{Name: "THUDM/glm-4-9b", ContextLength: 8192},
+		{Name: "THUDM/glm-4-9b-chat", ContextLength: 131072},
+		{Name: "THUDM/glm-4-9b-chat-1m", ContextLength: 1024000},
+	}
+
 	tenant := types.Tenants{
 		Name:           "系统租户",
 		PublicTenantID: uuid.New().String(),
@@ -134,7 +154,7 @@ func initData() (err error) {
 		Name:       "default",
 		Alias:      "默认渠道",
 		Remark:     "默认渠道",
-		Quota:      10000,
+		Quota:      100000,
 		Models:     "default",
 		OnlyOpenAI: false,
 		ApiKey:     serverChannelKey,
@@ -142,74 +162,54 @@ func initData() (err error) {
 		TenantId:   tenant.ID,
 	}).Error)
 
-	var templateModels []string
-	templateModels = append(templateModels, "qwen1.5-0.5b", "qwen1.5-1.8b", "qwen1.5-1.8b-chat", "qwen1.5-4b", "qwen1.5-4b-chat",
-		"qwen1.5-7b", "qwen1.5-7b-chat", "qwen1.5-14b", "qwen1.5-14b-chat", "qwen1.5-32b", "qwen1.5-32b-chat", "qwen1.5-72b", "qwen1.5-72b-chat",
-		"chatglm3-6b", "chatglm3-6b-32k",
-		"llama-2-13b-chat", "llama-2-13b", "llama-2-7b-chat", "llama-2-7b-chat",
-		"baichuan2-7b-base", "baichuan2-7b-chat", "baichuan2-13b-base", "baichuan2-13b-chat",
-	)
 	replacer := strings.NewReplacer(
 		"::", "-", // 这个可能不需要，因为前一个已经将单个冒号替换了
 		":", "-",
+		"_", "-",
 	)
-	for _, model := range templateModels {
+	for _, model := range initModels {
+		modelNames := strings.Split(model.Name, "/")
+		modelName := replacer.Replace(modelNames[1])
+		_ = logger.Log("init", "data", "model", gormDB.Create(&types.Models{
+			ProviderName: "LocalAI",
+			ModelType:    "text-generation",
+			ModelName:    modelName,
+			MaxTokens:    model.ContextLength,
+		}).Error)
 		_ = logger.Log("init", "data", "models-template-inference", gormDB.Create(&types.FineTuningTemplate{
-			Name:          fmt.Sprintf("%s", model),
-			BaseModel:     model,
-			MaxTokens:     32768,
+			Name:          fmt.Sprintf("%s", modelName),
+			BaseModel:     modelName,
+			MaxTokens:     model.ContextLength,
 			Content:       shellStart,
 			TrainImage:    "dudulu/llmops:latest",
-			BaseModelPath: "/data/base-model/" + strings.ToLower(replacer.Replace(model)),
+			BaseModelPath: model.Name,
 			TemplateType:  "inference",
 			ScriptFile:    "/app/start.sh",
 			Enabled:       true,
-			OutputDir:     "/data/ft-model",
+			OutputDir:     "/data/ft-model/" + modelNames[0],
 		}).Error)
 		_ = logger.Log("init", "data", "models-template-train", gormDB.Create(&types.FineTuningTemplate{
-			Name:          fmt.Sprintf("%s-train", model),
-			BaseModel:     model,
-			MaxTokens:     32768,
+			Name:          fmt.Sprintf("%s-train", modelName),
+			BaseModel:     modelName,
+			MaxTokens:     model.ContextLength,
 			Content:       shellTrain,
 			TrainImage:    "dudulu/llmops:latest",
-			BaseModelPath: "/data/base-model/" + strings.ToLower(replacer.Replace(model)),
+			BaseModelPath: model.Name,
 			TemplateType:  "train",
 			ScriptFile:    "/app/train.sh",
 			Enabled:       true,
-			OutputDir:     "/data/ft-model",
+			OutputDir:     "/data/ft-model/" + modelNames[0],
 		}).Error)
 
 	}
 
 	_ = logger.Log("init", "data", "sys_dict", gormDB.Exec(initSysDictSql).Error)
 	//_ = logger.Log("init", "data", "finetuning_template", gormDB.Exec(ftTemplateSql).Error)
-	_ = logger.Log("init", "data", "models", gormDB.Exec(modelSql).Error)
+	//_ = logger.Log("init", "data", "models", gormDB.Exec(modelSql).Error)
 	return err
 }
 
 var (
-	modelSql = `INSERT INTO models (created_at, updated_at, deleted_at, provider_name, model_type, model_name, max_tokens, is_private, is_fine_tuning, enabled, remark, parameters, last_operator, base_model_name, replicas, label, k8s_cluster, inferred_type, gpu, cpu, memory)
-VALUES
-	('2024-02-04 13:02:48.112', '2024-03-19 14:08:35.667', NULL, 'OpenAI', 'text-generation', 'gpt-3.5-turbo', 4096, 0, 0, 1, 'OpenAI GPT-3.5-turbo', 20.00, '', NULL, 1, NULL, NULL, NULL, 0, 0, 1),
-	('2024-03-18 17:34:59.542', '2024-03-19 14:51:35.630', NULL, 'LocalAI', 'text-generation', 'qwen1.5-0.5b', 32768, 1, 0, 0, '', 0.50, 'admin', '', 1, '', '', '', 0, 0, 1),
-	('2024-03-19 14:03:11.073', '2024-03-19 14:41:08.194', NULL, 'LocalAI', 'text-generation', 'qwen1.5-1.8b', 32768, 0, 0, 0, '', 1.80, 'admin', '', 1, '', '', '', 0, 0, 1),
-	('2024-03-19 14:03:34.619', '2024-03-19 14:41:41.709', NULL, 'LocalAI', 'text-generation', 'qwen1.5-1.8b-chat', 32768, 0, 0, 0, '', 1.80, 'admin', '', 1, '', '', '', 0, 0, 1),
-	('2024-03-19 14:03:51.375', '2024-03-19 14:41:36.354', NULL, 'LocalAI', 'text-generation', 'qwen1.5-4b', 32768, 0, 0, 0, '', 3.98, 'admin', '', 1, '', '', '', 0, 0, 1),
-	('2024-03-19 14:04:11.425', '2024-03-19 14:41:11.423', NULL, 'LocalAI', 'text-generation', 'qwen1.5-4b-chat', 32768, 0, 0, 0, '', 3.98, 'admin', '', 1, '', '', '', 0, 0, 1),
-	('2024-03-19 14:04:29.257', '2024-03-19 14:41:18.790', NULL, 'LocalAI', 'text-generation', 'qwen1.5-7b', 32768, 0, 0, 0, '', 7.20, 'admin', '', 1, '', '', '', 0, 0, 1),
-	('2024-03-19 14:04:45.241', '2024-03-19 14:41:24.050', NULL, 'LocalAI', 'text-generation', 'qwen1.5-7b-chat', 32768, 0, 0, 0, '', 7.20, 'admin', '', 1, '', '', '', 0, 0, 1),
-	('2024-03-19 14:05:04.519', '2024-03-19 14:41:27.394', NULL, 'LocalAI', 'text-generation', 'qwen1.5-14b', 32768, 0, 0, 0, '', 14.20, 'admin', '', 1, '', '', '', 0, 0, 1),
-	('2024-03-19 14:05:27.624', '2024-03-19 14:41:47.741', NULL, 'LocalAI', 'text-generation', 'qwen1.5-14b-chat', 32768, 0, 0, 0, '', 14.20, 'admin', '', 1, '', '', '', 0, 0, 1),
-	('2024-03-19 14:06:26.666', '2024-03-19 14:41:33.633', NULL, 'LocalAI', 'text-generation', 'qwen1.5-72b', 32768, 0, 0, 0, '', 72.30, 'admin', '', 1, '', '', '', 0, 0, 1),
-	('2024-03-19 14:06:43.121', '2024-03-19 14:41:30.391', NULL, 'LocalAI', 'text-generation', 'qwen1.5-72b-chat', 32768, 0, 0, 0, '', 72.30, 'admin', '', 1, '', '', '', 0, 0, 1),
-	('2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'qwen1.5-32b', 32768, 0, 0, 0, '', 32.40, 'admin', '', 1, '', '', '', 0, 0, 1),
-	('2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'qwen1.5-32b-chat', 32768, 0, 0, 0, '', 32.40, 'admin', '', 1, '', '', '', 0, 0, 1),
-	('2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'chatglm3-6b-32k', 32768, 0, 0, 0, '', 6.40, 'admin', '', 1, '', '', '', 0, 0, 1),
-	'2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'chatglm3-6b', 8192, 0, 0, 0, '', 6.40, 'admin', '', 1, '', '', '', 0, 0, 1),
-	('2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'baichuan2-7b-base', 4096, 0, 0, 0, '', 6.8, 'admin', '', 1, '', '', '', 0, 0, 1),
-	('2024-03-19 14:08:27.352', '2024-03-19 14:41:01.068', NULL, 'LocalAI', 'text-generation', 'baichuan2-7b-chat', 4096, 0, 0, 0, '', 6.8, 'admin', '', 1, '', '', '', 0, 0, 1);
-`
-
 	initSysDictSql = `INSERT INTO sys_dict (id, created_at, updated_at, deleted_at, parent_id, code, dict_value, dict_label, dict_type, sort, remark)
 VALUES
 	(2, '2023-11-22 16:19:52.000', '2024-01-29 10:32:18.000', NULL, 0, 'speak_gender', 'gender', '性别', 'int', 1, '性别'),
