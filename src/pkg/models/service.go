@@ -156,6 +156,7 @@ type generationConfig struct {
 	TopP                float64 `json:"topP"`
 	TopK                int     `json:"topK"`
 	TransformersVersion string  `json:"transformersVersion"`
+	MaxTokens           int     `json:"maxTokens"`
 }
 
 func (s *service) ModelCheckpoint(ctx context.Context, modelName string) (res []string, err error) {
@@ -201,7 +202,10 @@ func (s *service) ModelCard(ctx context.Context, modelName string) (res modelCar
 	return res, nil
 }
 
-func (s *service) getModelPath(ctx context.Context, modelName string) (res types.Models, modelPath string, err error) {
+func (s *service) getModelPath(ctx context.Context, modelName string, preloads ...string) (res types.Models, modelPath string, err error) {
+	if len(preloads) == 0 {
+		preloads = []string{"FineTuningTrainJob"}
+	}
 	m, err := s.store.Model().FindByModelId(ctx, modelName, "FineTuningTrainJob")
 	if err != nil {
 		return res, modelPath, encode.ErrSystem.Wrap(errors.New("查询模型失败"))
@@ -310,9 +314,9 @@ func (s *service) ModelTree(ctx context.Context, modelName, catalog string) (res
 
 func (s *service) ModelInfo(ctx context.Context, modelName string) (res modelInfoResult, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
-	m, err := s.store.Model().FindByModelId(ctx, modelName, "ModelDeploy", "FineTuningTrainJob")
+	m, modelPath, err := s.getModelPath(ctx, modelName, "ModelDeploy", "FineTuningTrainJob")
 	if err != nil {
-		_ = level.Error(logger).Log("store.Model", "GetModelByModelName", "err", err.Error(), "modelName", modelName)
+		_ = level.Error(logger).Log("getModelPath", "err", err.Error())
 		return res, encode.ErrSystem.Wrap(errors.New("查询模型失败"))
 	}
 	res = modelInfoResult{
@@ -358,9 +362,11 @@ func (s *service) ModelInfo(ctx context.Context, modelName string) (res modelInf
 		}
 	}
 
-	if content, err := fs.ReadFile(os.DirFS(m.ModelDeploy.ModelPath), "generation_config.json"); err == nil {
+	if content, err := fs.ReadFile(os.DirFS(modelPath), "generation_config.json"); err == nil {
 		_ = json.Unmarshal(content, &res.GenerationConfig)
 	}
+
+	res.MaxTokens = 1024
 
 	return res, nil
 }
