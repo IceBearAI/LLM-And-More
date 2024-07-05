@@ -156,6 +156,7 @@ type generationConfig struct {
 	TopP                float64 `json:"topP"`
 	TopK                int     `json:"topK"`
 	TransformersVersion string  `json:"transformersVersion"`
+	MaxTokens           int     `json:"maxTokens"`
 }
 
 func (s *service) ModelCheckpoint(ctx context.Context, modelName string) (res []string, err error) {
@@ -189,8 +190,8 @@ func (s *service) ModelCard(ctx context.Context, modelName string) (res modelCar
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 	_, modelPath, err := s.getModelPath(ctx, modelName)
 	if err != nil {
-		_ = level.Error(logger).Log("getModelPath", "err", err.Error())
-		return
+		_ = level.Warn(logger).Log("getModelPath", "err", err.Error())
+		return res, nil
 	}
 	dirFs := os.DirFS(modelPath)
 	readmeContent, err := fs.ReadFile(dirFs, "README.md")
@@ -201,10 +202,17 @@ func (s *service) ModelCard(ctx context.Context, modelName string) (res modelCar
 	return res, nil
 }
 
-func (s *service) getModelPath(ctx context.Context, modelName string) (res types.Models, modelPath string, err error) {
-	m, err := s.store.Model().FindByModelId(ctx, modelName, "FineTuningTrainJob")
+func (s *service) getModelPath(ctx context.Context, modelName string, preloads ...string) (res types.Models, modelPath string, err error) {
+	if len(preloads) == 0 {
+		preloads = []string{"FineTuningTrainJob"}
+	}
+	m, err := s.store.Model().FindByModelId(ctx, modelName, preloads...)
 	if err != nil {
 		return res, modelPath, encode.ErrSystem.Wrap(errors.New("查询模型失败"))
+	}
+
+	if m.ProviderName != types.ModelProviderLocalAI {
+		return m, modelPath, errors.New("只支持本地模型")
 	}
 
 	if m.BaseModelName != "" {
@@ -241,16 +249,15 @@ func (s *service) getModelPath(ctx context.Context, modelName string) (res types
 		dirId, _ := os.ReadFile(modelPath + "/refs/main")
 		modelPath = path.Join(modelPath, "snapshots", string(dirId))
 	}
-	return
-
+	return m, modelPath, nil
 }
 
 func (s *service) ModelTree(ctx context.Context, modelName, catalog string) (res modelTreeResult, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 	_, modelPath, err := s.getModelPath(ctx, modelName)
 	if err != nil {
-		_ = level.Error(logger).Log("getModelPath", "err", err.Error())
-		return
+		_ = level.Warn(logger).Log("getModelPath", "err", err.Error())
+		return res, nil
 	}
 
 	modelPath = path.Join(modelPath, catalog)
@@ -310,10 +317,10 @@ func (s *service) ModelTree(ctx context.Context, modelName, catalog string) (res
 
 func (s *service) ModelInfo(ctx context.Context, modelName string) (res modelInfoResult, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
-	m, err := s.store.Model().FindByModelId(ctx, modelName, "ModelDeploy", "FineTuningTrainJob")
+	m, modelPath, err := s.getModelPath(ctx, modelName, "ModelDeploy", "FineTuningTrainJob")
 	if err != nil {
-		_ = level.Error(logger).Log("store.Model", "GetModelByModelName", "err", err.Error(), "modelName", modelName)
-		return res, encode.ErrSystem.Wrap(errors.New("查询模型失败"))
+		_ = level.Warn(logger).Log("getModelPath", "err", err.Error())
+		return res, nil
 	}
 	res = modelInfoResult{
 		ModelName:    m.ModelName,
@@ -358,9 +365,11 @@ func (s *service) ModelInfo(ctx context.Context, modelName string) (res modelInf
 		}
 	}
 
-	if content, err := fs.ReadFile(os.DirFS(m.ModelDeploy.ModelPath), "generation_config.json"); err == nil {
+	if content, err := fs.ReadFile(os.DirFS(modelPath), "generation_config.json"); err == nil {
 		_ = json.Unmarshal(content, &res.GenerationConfig)
 	}
+	res.ModelName = m.ModelName
+	res.MaxTokens = 4096
 
 	return res, nil
 }

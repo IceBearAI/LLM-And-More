@@ -31,6 +31,7 @@ type Models struct {
 	Gpu                int                `gorm:"column:gpu;default:0;null;comment:GPU数"`
 	Cpu                int                `gorm:"column:cpu;default:0;null;comment:CPU核数"`
 	Memory             int                `gorm:"column:memory;default:1;null;comment:内存G"`
+	SystemPrompt       string             `gorm:"column:system_prompt;size:1000;null;comment:默认系统提示词"`
 
 	Channels []ChatChannels `gorm:"many2many:channel_model_associations;foreignKey:id;joinForeignKey:model_id;References:id;joinReferences:channel_id"`
 }
